@@ -62,5 +62,8 @@ lazy val `harness-core` =
       publishSettings,
       miscSettings,
       testSettings,
+      libraryDependencies ++= Seq(
+        "org.typelevel" %%% "cats-core" % "2.8.0",
+      ),
     )
     .dependsOn(`harness-test` % Test)
