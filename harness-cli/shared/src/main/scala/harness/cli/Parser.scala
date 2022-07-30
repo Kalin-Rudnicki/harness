@@ -12,18 +12,20 @@ trait Parser[T] { self =>
   def buildF(usedParams: Set[Name]): Either[Name, Parser.BuildResult[T]]
 
   final def finalized: FinalizedParser[T] =
-    (Parser.help <^|| self).buildF(Set.empty) match {
+    (Parser.help <^|| self.indentedHelpMessage).buildF(Set.empty) match {
       case Right(buildResult) =>
         FinalizedParser(
           buildResult.usedParams,
+          buildResult.helpMessage,
+          buildResult.helpExtraMessage,
           buildResult.parse(_) match {
             case Parser.ParseResult.Success(remainingArgs, result) =>
               Parser.errorOnRemainingArgs(remainingArgs) match {
                 case None =>
                   result match {
                     case Right(value) => FinalizedParser.Result.Success(value)
-                    case Left(false)  => FinalizedParser.Result.Help(false, "help")
-                    case Left(true)   => FinalizedParser.Result.Help(true, "help-extra")
+                    case Left(false)  => FinalizedParser.Result.Help(false, buildResult.helpMessage)
+                    case Left(true)   => FinalizedParser.Result.Help(true, buildResult.helpExtraMessage)
                   }
                 case Some(fail) =>
                   FinalizedParser.Result.ParseFail(fail)
@@ -38,6 +40,8 @@ trait Parser[T] { self =>
       case Left(duplicateParam) =>
         FinalizedParser(
           Set(duplicateParam),
+          HelpMessage.duplicateParam(duplicateParam),
+          HelpMessage.duplicateParam(duplicateParam),
           _ => FinalizedParser.Result.BuildFail(duplicateParam),
         )
     }
@@ -61,6 +65,8 @@ trait Parser[T] { self =>
       buildRes2 <- other.buildF(buildRes1.usedParams)
     } yield Parser.BuildResult(
       buildRes2.usedParams,
+      HelpMessage(buildRes1.helpMessage, buildRes2.helpMessage),
+      HelpMessage(buildRes1.helpExtraMessage, buildRes2.helpExtraMessage),
       { args =>
         buildRes1.parse(args) match {
           case Parser.ParseResult.Success(args1, result1) =>
@@ -81,14 +87,17 @@ trait Parser[T] { self =>
   /**
     * Attempts to parse `self`.<br>
     * If `self` fails, attempts to parse `other`.<br>
-    * If `other` also fails, returns the errors from both.
+    * If `other` also fails, returns the errors from both.<br>
+    * NOTE : It is recommended to call `.indentedHelpMessage` on each parser in a chain of ors.
     */
   final def <||[T2 >: T](other: Parser[T2]): Parser[T2] = { usedParams =>
     for {
       buildRes1 <- self.buildF(usedParams)
       buildRes2 <- other.buildF(usedParams)
     } yield Parser.BuildResult(
-      buildRes1.usedParams | buildRes2.usedParams,
+      buildRes1.usedParams | buildRes2.usedParams, // TODO (KR) : Should (a <|| b) be allowed to share param names?
+      HelpMessage(buildRes1.helpMessage, HelpMessage.Text("OR" :: Nil, Nil), buildRes2.helpMessage),
+      HelpMessage(buildRes1.helpExtraMessage, HelpMessage.Text("OR" :: Nil, Nil), buildRes2.helpExtraMessage),
       { args =>
         buildRes1.parse(args) match {
           case success: Parser.ParseResult.Success[T] => success
@@ -107,7 +116,8 @@ trait Parser[T] { self =>
   }
 
   /**
-    * Helper for [[<||]], that maps `self` to `Left`, and `other` to `Right`.
+    * Helper for [[<||]], that maps `self` to `Left`, and `other` to `Right`.<br>
+    * NOTE : It is recommended to call `.indentedHelpMessage` on each parser in a chain of ors.
     */
   final def <^||[T2](other: Parser[T2]): Parser[Either[T, T2]] =
     self.map(Left(_)) <|| other.map(Right(_))
@@ -122,6 +132,8 @@ trait Parser[T] { self =>
       buildRes2 <- other.buildF(buildRes1.usedParams)
     } yield Parser.BuildResult(
       buildRes2.usedParams,
+      HelpMessage(buildRes1.helpMessage, buildRes2.helpExtraMessage),
+      HelpMessage(buildRes1.helpExtraMessage, buildRes2.helpExtraMessage),
       buildRes1.parse(_).flatMap { (args, _) => buildRes2.parse(args) },
     )
   }
@@ -133,13 +145,20 @@ trait Parser[T] { self =>
     * Otherwise, fail.
     */
   final def optional: Parser[Option[T]] =
-    self.buildF(_).map {
-      _.mapArgsAndResult {
-        case (_, Parser.ParseResult.Success(remainingArgs, result)) => Parser.ParseResult.Success(remainingArgs, result.some)
-        case (args, failResult @ Parser.ParseResult.Fail(remainingArgs, fail)) =>
-          if (ParsingFailure.containsOnlyMissingParam(fail) && args.size == remainingArgs.size) Parser.ParseResult.Success(args, None)
-          else failResult
-      }
+    self.buildF(_).map { buildResult =>
+      Parser
+        .BuildResult(
+          buildResult.usedParams,
+          buildResult.helpMessage,
+          HelpMessage.optional(buildResult.helpExtraMessage),
+          buildResult.parse,
+        )
+        .mapArgsAndResult {
+          case (_, Parser.ParseResult.Success(remainingArgs, result)) => Parser.ParseResult.Success(remainingArgs, result.some)
+          case (args, failResult @ Parser.ParseResult.Fail(remainingArgs, fail)) =>
+            if (ParsingFailure.containsOnlyMissingParam(fail) && args.size == remainingArgs.size) Parser.ParseResult.Success(args, None)
+            else failResult
+        }
     }
 
   /**
@@ -149,13 +168,20 @@ trait Parser[T] { self =>
     * Otherwise, fail.
     */
   final def default[T2 >: T](dflt: => T2): Parser[T2] =
-    self.buildF(_).map {
-      _.mapArgsAndResult {
-        case (_, success: Parser.ParseResult.Success[T]) => success
-        case (args, failResult @ Parser.ParseResult.Fail(remainingArgs, fail)) =>
-          if (ParsingFailure.containsOnlyMissingParam(fail) && args.size == remainingArgs.size) Parser.ParseResult.Success(remainingArgs, dflt)
-          else failResult
-      }
+    self.buildF(_).map { buildResult =>
+      Parser
+        .BuildResult(
+          buildResult.usedParams,
+          buildResult.helpMessage,
+          HelpMessage.optional(buildResult.helpExtraMessage),
+          buildResult.parse,
+        )
+        .mapArgsAndResult {
+          case (_, success: Parser.ParseResult.Success[T]) => success
+          case (args, failResult @ Parser.ParseResult.Fail(remainingArgs, fail)) =>
+            if (ParsingFailure.containsOnlyMissingParam(fail) && args.size == remainingArgs.size) Parser.ParseResult.Success(remainingArgs, dflt)
+            else failResult
+        }
     }
 
   final def dropAllRemainingArgsIfSuccessful: Parser[T] =
@@ -166,6 +192,28 @@ trait Parser[T] { self =>
       }
     }
 
+  // =====| HelpMessage |=====
+
+  final def indentedHelpMessage: Parser[T] =
+    self.buildF(_).map { buildResult =>
+      Parser.BuildResult(
+        buildResult.usedParams,
+        HelpMessage.Indent(buildResult.helpMessage),
+        HelpMessage.Indent(buildResult.helpExtraMessage),
+        buildResult.parse,
+      )
+    }
+
+  final def sectionHelpMessage(section: String): Parser[T] =
+    self.buildF(_).map { buildResult =>
+      Parser.BuildResult(
+        buildResult.usedParams,
+        HelpMessage(HelpMessage.Text(section :: Nil, Nil), HelpMessage.Indent(buildResult.helpMessage)),
+        HelpMessage(HelpMessage.Text(section :: Nil, Nil), HelpMessage.Indent(buildResult.helpExtraMessage)),
+        buildResult.parse,
+      )
+    }
+  
 }
 object Parser {
 
@@ -173,19 +221,24 @@ object Parser {
 
   final case class BuildResult[+T](
       usedParams: Set[Name],
-      // TODO (KR) : Help message
+      helpMessage: HelpMessage,
+      helpExtraMessage: HelpMessage,
       parse: IndexedArgs => ParseResult[T],
   ) {
 
     def mapResult[T2](f: Parser.ParseResult[T] => Parser.ParseResult[T2]): BuildResult[T2] =
       BuildResult(
         usedParams,
+        helpMessage,
+        helpExtraMessage,
         args => f(parse(args)),
       )
 
     def mapArgsAndResult[T2](f: (IndexedArgs, Parser.ParseResult[T]) => Parser.ParseResult[T2]): BuildResult[T2] =
       BuildResult(
         usedParams,
+        helpMessage,
+        helpExtraMessage,
         args => f(args, parse(args)),
       )
 
@@ -222,14 +275,30 @@ object Parser {
     */
   val help: Parser[Boolean] =
     (
-      Parser.present(LongName.unsafe("help-extra"), true, Defaultable.Some(ShortName.unsafe('H'))) <||
-        Parser.present(LongName.unsafe("help"), false, Defaultable.Some(ShortName.unsafe('h')))
+      Parser
+        .present(
+          LongName.unsafe("help-extra"),
+          true,
+          Defaultable.Some(ShortName.unsafe('H')),
+          "Show detailed help message" :: Nil,
+        )
+        .indentedHelpMessage <||
+        Parser
+          .present(
+            LongName.unsafe("help"),
+            false,
+            Defaultable.Some(ShortName.unsafe('h')),
+            "Show help message" :: Nil,
+          )
+          .indentedHelpMessage
     ).dropAllRemainingArgsIfSuccessful
 
   def const[T](value: => T): Parser[T] = { usedParams =>
     Parser
       .BuildResult(
         usedParams,
+        HelpMessage(),
+        HelpMessage(),
         { args =>
           ParseResult.Success(
             args,
@@ -250,12 +319,22 @@ object Parser {
   def value[T](
       baseName: LongName,
       shortParam: Defaultable.Optional[ShortName] = Defaultable.Auto,
+      helpHint: List[String] = Nil,
+      helpExtraHint: List[String] = Nil,
   )(implicit decoder: StringDecoder[T]): Parser[T] =
     verifyAndDerive.value(_, Param.LongWithValue(baseName), shortParam.map(Param.ShortWithValue(_))).map { (usedParams, long, short) =>
       short match {
         case Some(short) =>
           Parser.BuildResult(
             usedParams,
+            HelpMessage.Text(
+              s"${long.formattedName}, ${short.formattedName}" :: Nil,
+              helpHint,
+            ),
+            HelpMessage.Text(
+              s"${long.formattedName}, ${short.formattedName}" :: Nil,
+              helpHint ::: helpExtraHint,
+            ),
             (FindFunction.forParam(long) || FindFunction.forParam(short)).toParseFunction(long)(_).flatMap { (args, str) =>
               decoder.decode(str) match {
                 case Right(value) => ParseResult.Success(args, value)
@@ -266,6 +345,14 @@ object Parser {
         case None =>
           Parser.BuildResult(
             usedParams,
+            HelpMessage.Text(
+              long.formattedName :: Nil,
+              helpHint,
+            ),
+            HelpMessage.Text(
+              long.formattedName :: Nil,
+              helpHint ::: helpExtraHint,
+            ),
             FindFunction.forParam(long).toParseFunction(long)(_).flatMap { (args, str) =>
               decoder.decode(str) match {
                 case Right(value) => ParseResult.Success(args, value)
@@ -291,17 +378,35 @@ object Parser {
     def apply(
         longParam: Param.LongToggle,
         shortParam: Defaultable.Optional[Param.ShortToggle] = Defaultable.Auto,
+        helpHint: List[String] = Nil,
+        helpExtraHint: List[String] = Nil,
     ): Parser[Boolean] =
       verifyAndDerive.toggle(_, longParam, shortParam).map { case (usedParams, long, short) =>
         short match {
           case Some(short) =>
             BuildResult(
               usedParams,
+              HelpMessage.Text(
+                s"${long.formattedName}, ${short.formattedName}" :: Nil,
+                helpHint,
+              ),
+              HelpMessage.Text(
+                s"${long.formattedName}, ${short.formattedName}" :: Nil,
+                helpHint ::: helpExtraHint,
+              ),
               (FindFunction.forParam(long) || FindFunction.forParam(short)).toParseFunction(longParam),
             )
           case None =>
             BuildResult(
               usedParams,
+              HelpMessage.Text(
+                long.formattedName :: Nil,
+                helpHint,
+              ),
+              HelpMessage.Text(
+                long.formattedName :: Nil,
+                helpHint ::: helpExtraHint,
+              ),
               FindFunction.forParam(long).toParseFunction(longParam),
             )
         }
@@ -311,23 +416,29 @@ object Parser {
         truePrefix: LongName,
         baseName: LongName,
         shortParam: Defaultable.Optional[Param.ShortToggle] = Defaultable.Auto,
+        helpHint: List[String] = Nil,
+        helpExtraHint: List[String] = Nil,
     ): Parser[Boolean] =
-      toggle(Param.LongToggle.PrefixTrue(truePrefix, baseName), shortParam)
+      toggle(Param.LongToggle.PrefixTrue(truePrefix, baseName), shortParam, helpHint, helpExtraHint)
 
     def prefixFalse(
         falsePrefix: LongName,
         baseName: LongName,
         shortParam: Defaultable.Optional[Param.ShortToggle] = Defaultable.Auto,
+        helpHint: List[String] = Nil,
+        helpExtraHint: List[String] = Nil,
     ): Parser[Boolean] =
-      toggle(Param.LongToggle.PrefixFalse(falsePrefix, baseName), shortParam)
+      toggle(Param.LongToggle.PrefixFalse(falsePrefix, baseName), shortParam, helpHint, helpExtraHint)
 
     def prefixBoth(
         truePrefix: LongName,
         falsePrefix: LongName,
         baseName: LongName,
         shortParam: Defaultable.Optional[Param.ShortToggle] = Defaultable.Auto,
+        helpHint: List[String] = Nil,
+        helpExtraHint: List[String] = Nil,
     ): Parser[Boolean] =
-      toggle(Param.LongToggle.PrefixBoth(truePrefix, falsePrefix, baseName), shortParam)
+      toggle(Param.LongToggle.PrefixBoth(truePrefix, falsePrefix, baseName), shortParam, helpHint, helpExtraHint)
 
   }
 
@@ -353,12 +464,22 @@ object Parser {
       baseName: LongName,
       ifPresent: => T,
       shortParam: Defaultable.Optional[ShortName] = Defaultable.Auto,
+      helpHint: List[String] = Nil,
+      helpExtraHint: List[String] = Nil,
   ): Parser[T] =
     verifyAndDerive.flag(_, Param.LongFlag(baseName), shortParam.map(Param.ShortFlag(_))).map { case (usedParams, long, short) =>
       short match {
         case Some(short) =>
           BuildResult(
             usedParams,
+            HelpMessage.Text(
+              s"${long.formattedName}, ${short.formattedName}" :: Nil,
+              helpHint,
+            ),
+            HelpMessage.Text(
+              s"${long.formattedName}, ${short.formattedName}" :: Nil,
+              helpHint ::: helpExtraHint,
+            ),
             (FindFunction.forParam(long).as {
               ifPresent
             } || FindFunction.forParam(short).as {
@@ -368,6 +489,14 @@ object Parser {
         case None =>
           BuildResult(
             usedParams,
+            HelpMessage.Text(
+              long.formattedName :: Nil,
+              helpHint,
+            ),
+            HelpMessage.Text(
+              long.formattedName :: Nil,
+              helpHint ::: helpExtraHint,
+            ),
             FindFunction
               .forParam(long)
               .as {
@@ -386,11 +515,21 @@ object Parser {
     */
   def rawValue[T](
       baseName: LongName,
+      helpHint: List[String] = Nil,
+      helpExtraHint: List[String] = Nil,
   )(implicit decoder: StringDecoder[T]): Parser[T] =
     verify.long(_, baseName).map { usedParams =>
       val long = Param.Value(baseName, false)
       BuildResult(
         usedParams,
+        HelpMessage.Text(
+          s"[$baseName]" :: Nil,
+          helpHint,
+        ),
+        HelpMessage.Text(
+          s"[$baseName]" :: Nil,
+          helpHint ::: helpExtraHint,
+        ),
         FindFunction.forValue.toParseFunction(long)(_).flatMap { (args, value) =>
           decoder.decode(value) match {
             case Right(value) => ParseResult.Success(args, value)
@@ -408,11 +547,21 @@ object Parser {
     */
   def rawValues[T](
       baseName: LongName,
+      helpHint: List[String] = Nil,
+      helpExtraHint: List[String] = Nil,
   )(implicit decoder: StringDecoder[T]): Parser[List[T]] =
     verify.long(_, baseName).map { usedParams =>
       val long = Param.Value(baseName, true)
       BuildResult(
         usedParams,
+        HelpMessage.Text(
+          s"[$baseName...]" :: Nil,
+          helpHint,
+        ),
+        HelpMessage.Text(
+          s"[$baseName...]" :: Nil,
+          helpHint ::: helpExtraHint,
+        ),
         { args =>
           val (values, remainingArgs) = args.partitionMap {
             case Indexed(value: Arg.Value, _) => value.toArgString.asLeft
@@ -430,7 +579,23 @@ object Parser {
     }
 
   def firstOf[T](parser0: Parser[T], parser1: Parser[T], parserN: Parser[T]*): Parser[T] =
-    (parser1 :: parserN.toList).foldLeft(parser0)(_ <|| _)
+    (parser1 :: parserN.toList).foldLeft(parser0.indentedHelpMessage) { (l, r) => l <|| r.indentedHelpMessage }
+
+  def helpMessage(left: List[String], right: List[String], rightExtra: List[String]): Parser[Unit] = { usedParams =>
+    Parser
+      .BuildResult(
+        usedParams,
+        HelpMessage.Text(left, right),
+        HelpMessage.Text(left, right ::: rightExtra),
+        { args =>
+          ParseResult.Success(
+            args,
+            (),
+          )
+        },
+      )
+      .asRight
+  }
 
   // =====| Helpers |=====
 

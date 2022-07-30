@@ -35,7 +35,7 @@ object ParserSpec extends DefaultHarnessSpec {
   private def isBuildFail(duplicateParamAssertion: Assertion[Name]): Assertion[FinalizedParser.Result[Any]] =
     isSubtype[FinalizedParser.Result.BuildFail](duplicateParamAssertion.imap[FinalizedParser.Result.BuildFail]("duplicateParam")(_.duplicateParam))
 
-  private def isHelp(helpExtraAssertion: Assertion[Boolean], messageAssertion: Assertion[String]): Assertion[FinalizedParser.Result[Any]] =
+  private def isHelp(helpExtraAssertion: Assertion[Boolean], messageAssertion: Assertion[HelpMessage]): Assertion[FinalizedParser.Result[Any]] =
     isSubtype[FinalizedParser.Result.Help](
       helpExtraAssertion.imap[FinalizedParser.Result.Help]("helpExtra")(_.helpExtra) &&
         messageAssertion.imap[FinalizedParser.Result.Help]("message")(_.message),
@@ -49,6 +49,10 @@ object ParserSpec extends DefaultHarnessSpec {
       makeTest("--help-extra")(isHelp(equalTo(true), anything)),
       makeTest("-h")(isHelp(equalTo(false), anything)),
       makeTest("--help")(isHelp(equalTo(false), anything)),
+      makeTest("--help-extra", "--help", "-h")(isHelp(equalTo(true), anything)),
+      makeTest("--help", "-h", "--help-extra")(isHelp(equalTo(true), anything)),
+      makeTest("-H", "--help", "-h")(isHelp(equalTo(true), anything)),
+      makeTest("--help", "-h", "-H")(isHelp(equalTo(true), anything)),
     )
 
   private val simplePresent: TestSpec =
@@ -121,9 +125,9 @@ object ParserSpec extends DefaultHarnessSpec {
 
   private val personParser: Parser[Person] =
     (
-      Parser.value[String](LongName.unsafe("first-name")) &&
-        Parser.value[String](LongName.unsafe("last-name")) &&
-        Parser.value[Int](LongName.unsafe("age")).optional
+      Parser.value[String](LongName.unsafe("first-name"), helpHint = "Persons first name" :: Nil) &&
+        Parser.value[String](LongName.unsafe("last-name"), helpHint = "Persons last name" :: Nil) &&
+        Parser.value[Int](LongName.unsafe("age"), helpHint = "Persons age" :: "(Int)" :: Nil).optional
     ).map(Person.apply)
 
   private val basePerson: TestSpec =
