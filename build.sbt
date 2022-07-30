@@ -6,6 +6,8 @@ val Scala_3 = "3.1.2-RC3"
 
 val MyOrg = "io.github.kalin-rudnicki"
 
+ThisBuild / watchBeforeCommand := Watch.clearScreen
+
 lazy val miscSettings =
   Seq(
     scalaVersion := Scala_3,
@@ -49,6 +51,7 @@ lazy val `harness-test` =
       publishSettings,
       miscSettings,
       libraryDependencies ++= Seq(
+        "org.typelevel" %%% "cats-core" % "2.8.0",
         "dev.zio" %%% "zio-test" % "2.0.0",
         "dev.zio" %%% "zio-test-sbt" % "2.0.0",
       ),
