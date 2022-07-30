@@ -41,6 +41,8 @@ lazy val `harness-root` =
       `harness-test`.jvm,
       `harness-core`.js,
       `harness-core`.jvm,
+      `harness-cli`.js,
+      `harness-cli`.jvm,
     )
 
 lazy val `harness-test` =
@@ -70,3 +72,14 @@ lazy val `harness-core` =
       ),
     )
     .dependsOn(`harness-test` % Test)
+
+lazy val `harness-cli` =
+  crossProject(JSPlatform, JVMPlatform)
+    .in(file("harness-cli"))
+    .settings(
+      name := "harness-cli",
+      publishSettings,
+      miscSettings,
+      testSettings,
+    )
+    .dependsOn(`harness-core` % "test->test;compile->compile")

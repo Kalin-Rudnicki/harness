@@ -1,7 +1,6 @@
 package harness.test
 
 import cats.data.NonEmptyList
-import cats.syntax.option.*
 import zio.test.*
 import zio.test.Assertion.*
 
@@ -9,15 +8,15 @@ object AssertionHelpers {
 
   extension [A](self: Assertion[A]) {
 
-    def imap[B](name: String, f: B => A): Assertion[B] =
-      assertionRec[B, A](name)(self)(f(_).some)
+    def imap[B](name: String)(f: PartialFunction[B, A]): Assertion[B] =
+      assertionRec[B, A](name)(self)(f.lift(_))
 
   }
 
   extension [A](self: Assertion[Seq[A]]) {
 
     def toNelAssertion: Assertion[NonEmptyList[A]] =
-      self.imap("NonEmptyList", _.toList)
+      self.imap("NonEmptyList")(_.toList)
 
   }
 
