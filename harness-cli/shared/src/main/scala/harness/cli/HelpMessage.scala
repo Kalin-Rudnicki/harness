@@ -6,10 +6,17 @@ import scala.collection.mutable
 sealed trait HelpMessage {
 
   final def format(config: HelpMessage.Config = HelpMessage.Config.default): String = {
-    def lines(idt: String, helpMessage: HelpMessage): List[String] =
+    def minLeftWidth(helpMessage: HelpMessage): Int =
+      helpMessage match {
+        case HelpMessage.Text(leftLines, _) => leftLines.flatMap(_.split("\n").toList).map(_.length).maxOption.getOrElse(0)
+        case HelpMessage.Indent(child)      => minLeftWidth(child) + config.indent
+        case HelpMessage.Joined(children)   => children.map(minLeftWidth).maxOption.getOrElse(0)
+      }
+
+    def lines(idt: String, helpMessage: HelpMessage, leftWidth: Int): List[String] =
       helpMessage match {
         case HelpMessage.Text(_leftLines, _rightLines) =>
-          val remainingLeftWidth: Int = config.leftWidth - idt.length
+          val remainingLeftWidth: Int = leftWidth + config.leftPadding - idt.length
           val leftLines = _leftLines.flatMap(_.split("\n").toList)
           val rightLines = _rightLines.flatMap(_.split("\n").toList)
 
@@ -61,17 +68,22 @@ sealed trait HelpMessage {
           alignedLeftLines.zipAll(rightLines, "", "").map { (left, right) =>
             s"$idt$left${" " * (remainingLeftWidth - left.length + config.centerPadding)}$right"
           }
-        case HelpMessage.Indent(child)    => lines(idt + (" " * config.indent), child)
-        case HelpMessage.Joined(children) => children.flatMap(lines(idt, _))
+        case HelpMessage.Indent(child)    => lines(idt + (" " * config.indent), child, leftWidth)
+        case HelpMessage.Joined(children) => children.flatMap(lines(idt, _, leftWidth))
       }
 
-    lines(" " * config.leftPadding, this).mkString("\n")
+    lines(
+      " " * config.leftPadding,
+      this,
+      if (config.tightenLeft) config.leftWidth.min(minLeftWidth(this)) else config.leftWidth,
+    ).mkString("\n")
   }
 
 }
 object HelpMessage {
 
   final case class Config(
+      tightenLeft: Boolean,
       leftPadding: Int,
       leftWidth: Int,
       centerPadding: Int,
@@ -82,6 +94,7 @@ object HelpMessage {
 
     val default: Config =
       Config(
+        tightenLeft = true,
         leftPadding = 2,
         leftWidth = 75,
         centerPadding = 4,
@@ -117,14 +130,21 @@ object HelpMessage {
 
   def optional(helpMessage: HelpMessage): HelpMessage =
     helpMessage match {
-      case Text(left, right) => Text(left, right :+ "(optional)")
+      case Text(left, right) => Text(left, right :+ "<optional>")
       case _                 => HelpMessage(Text("Optional:" :: Nil, Nil), Indent(helpMessage))
     }
 
-  def defaultable(helpMessage: HelpMessage): HelpMessage =
+  def defaultable(helpMessage: HelpMessage, showDefault: Option[String]): HelpMessage = {
+    val dflt: String =
+      showDefault match {
+        case Some(value) => s" ($value)"
+        case None        => ""
+      }
+
     helpMessage match {
-      case Text(left, right) => Text(left, right :+ "(defaultable)")
-      case _                 => HelpMessage(Text("Defaultable:" :: Nil, Nil), Indent(helpMessage))
+      case Text(left, right) => Text(left, right :+ s"<defaultable>$dflt")
+      case _                 => HelpMessage(Text(s"Defaultable$dflt:" :: Nil, Nil), Indent(helpMessage))
     }
+  }
 
 }

@@ -33,7 +33,16 @@ object Param {
       final val falseName: LongName,
       final val baseName: LongName,
   ) extends Param {
+
     override def formattedName: String = Param.formattedLong(s"$prefix$baseName", false)
+
+    final def formatShortToggle(shortToggle: ShortToggle): String =
+      this match {
+        case _: LongToggle.PrefixTrue  => formattedShort(s"[${shortToggle.trueName}]${shortToggle.falseName}", false)
+        case _: LongToggle.PrefixFalse => formattedShort(s"[${shortToggle.falseName}]${shortToggle.trueName}", false)
+        case _: LongToggle.PrefixBoth  => formattedShort(s"(${shortToggle.trueName}/${shortToggle.falseName})", false)
+      }
+
   }
   object LongToggle {
     final class PrefixTrue(truePrefix: LongName, baseName: LongName)

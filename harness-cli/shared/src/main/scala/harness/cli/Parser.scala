@@ -167,13 +167,13 @@ trait Parser[T] { self =>
     * If `self` fails with only missing params, pass with `dflt`.<br>
     * Otherwise, fail.
     */
-  final def default[T2 >: T](dflt: => T2): Parser[T2] =
+  final def default[T2 >: T](dflt: => T2, showDefaultInHelpExtraMessage: Boolean = false): Parser[T2] =
     self.buildF(_).map { buildResult =>
       Parser
         .BuildResult(
           buildResult.usedParams,
           buildResult.helpMessage,
-          HelpMessage.optional(buildResult.helpExtraMessage),
+          HelpMessage.defaultable(buildResult.helpExtraMessage, Option.when(showDefaultInHelpExtraMessage)(dflt.toString)),
           buildResult.parse,
         )
         .mapArgsAndResult {
@@ -213,7 +213,7 @@ trait Parser[T] { self =>
         buildResult.parse,
       )
     }
-  
+
 }
 object Parser {
 
@@ -387,11 +387,11 @@ object Parser {
             BuildResult(
               usedParams,
               HelpMessage.Text(
-                s"${long.formattedName}, ${short.formattedName}" :: Nil,
+                s"${long.formattedName}, ${long.formatShortToggle(short)}" :: Nil,
                 helpHint,
               ),
               HelpMessage.Text(
-                s"${long.formattedName}, ${short.formattedName}" :: Nil,
+                s"${long.formattedName}, ${long.formatShortToggle(short)}" :: Nil,
                 helpHint ::: helpExtraHint,
               ),
               (FindFunction.forParam(long) || FindFunction.forParam(short)).toParseFunction(longParam),
@@ -455,7 +455,7 @@ object Parser {
       baseName,
       ifPresent,
       shortParam,
-    ).default(!ifPresent)
+    ).default(!ifPresent, true)
 
   /**
     * If present, returns `ifPresent`, otherwise, fails.
