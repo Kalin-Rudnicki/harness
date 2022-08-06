@@ -15,7 +15,8 @@ extension (self: Long) {
   def toStringCommas: String =
     commaify(self.toString)
 
-  // TODO (KR) : def pluralizeOn
+  def pluralizeOn(base: String, pluralSuffix: String = "s", singularSuffix: String = "", addCommas: Boolean = true): String =
+    s"${if (addCommas) self.toStringCommas else self.toString} ${base.pluralize(self, pluralSuffix, singularSuffix)}"
 
 }
 
