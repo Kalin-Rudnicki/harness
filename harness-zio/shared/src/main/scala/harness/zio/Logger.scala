@@ -1,6 +1,8 @@
 package harness.zio
 
+import cats.data.NonEmptyList
 import cats.syntax.option.*
+import harness.core.*
 import java.io.PrintStream
 import scala.collection.mutable
 import zio.*
@@ -42,12 +44,42 @@ object Logger { self =>
 
   object log {
 
-    sealed abstract class LogAtLevel(logLevel: LogLevel) {
+    sealed class LogAtLevel(logLevel: LogLevel) {
       def apply(message: => Any): URIO[Logger, Unit] = Logger.execute(Event.AtLogLevel(logLevel, () => Event.Output(message)))
     }
 
-    def apply(logLevel: LogLevel, message: => Any): URIO[Logger, Unit] = Logger.execute(Event.AtLogLevel(logLevel, () => Event.Output(message)))
+    def apply(logLevel: LogLevel, message: => Any): URIO[Logger, Unit] = LogAtLevel(logLevel)(message)
+
     def apply(message: => Any): URIO[Logger, Unit] = Logger.execute(Event.Output(message))
+
+    object never extends LogAtLevel(LogLevel.Never)
+    object trace extends LogAtLevel(LogLevel.Trace)
+    object debug extends LogAtLevel(LogLevel.Debug)
+    object detailed extends LogAtLevel(LogLevel.Detailed)
+    object info extends LogAtLevel(LogLevel.Info)
+    object important extends LogAtLevel(LogLevel.Important)
+    object warning extends LogAtLevel(LogLevel.Warning)
+    object error extends LogAtLevel(LogLevel.Error)
+    object fatal extends LogAtLevel(LogLevel.Fatal)
+    object always extends LogAtLevel(LogLevel.Always)
+
+  }
+
+  object logKError {
+
+    sealed class LogAtLevel(logLevel: LogLevel) {
+      def apply(error: => KError): URIO[Logger & RunMode, Unit] =
+        RunMode.get.flatMap { runMode =>
+          Logger.log(logLevel, runMode.formatError(error))
+        }
+    }
+
+    def apply(logLevel: LogLevel, error: => KError): URIO[Logger & RunMode, Unit] = LogAtLevel(logLevel)(error)
+
+    def apply(error: => KError): URIO[Logger & RunMode, Unit] =
+      RunMode.get.flatMap { runMode =>
+        Logger.log(runMode.formatError(error))
+      }
 
     object never extends LogAtLevel(LogLevel.Never)
     object trace extends LogAtLevel(LogLevel.Trace)
@@ -140,6 +172,8 @@ object Logger { self =>
 
     final lazy val displayName: String =
       s"${rawDisplayName}${" " * (LogLevel.maxDisplayNameLength - rawDisplayName.length)}"
+
+    override final def toString: String = rawDisplayName
 
   }
   object LogLevel {
@@ -238,6 +272,12 @@ object Logger { self =>
     val newLineIndent: String =
       s"\n $emptyDisplayName : "
 
+    val nameMap: Map[String, LogLevel] =
+      allLevels.map(l => (l.rawDisplayName, l)).toMap
+
+    implicit val stringDecoder: StringDecoder[LogLevel] =
+      StringDecoder.fromOptionF("LogLevel", str => nameMap.get(str.toUpperCase))
+
   }
 
   sealed trait Event
@@ -246,7 +286,7 @@ object Logger { self =>
     final case class Compound(events: List[Event]) extends Event
     final case class Output(message: Any) extends Event
     final case class AtLogLevel(logLevel: LogLevel, private val _event: () => Event) extends Event {
-      final lazy val event: Event = _event()
+      lazy val event: Event = _event()
     }
 
   }
