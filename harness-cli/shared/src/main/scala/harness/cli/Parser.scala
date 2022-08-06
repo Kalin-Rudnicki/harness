@@ -32,8 +32,14 @@ trait Parser[T] { self =>
               }
             case Parser.ParseResult.Fail(remainingArgs, fail1) =>
               Parser.errorOnRemainingArgs(remainingArgs) match {
-                case None        => FinalizedParser.Result.ParseFail(fail1)
-                case Some(fail2) => FinalizedParser.Result.ParseFail(ParsingFailure.and(fail1, fail2))
+                case None => FinalizedParser.Result.ParseFail(fail1)
+                case Some(fail2) =>
+                  FinalizedParser.Result.ParseFail(
+                    fail1 match {
+                      case ParsingFailure.Or(NonEmptyList(_1, List(_2, _3))) => ParsingFailure.or(_1, _2, ParsingFailure.and(_3, fail2))
+                      case fail1                                             => ParsingFailure.and(fail1, fail2)
+                    },
+                  )
               }
           },
         )
@@ -450,11 +456,15 @@ object Parser {
       baseName: LongName,
       ifPresent: => Boolean = true,
       shortParam: Defaultable.Optional[ShortName] = Defaultable.Auto,
+      helpHint: List[String] = Nil,
+      helpExtraHint: List[String] = Nil,
   ): Parser[Boolean] =
     present(
       baseName,
       ifPresent,
       shortParam,
+      helpHint,
+      helpExtraHint,
     ).default(!ifPresent, true)
 
   /**

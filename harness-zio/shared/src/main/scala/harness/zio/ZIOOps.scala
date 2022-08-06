@@ -1,5 +1,6 @@
 package harness.zio
 
+import cats.data.NonEmptyList
 import harness.core.*
 import zio.*
 
@@ -10,6 +11,9 @@ extension (self: ZIO.type) {
 
   def hAttempt[A](internalMessage: => String)(thunk: => A): HTask[A] =
     ZIO.hAttempt(KError.InternalDefect(internalMessage, _))(thunk)
+
+  def failNel[E](fail0: E, failN: E*): IO[NonEmptyList[E], Nothing] =
+    ZIO.fail(NonEmptyList(fail0, failN.toList))
 
 }
 
