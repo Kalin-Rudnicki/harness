@@ -31,10 +31,10 @@ trait Executable { self =>
             },
             ZIO.succeed,
           )
-          .either
-          .flatMap {
-            case Right(_)     => ZIO.succeed(ExitCode.success)
-            case Left(errors) => ZIO.foreachDiscard(errors.toList)(Logger.logKError.fatal(_)).as(ExitCode.failure)
+          .dumpErrorsAndContinueNel(Logger.LogLevel.Fatal)
+          .map {
+            case Some(_) => ExitCode.success
+            case None    => ExitCode.failure
           }
           .provideLayer(layer)
       case Executable.Result.Help(message) =>
