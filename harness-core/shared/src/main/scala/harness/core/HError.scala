@@ -3,20 +3,20 @@ package harness.core
 import cats.syntax.option.*
 import scala.annotation.targetName
 
-sealed abstract class KError(
+sealed abstract class HError(
     final val userMessage: String,
     final val internalMessage: String,
     final val cause: Option[Throwable],
 ) extends Throwable {
 
   final lazy val fullInternalMessage: String =
-    KError.throwableMessage(this, false)
+    HError.throwableMessage(this, false)
 
   final lazy val fullInternalMessageWithTrace: String =
-    KError.throwableMessage(this, true)
+    HError.throwableMessage(this, true)
 
 }
-object KError {
+object HError {
 
   // =====| Error Types |=====
 
@@ -24,7 +24,7 @@ object KError {
     * Used when the user of the program provides invalid input.
     */
   final class UserError private (userMessage: String, internalMessage: String, cause: Option[Throwable])
-      extends KError(
+      extends HError(
         userMessage,
         s"The user provided invalid data:\n$internalMessage",
         cause,
@@ -37,7 +37,7 @@ object KError {
     * - List#toNel.thisShouldAlwaysBeNonEmpty
     */
   final class InternalDefect private (internalMessage: String, cause: Option[Throwable])
-      extends KError(
+      extends HError(
         genericUserMessage,
         s"Internal Defect - unexpected failure:\n$internalMessage",
         cause,
@@ -50,7 +50,7 @@ object KError {
     * - Database
     */
   final class SystemFailure private (internalMessage: String, cause: Option[Throwable])
-      extends KError(
+      extends HError(
         genericUserMessage,
         internalMessage,
         cause,
@@ -61,7 +61,7 @@ object KError {
     * Analogous to the scala predef '???', except instead of throwing, it gives you a concrete error type.
     */
   final class ??? private (functionalityVerb: String)
-      extends KError(
+      extends HError(
         s"The ability to '$functionalityVerb' is not yet supported",
         s"Encountered an unimplemented block of code: '$functionalityVerb'",
         None,
@@ -78,14 +78,14 @@ object KError {
   private def throwableMessage(throwable: Throwable, stackTrace: Boolean): String = {
     val parts: (String, List[Option[(String, String)]]) =
       throwable match {
-        case kError: KError =>
+        case hError: HError =>
           (
-            s"KError[${kError.getClass.getSimpleName}]",
+            s"HError[${hError.getClass.getSimpleName}]",
             List(
-              ("User Message", kError.userMessage).some,
-              Option.when(kError.internalMessage != kError.userMessage)(("Internal Message", kError.internalMessage)),
-              kError.cause.map { c => ("Cause", throwableMessage(c, stackTrace)) },
-              Option.when(stackTrace)(("Stack Trace", formatExceptionTrace(kError.getStackTrace))),
+              ("User Message", hError.userMessage).some,
+              Option.when(hError.internalMessage != hError.userMessage)(("Internal Message", hError.internalMessage)),
+              hError.cause.map { c => ("Cause", throwableMessage(c, stackTrace)) },
+              Option.when(stackTrace)(("Stack Trace", formatExceptionTrace(hError.getStackTrace))),
             ),
           )
         case throwable =>

@@ -60,11 +60,11 @@ extension (self: ZIO.type) {
   def traverseNEL[R, E, A, B](list: List[A])(f: A => ZIO[R, NonEmptyList[E], B]): ZIO[R, NonEmptyList[E], List[B]] =
     traverse(list)(f).mapError(_.flatMap(identity))
 
-  def hAttempt[A](mapError: Throwable => KError)(thunk: => A): HTask[A] =
+  def hAttempt[A](mapError: Throwable => HError)(thunk: => A): HTask[A] =
     ZIO.attempt(thunk).mapError(mapError)
 
   def hAttempt[A](internalMessage: => String)(thunk: => A): HTask[A] =
-    ZIO.hAttempt(KError.InternalDefect(internalMessage, _))(thunk)
+    ZIO.hAttempt(HError.InternalDefect(internalMessage, _))(thunk)
 
   def failNel[E](fail0: E, failN: E*): IO[NonEmptyList[E], Nothing] =
     ZIO.fail(NonEmptyList(fail0, failN.toList))
@@ -121,7 +121,7 @@ extension [R, A](self: HRIO[R, A]) {
 
   def dumpErrorsAndContinue(errorLevel: Logger.LogLevel): URIO[R & RunMode & Logger, Option[A]] =
     self.foldZIO(
-      error => Logger.logKError(errorLevel, error).as(None),
+      error => Logger.logHError(errorLevel, error).as(None),
       ZIO.some,
     )
 
@@ -134,7 +134,7 @@ extension [R, A](self: HRION[R, A]) {
 
   def dumpErrorsAndContinueNel(errorLevel: Logger.LogLevel): URIO[R & RunMode & Logger, Option[A]] =
     self.foldZIO(
-      errors => ZIO.foreachDiscard(errors.toList)(error => Logger.logKError(errorLevel, error)).as(None),
+      errors => ZIO.foreachDiscard(errors.toList)(error => Logger.logHError(errorLevel, error)).as(None),
       ZIO.some,
     )
 

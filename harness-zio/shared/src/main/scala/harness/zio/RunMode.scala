@@ -6,7 +6,7 @@ import zio.*
 enum RunMode { 
   case Prod, Dev 
 
-  final def formatError(error: KError): String =
+  final def formatError(error: HError): String =
     this match {
       case RunMode.Prod => error.userMessage
       case RunMode.Dev => error.fullInternalMessage
