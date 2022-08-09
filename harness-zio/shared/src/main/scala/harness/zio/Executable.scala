@@ -26,8 +26,8 @@ trait Executable { self =>
           .foldCauseZIO(
             {
               case fail @ Cause.Fail(_, _) => ZIO.failCause(fail)
-              case Cause.Die(die, _)       => ZIO.failNel(KError.InternalDefect("ZIO died", die))
-              case cause                   => ZIO.failNel(KError.InternalDefect(s"ZIO failed with cause:\n$cause"))
+              case Cause.Die(die, _)       => ZIO.failNel(HError.InternalDefect("ZIO died", die))
+              case cause                   => ZIO.failNel(HError.InternalDefect(s"ZIO failed with cause:\n$cause"))
             },
             ZIO.succeed,
           )
@@ -40,7 +40,7 @@ trait Executable { self =>
       case Executable.Result.Help(message) =>
         Logger.log.info(message).as(ExitCode.success).provideLayer(HarnessEnv.defaultLayer)
       case Executable.Result.Fail(error) =>
-        Logger.logKError.fatal(error).as(ExitCode.failure).provideLayer(HarnessEnv.defaultLayer)
+        Logger.logHError.fatal(error).as(ExitCode.failure).provideLayer(HarnessEnv.defaultLayer)
     }
   }
 
@@ -56,39 +56,39 @@ object Executable {
 
   final class Builder1[ParseT] private[Executable] (parser: FinalizedParser[ParseT]) {
 
-    def withLayerNel[R: EnvironmentTag](layer: ParseT => ZLayer[HarnessEnv, NonEmptyList[KError], R]): Builder2[ParseT, R] = Builder2(parser, layer)
-    inline def withLayerNel[R: EnvironmentTag](layer: => ZLayer[HarnessEnv, NonEmptyList[KError], R]): Builder2[ParseT, R] = this.withLayerNel { _ => layer }
+    def withLayerNel[R: EnvironmentTag](layer: ParseT => ZLayer[HarnessEnv, NonEmptyList[HError], R]): Builder2[ParseT, R] = Builder2(parser, layer)
+    inline def withLayerNel[R: EnvironmentTag](layer: => ZLayer[HarnessEnv, NonEmptyList[HError], R]): Builder2[ParseT, R] = this.withLayerNel { _ => layer }
 
-    inline def withLayer[R: EnvironmentTag](layer: ParseT => ZLayer[HarnessEnv, KError, R]): Builder2[ParseT, R] = this.withLayerNel(layer(_).mapError(NonEmptyList.one))
-    inline def withLayer[R: EnvironmentTag](layer: => ZLayer[HarnessEnv, KError, R]): Builder2[ParseT, R] = this.withLayer { _ => layer }
+    inline def withLayer[R: EnvironmentTag](layer: ParseT => ZLayer[HarnessEnv, HError, R]): Builder2[ParseT, R] = this.withLayerNel(layer(_).mapError(NonEmptyList.one))
+    inline def withLayer[R: EnvironmentTag](layer: => ZLayer[HarnessEnv, HError, R]): Builder2[ParseT, R] = this.withLayer { _ => layer }
 
-    def withEffectNel(effect: ParseT => ZIO[HarnessEnv, NonEmptyList[KError], Any]): Executable = { args =>
+    def withEffectNel(effect: ParseT => ZIO[HarnessEnv, NonEmptyList[HError], Any]): Executable = { args =>
       Executable.finalizedResultToExecutableResult(parser.parse(args)) match {
         case Executable.Result.Success(parseT) => effect(parseT)
         case Executable.Result.Help(message)   => Logger.log.info(message)
         case Executable.Result.Fail(error)     => ZIO.failNel(error)
       }
     }
-    inline def withEffectNel(effect: => ZIO[HarnessEnv, NonEmptyList[KError], Any]): Executable = this.withEffectNel { _ => effect }
+    inline def withEffectNel(effect: => ZIO[HarnessEnv, NonEmptyList[HError], Any]): Executable = this.withEffectNel { _ => effect }
 
-    inline def withEffect(effect: ParseT => ZIO[HarnessEnv, KError, Any]): Executable = this.withEffectNel(effect(_).mapError(NonEmptyList.one))
-    inline def withEffect(effect: => ZIO[HarnessEnv, KError, Any]): Executable = this.withEffect { _ => effect }
+    inline def withEffect(effect: ParseT => ZIO[HarnessEnv, HError, Any]): Executable = this.withEffectNel(effect(_).mapError(NonEmptyList.one))
+    inline def withEffect(effect: => ZIO[HarnessEnv, HError, Any]): Executable = this.withEffect { _ => effect }
 
   }
 
-  final class Builder2[ParseT, R: EnvironmentTag] private[Executable] (parser: FinalizedParser[ParseT], layer: ParseT => ZLayer[HarnessEnv, NonEmptyList[KError], R]) {
+  final class Builder2[ParseT, R: EnvironmentTag] private[Executable] (parser: FinalizedParser[ParseT], layer: ParseT => ZLayer[HarnessEnv, NonEmptyList[HError], R]) {
 
-    def withEffectNel(effect: ParseT => ZIO[HarnessEnv & R, NonEmptyList[KError], Any]): Executable = { args =>
+    def withEffectNel(effect: ParseT => ZIO[HarnessEnv & R, NonEmptyList[HError], Any]): Executable = { args =>
       Executable.finalizedResultToExecutableResult(parser.parse(args)) match {
         case Executable.Result.Success(parseT) => effect(parseT).provideSomeLayer(layer(parseT))
         case Executable.Result.Help(message)   => Logger.log.info(message)
         case Executable.Result.Fail(error)     => ZIO.failNel(error)
       }
     }
-    inline def withEffectNel(effect: => ZIO[HarnessEnv & R, NonEmptyList[KError], Any]): Executable = this.withEffectNel { _ => effect }
+    inline def withEffectNel(effect: => ZIO[HarnessEnv & R, NonEmptyList[HError], Any]): Executable = this.withEffectNel { _ => effect }
 
-    inline def withEffect(effect: ParseT => ZIO[HarnessEnv & R, KError, Any]): Executable = this.withEffectNel(effect(_).mapError(NonEmptyList.one))
-    inline def withEffect(effect: => ZIO[HarnessEnv & R, KError, Any]): Executable = this.withEffect { _ => effect }
+    inline def withEffect(effect: ParseT => ZIO[HarnessEnv & R, HError, Any]): Executable = this.withEffectNel(effect(_).mapError(NonEmptyList.one))
+    inline def withEffect(effect: => ZIO[HarnessEnv & R, HError, Any]): Executable = this.withEffect { _ => effect }
 
   }
 
@@ -99,10 +99,10 @@ object Executable {
       case Indexed(Arg.Value(subCommand), _) :: tail =>
         map.get(subCommand) match {
           case Some(executable) => executable.execute(tail)
-          case None             => ZIO.failNel(KError.UserError(s"Invalid sub-command '$subCommand', options: ${opts.mkString("[", ", ", "]")}"))
+          case None             => ZIO.failNel(HError.UserError(s"Invalid sub-command '$subCommand', options: ${opts.mkString("[", ", ", "]")}"))
         }
       case _ =>
-        ZIO.failNel(KError.UserError(s"Missing sub-command, options: ${opts.mkString("[", ", ", "]")}"))
+        ZIO.failNel(HError.UserError(s"Missing sub-command, options: ${opts.mkString("[", ", ", "]")}"))
     }
   }
 
@@ -128,7 +128,7 @@ object Executable {
   private object Result {
     final case class Success[+T](value: T) extends Result[T]
     final case class Help(message: String) extends Result[Nothing]
-    final case class Fail(error: KError) extends Result[Nothing]
+    final case class Fail(error: HError) extends Result[Nothing]
   }
 
   private final case class Config(
@@ -170,7 +170,7 @@ object Executable {
 
   private def parseIndexedArgs(args: List[String]): Result[IndexedArgs] =
     IndexedArgs.parse(args) match {
-      case Left(msg)    => Result.Fail(KError.UserError(msg))
+      case Left(msg)    => Result.Fail(HError.UserError(msg))
       case Right(value) => Result.Success(value)
     }
 
@@ -178,9 +178,9 @@ object Executable {
     result match {
       case FinalizedParser.Result.Success(value)            => Result.Success(value)
       case FinalizedParser.Result.Help(_, message)          => Result.Help(message.format())
-      case FinalizedParser.Result.ParseFail(fail)           => Result.Fail(KError.UserError(fail.toString))
-      case FinalizedParser.Result.BuildFail(duplicateParam) => Result.Fail(KError.InternalDefect(s"Parser declares duplicate param: $duplicateParam"))
-      case FinalizedParser.Result.InvalidArg(msg)           => Result.Fail(KError.UserError(msg))
+      case FinalizedParser.Result.ParseFail(fail)           => Result.Fail(HError.UserError(fail.toString))
+      case FinalizedParser.Result.BuildFail(duplicateParam) => Result.Fail(HError.InternalDefect(s"Parser declares duplicate param: $duplicateParam"))
+      case FinalizedParser.Result.InvalidArg(msg)           => Result.Fail(HError.UserError(msg))
     }
 
   private def parseLayer(args: IndexedArgs): Result[ULayer[HarnessEnv]] =

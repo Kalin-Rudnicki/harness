@@ -65,18 +65,18 @@ object Logger { self =>
 
   }
 
-  object logKError {
+  object logHError {
 
     sealed class LogAtLevel(logLevel: LogLevel) {
-      def apply(error: => KError): URIO[Logger & RunMode, Unit] =
+      def apply(error: => HError): URIO[Logger & RunMode, Unit] =
         RunMode.get.flatMap { runMode =>
           Logger.log(logLevel, runMode.formatError(error))
         }
     }
 
-    def apply(logLevel: LogLevel, error: => KError): URIO[Logger & RunMode, Unit] = LogAtLevel(logLevel)(error)
+    def apply(logLevel: LogLevel, error: => HError): URIO[Logger & RunMode, Unit] = LogAtLevel(logLevel)(error)
 
-    def apply(error: => KError): URIO[Logger & RunMode, Unit] =
+    def apply(error: => HError): URIO[Logger & RunMode, Unit] =
       RunMode.get.flatMap { runMode =>
         Logger.log(runMode.formatError(error))
       }
