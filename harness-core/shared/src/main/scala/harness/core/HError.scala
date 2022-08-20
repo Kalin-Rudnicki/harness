@@ -15,6 +15,10 @@ sealed abstract class HError(
   final lazy val fullInternalMessageWithTrace: String =
     HError.throwableMessage(this, true)
 
+  override final def getMessage: String = userMessage
+
+  override final def toString: String = fullInternalMessage
+
 }
 object HError {
 

@@ -49,7 +49,7 @@ extension (self: ZIO.type) {
           case Left(error)  => loopErrors(nec.tail.toList, NonEmptyList.one(error))
         }
       }
-  def traverseNEL[R, E, A, B](nel: NonEmptyList[A])(f: A => ZIO[R, NonEmptyList[E], B]): ZIO[R, NonEmptyList[E], NonEmptyList[B]] =
+  def traverseNel[R, E, A, B](nel: NonEmptyList[A])(f: A => ZIO[R, NonEmptyList[E], B]): ZIO[R, NonEmptyList[E], NonEmptyList[B]] =
     traverse(nel)(f).mapError(_.flatMap(identity))
 
   def traverse[R, E, A, B](list: List[A])(f: A => ZIO[R, E, B]): ZIO[R, NonEmptyList[E], List[B]] =
@@ -57,7 +57,7 @@ extension (self: ZIO.type) {
       case Some(nel) => traverse(nel)(f).map(_.toList)
       case None      => ZIO.succeed(Nil)
     }
-  def traverseNEL[R, E, A, B](list: List[A])(f: A => ZIO[R, NonEmptyList[E], B]): ZIO[R, NonEmptyList[E], List[B]] =
+  def traverseNel[R, E, A, B](list: List[A])(f: A => ZIO[R, NonEmptyList[E], B]): ZIO[R, NonEmptyList[E], List[B]] =
     traverse(list)(f).mapError(_.flatMap(identity))
 
   def hAttempt[A](mapError: Throwable => HError)(thunk: => A): HTask[A] =
@@ -65,6 +65,12 @@ extension (self: ZIO.type) {
 
   def hAttempt[A](internalMessage: => String)(thunk: => A): HTask[A] =
     ZIO.hAttempt(HError.InternalDefect(internalMessage, _))(thunk)
+
+  def hAttemptNel[A](mapError: Throwable => HError)(thunk: => A): HTaskN[A] =
+    ZIO.attempt(thunk).mapError(mapError).toErrorNel
+
+  def hAttemptNel[A](internalMessage: => String)(thunk: => A): HTaskN[A] =
+    ZIO.hAttempt(HError.InternalDefect(internalMessage, _))(thunk).toErrorNel
 
   def failNel[E](fail0: E, failN: E*): IO[NonEmptyList[E], Nothing] =
     ZIO.fail(NonEmptyList(fail0, failN.toList))
@@ -82,32 +88,32 @@ extension [R, A](zio: HRIO[R, A]) {
 
 extension [R, E, A](zio: ZIO[R, E, A]) {
 
-  def mapErrorToNEL[E2](f: E => E2): ZIO[R, NonEmptyList[E2], A] =
+  def mapErrorToNel[E2](f: E => E2): ZIO[R, NonEmptyList[E2], A] =
     zio.mapError(e => NonEmptyList.one(f(e)))
 
-  def toErrorNEL: ZIO[R, NonEmptyList[E], A] =
+  def toErrorNel: ZIO[R, NonEmptyList[E], A] =
     zio.mapError(NonEmptyList.one)
 
 }
 extension [R, E, A](zLayer: ZLayer[R, E, A]) {
 
-  def mapErrorToNEL[E2](f: E => E2): ZLayer[R, NonEmptyList[E2], A] =
+  def mapErrorToNel[E2](f: E => E2): ZLayer[R, NonEmptyList[E2], A] =
     zLayer.mapError(e => NonEmptyList.one(f(e)))
 
-  def toErrorNEL: ZLayer[R, NonEmptyList[E], A] =
+  def toErrorNel: ZLayer[R, NonEmptyList[E], A] =
     zLayer.mapError(NonEmptyList.one)
 
 }
 
 extension [R, E, A](zio: ZIO[R, NonEmptyList[E], A]) {
 
-  def mapErrorNEL[E2](f: E => E2): ZIO[R, NonEmptyList[E2], A] =
+  def mapErrorNel[E2](f: E => E2): ZIO[R, NonEmptyList[E2], A] =
     zio.mapError(_.map(f))
 
 }
 extension [R, E, A](zLayer: ZLayer[R, NonEmptyList[E], A]) {
 
-  def mapErrorNEL[E2](f: E => E2): ZLayer[R, NonEmptyList[E2], A] =
+  def mapErrorNel[E2](f: E => E2): ZLayer[R, NonEmptyList[E2], A] =
     zLayer.mapError(_.map(f))
 
 }

@@ -110,5 +110,16 @@ lazy val `harness-web` =
       publishSettings,
       miscSettings,
       testSettings,
+      libraryDependencies ++= Seq(
+        "dev.zio" %%% "zio-json" % "0.3.0-RC10",
+      ),
+    )
+    .jsSettings(
+      libraryDependencies ++= Seq(
+        "com.lihaoyi" %%% "scalatags" % "0.11.1",
+        "io.github.cquiroz" %%% "scala-java-time" % "2.3.0",
+        "com.github.julien-truffaut" %%% "monocle-core" % "3.0.0-M6",
+        "com.github.julien-truffaut" %%% "monocle-macro" % "3.0.0-M6",
+      ),
     )
     .dependsOn(`harness-zio` % "test->test;compile->compile")
