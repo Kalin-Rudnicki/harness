@@ -5,6 +5,7 @@ import harness.core.*
 import harness.web.client.rawVDOM.Renderer
 import harness.web.client.vdom.{given, *}
 import harness.zio.*
+import org.scalajs.dom.console
 import scala.annotation.nowarn
 import zio.*
 
@@ -15,10 +16,19 @@ trait PageApp extends ZIOApp {
   @nowarn
   override implicit def environmentTag: EnvironmentTag[HarnessEnv] = EnvironmentTag[HarnessEnv]
 
-  // TODO (KR) : This will need to be customized once `FileSystem` comes into play
-  override def bootstrap: ZLayer[Any, NonEmptyList[HError], HarnessEnv] =
-    HarnessEnv.defaultLayer ++
-      ZLayer.succeed(runMode)
+  override def bootstrap: ZLayer[Any, NonEmptyList[HError], HarnessEnv] = {
+    val loggerLayer: ULayer[Logger] = {
+      val target: Logger.Target =
+        new Logger.Target {
+          override def log(string: String): UIO[Unit] = ZIO.hAttempt("Unable to log to js console") { console.log(string) }.orDieH
+        }
+      ZLayer.succeed(Logger(Logger.Source.const(target, Logger.LogLevel.Info, Logger.LogLevel.Always) :: Nil))
+    }
+
+    loggerLayer ++
+      ZLayer.succeed(runMode) ++
+      FileSystem.liveLayer.toErrorNel
+  }
 
   // TODO (KR) : Come up with a better system for this
   protected val runMode: RunMode = RunMode.Dev

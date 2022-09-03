@@ -22,7 +22,20 @@ sealed abstract class HError(
 }
 object HError {
 
+  def apply(errorType: ErrorType): ErrorBuilder2[HError] =
+    errorType match {
+      case ErrorType.UserError      => HError.UserError
+      case ErrorType.InternalDefect => HError.InternalDefect
+      case ErrorType.SystemFailure  => HError.SystemFailure
+    }
+
   // =====| Error Types |=====
+
+  enum ErrorType {
+    case UserError
+    case InternalDefect
+    case SystemFailure
+  }
 
   /**
     * Used when the user of the program provides invalid input.
@@ -112,20 +125,16 @@ object HError {
 
   // =====| Builders |=====
 
-  sealed abstract class ErrorBuilder2[E](build: (String, Option[Throwable]) => E) {
-    def apply(internalMessage: String): E = build(internalMessage, None)
-    def apply(internalMessage: String, cause: Throwable): E = build(internalMessage, cause.some)
-    def apply(internalMessage: String, cause: Option[Throwable]): E = build(internalMessage, cause)
+  sealed abstract class ErrorBuilder2[+E](build: (String, Option[Throwable]) => E) {
+    final def apply(message: String): E = build(message, None)
+    final def apply(message: String, cause: Throwable): E = build(message, cause.some)
+    final def apply(message: String, cause: Option[Throwable]): E = build(message, cause)
   }
 
-  sealed abstract class ErrorBuilder3[E](build: (String, String, Option[Throwable]) => E) {
-    def apply(userMessage: String): E = build(userMessage, userMessage, None)
-    def apply(userMessage: String, cause: Throwable): E = build(userMessage, userMessage, cause.some)
-    def apply(userMessage: String, cause: Option[Throwable]): E = build(userMessage, userMessage, cause)
-
-    def apply(userMessage: String, internalMessage: String): E = build(userMessage, internalMessage, None)
-    def apply(userMessage: String, internalMessage: String, cause: Throwable): E = build(userMessage, internalMessage, cause.some)
-    def apply(userMessage: String, internalMessage: String, cause: Option[Throwable]): E = build(userMessage, internalMessage, cause)
+  sealed abstract class ErrorBuilder3[+E](build: (String, String, Option[Throwable]) => E) extends ErrorBuilder2[E]((msg, cause) => build(msg, msg, cause)) {
+    final def apply(userMessage: String, internalMessage: String): E = build(userMessage, internalMessage, None)
+    final def apply(userMessage: String, internalMessage: String, cause: Throwable): E = build(userMessage, internalMessage, cause.some)
+    final def apply(userMessage: String, internalMessage: String, cause: Option[Throwable]): E = build(userMessage, internalMessage, cause)
   }
 
 }
