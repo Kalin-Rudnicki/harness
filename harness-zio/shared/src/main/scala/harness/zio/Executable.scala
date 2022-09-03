@@ -38,9 +38,9 @@ trait Executable { self =>
           }
           .provideLayer(layer)
       case Executable.Result.Help(message) =>
-        Logger.log.info(message).as(ExitCode.success).provideLayer(HarnessEnv.defaultLayer)
+        Logger.log.info(message).as(ExitCode.success).provideLayer(HarnessEnv.defaultLayer.orDie)
       case Executable.Result.Fail(error) =>
-        Logger.logHError.fatal(error).as(ExitCode.failure).provideLayer(HarnessEnv.defaultLayer)
+        Logger.logHError.fatal(error).as(ExitCode.failure).provideLayer(HarnessEnv.defaultLayer.orDie)
     }
   }
 
@@ -191,7 +191,8 @@ object Executable {
         )
 
       ZLayer.succeed(logger) ++
-        ZLayer.succeed(config.runMode)
+        ZLayer.succeed(config.runMode) ++
+        FileSystem.liveLayer.orDie
     }
 
   private def parseSplitArgs(args: IndexedArgs): (IndexedArgs, IndexedArgs) = {

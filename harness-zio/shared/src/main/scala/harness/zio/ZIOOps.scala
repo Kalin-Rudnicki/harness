@@ -63,11 +63,17 @@ extension (self: ZIO.type) {
   def hAttempt[A](mapError: Throwable => HError)(thunk: => A): HTask[A] =
     ZIO.attempt(thunk).mapError(mapError)
 
+  def hAttempt[A](errorType: => HError.ErrorType, msg: => String)(thunk: => A): HTask[A] =
+    ZIO.hAttempt(HError(errorType)(msg, _))(thunk)
+
   def hAttempt[A](internalMessage: => String)(thunk: => A): HTask[A] =
     ZIO.hAttempt(HError.InternalDefect(internalMessage, _))(thunk)
 
   def hAttemptNel[A](mapError: Throwable => HError)(thunk: => A): HTaskN[A] =
     ZIO.attempt(thunk).mapError(mapError).toErrorNel
+
+  def hAttemptNel[A](errorType: => HError.ErrorType, msg: => String)(thunk: => A): HTaskN[A] =
+    ZIO.hAttempt(HError(errorType)(msg, _))(thunk).toErrorNel
 
   def hAttemptNel[A](internalMessage: => String)(thunk: => A): HTaskN[A] =
     ZIO.hAttempt(HError.InternalDefect(internalMessage, _))(thunk).toErrorNel

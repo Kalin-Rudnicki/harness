@@ -98,6 +98,7 @@ lazy val `harness-zio` =
       testSettings,
       libraryDependencies ++= Seq(
         "dev.zio" %%% "zio" % "2.0.0",
+        "dev.zio" %%% "zio-json" % "0.3.0-RC10",
       ),
     )
     .dependsOn(`harness-cli` % "test->test;compile->compile")
@@ -110,9 +111,6 @@ lazy val `harness-web` =
       publishSettings,
       miscSettings,
       testSettings,
-      libraryDependencies ++= Seq(
-        "dev.zio" %%% "zio-json" % "0.3.0-RC10",
-      ),
     )
     .jsSettings(
       libraryDependencies ++= Seq(
