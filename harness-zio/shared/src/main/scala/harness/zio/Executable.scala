@@ -4,7 +4,7 @@ import cats.data.NonEmptyList
 import cats.syntax.either.*
 import harness.cli.*
 import harness.core.*
-import scala.annotation.{tailrec, targetName}
+import scala.annotation.tailrec
 import zio.*
 
 trait Executable { self =>
