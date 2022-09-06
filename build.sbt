@@ -45,6 +45,7 @@ lazy val `harness-root` =
       `harness-cli`.jvm,
       `harness-zio`.js,
       `harness-zio`.jvm,
+      `harness-sql`,
       `harness-web`.js,
       `harness-web`.jvm,
     )
@@ -102,6 +103,24 @@ lazy val `harness-zio` =
       ),
     )
     .dependsOn(`harness-cli` % "test->test;compile->compile")
+
+lazy val `harness-sql` =
+  project
+    .in(file("harness-sql"))
+    .settings(
+      name := "harness-sql",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      libraryDependencies ++= Seq(
+        "dev.zio" %%% "zio" % "2.0.0",
+        "dev.zio" %%% "zio-json" % "0.3.0-RC10",
+        "org.typelevel" %%% "cats-core" % "2.8.0",
+        "org.typelevel" %% "shapeless3-deriving" % "3.0.1",
+        "org.postgresql" % "postgresql" % "42.5.0" % Test,
+      ),
+    )
+    .dependsOn(`harness-zio`.jvm % Test)
 
 lazy val `harness-web` =
   crossProject(JSPlatform, JVMPlatform)
