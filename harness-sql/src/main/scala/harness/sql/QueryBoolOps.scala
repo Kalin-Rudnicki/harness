@@ -1,0 +1,25 @@
+package harness.sql
+
+given Conversion[AppliedCol[Boolean], QueryBool] = a => QueryBool(s"${a.tableVarName}.${a.col.colName}", false, false)
+given Conversion[AppliedCol.Opt[Boolean], QueryBool] = a => QueryBool(s"${a.tableVarName}.${a.col.colName}", false, false)
+
+trait QueryBoolOps[A, B] private {
+  def build(a: A, b: B): (String, String)
+  final def build(a: A, b: B, op: String): QueryBool = {
+    val (as, bs) = build(a, b)
+    QueryBool(s"$as $op $bs", true, false)
+  }
+}
+object QueryBoolOps {
+  implicit def col_id[A]: QueryBoolOps[AppliedCol[A], A] = (a, b) => (a.ref.toString, a.col.colCodec.encodeColumn(b))
+  implicit def col_col[A]: QueryBoolOps[AppliedCol[A], AppliedCol[A]] = (a, b) => (a.ref.toString, b.ref.toString)
+  implicit def col_optCol[A]: QueryBoolOps[AppliedCol[A], AppliedCol.Opt[A]] = (a, b) => (a.ref.toString, b.ref.toString)
+  implicit def optCol_id[A]: QueryBoolOps[AppliedCol.Opt[A], A] = (a, b) => (a.ref.toString, a.col.colCodec.encodeColumn(Some(b)))
+  implicit def optCol_col[A]: QueryBoolOps[AppliedCol.Opt[A], AppliedCol[A]] = (a, b) => (a.ref.toString, b.ref.toString)
+}
+
+extension [A](a: A) {
+  def ===[B](b: B)(implicit qbo: QueryBoolOps[A, B]): QueryBool = qbo.build(a, b, "=")
+  def !==[B](b: B)(implicit qbo: QueryBoolOps[A, B]): QueryBool = qbo.build(a, b, "!=")
+  // TODO (KR) : <, <=, >, >=, LIKE
+}
