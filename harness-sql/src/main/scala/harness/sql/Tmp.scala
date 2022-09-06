@@ -97,7 +97,7 @@ object Tmp extends App {
     .from[Musician]("m")
     .leftJoin[MusicianInBand]("mib")
     .on { (m, mib) => mib.musicianId === m.id && !mib.active }
-    .leftJoin[Band]("b")
+    .join[Band]("b")
     .on { (_, mib, b) => mib.bandId === b.id }
     .where { (_, mib, _) => mib.active }
     .select { (m, _, b) => m ~ b.name }

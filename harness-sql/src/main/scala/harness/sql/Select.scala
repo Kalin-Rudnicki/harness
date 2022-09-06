@@ -6,10 +6,6 @@ import shapeless3.deriving.*
 
 object Select {
 
-  // TODO (KR) : MOVE?
-  def optional: AppliedCol ~> AppliedCol.Opt =
-    [a] => (fa: AppliedCol[a]) => fa.optional
-
   final class Return[T] private[Select] (val columns: List[ColRef]) {
 
     def ~[T2](that: Return[T2])(implicit zip: Zip[T, T2]): Return[zip.Out] =
@@ -41,7 +37,7 @@ object Select {
 
     def leftJoin[T2[_[_]] <: Table](name: String)(implicit t2ti: TableInfo[T2], zip: Zip[T, T2[AppliedCol.Opt]]): AppliedQ1[zip.Out] =
       AppliedQ1(
-        zip.zip(t, t2ti.functorK.mapK(t2ti.functorK.mapK(t2ti.colInfo)(AppliedCol.withVarName(name)))(optional)),
+        zip.zip(t, t2ti.functorK.mapK(t2ti.functorK.mapK(t2ti.colInfo)(AppliedCol.withVarName(name)))(AppliedCol.optional)),
         s"$query LEFT JOIN ${t2ti.tableName} $name",
       )
 

@@ -13,16 +13,13 @@ final class Col[T] private (
   final def imap[T2](mf: T => T2)(cmf: T2 => T): Col[T2] =
     Col(colName, colType, colCodec.imap(mf)(cmf))
 
-  final def optional: Col[Option[T]] =
-    Col(colName, colType, colCodec.optional)
-
   override def toString: String = s"$colName[$colType]"
 
 }
 object Col {
 
   final case class Name(name: String) extends scala.annotation.Annotation
-  
+
   def string(name: String): Col[String] = Col(name, "TEXT", ColCodec.string)
   def uuid(name: String): Col[UUID] = Col(name, "UUID", ColCodec.uuid)
   def boolean(name: String): Col[Boolean] = Col(name, "BOOLEAN", ColCodec.boolean)
