@@ -8,7 +8,7 @@ final case class TableInfo[T[_[_]] <: Table](
     colInfo: T[Col],
     functorK: FunctorK[T],
     tableCols: TableCols[T],
-    rowCodec: RowCodec[T[cats.Id]],
+    rowCodec: RowCodec[T[Id]],
 )
 object TableInfo {
 
@@ -20,8 +20,8 @@ object TableInfo {
       functorK = functorK,
       tableCols = TableCols.derived[T],
       rowCodec = RowCodec(
-        RowEncoder.forTable[T](functorK.mapK(colInfo) { [a] => (c: Col[a]) => RowEncoder.fromColEncoder(c.colCodec.encoder) }),
-        RowDecoder.forTable[T](functorK.mapK(colInfo) { [a] => (c: Col[a]) => RowDecoder.fromColDecoder(c.colCodec.decoder) }),
+        RowEncoder.forTable[T](functorK.mapK(colInfo) { [a] => (c: Col[a]) => c.colCodec.encoder }),
+        RowDecoder.forTable[T](functorK.mapK(colInfo) { [a] => (c: Col[a]) => c.colCodec.decoder }),
       ),
     )
   }

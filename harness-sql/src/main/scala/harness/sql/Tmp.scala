@@ -91,7 +91,7 @@ object Tmp extends App {
     .on { (m, mib) => mib.musicianId === m.id && !mib.active }
     .join[Band]("b")
     .on { (_, mib, b) => mib.bandId === b.id }
-    // .where { (m, _, _) => m.firstName === "Kalin" }
+    .where { (m, _, _) => m.firstName === QueryInput[String](0) }
     .select { (m, _, b) => m ~ b.name }
 
   Select
@@ -105,15 +105,14 @@ object Tmp extends App {
 
   println()
 
-  println(Labelling[Musician[cats.Id]])
-  println(Annotations[Col.Name, MusicianInBand[cats.Id]].apply().toList)
-  println(summon[K11.ProductGeneric[Musician]].toRepr(Musician.colInfo))
-  println(K0.ProductGeneric[Musician[cats.Id]].toRepr(Musician(UUID.randomUUID, "F", "L", "I", LocalDate.now)))
-  println()
+  // println(Labelling[Musician[ColDecoder]])
+  // println(Annotations[Col.Name, MusicianInBand[ColDecoder]].apply().toList)
+  // println(summon[K11.ProductGeneric[Musician]].toRepr(Musician.colInfo))
+  // println(K0.ProductGeneric[Musician[ColDecoder]].toRepr(Musician(UUID.randomUUID, "F", "L", "I", LocalDate.now)))
+  // println()
 
-  val encoded = Musician.tableInfo.rowCodec.encodeRow(Musician(UUID.randomUUID, "F", "L", "I", LocalDate.now))
-  val decoded = Musician.tableInfo.rowCodec.decodeRow(encoded)
-
-  println(decoded)
+  // val encoded = Musician.tableInfo.rowCodec.encodeRow(Musician(UUID.randomUUID, "F", "L", "I", LocalDate.now))
+  // val decoded = Musician.tableInfo.rowCodec.decodeRow(encoded)
+  // println(decoded)
 
 }

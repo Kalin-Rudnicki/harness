@@ -1,37 +1,40 @@
 package harness.sql.typeclass
 
 import harness.sql.*
+import java.sql.{PreparedStatement, Types}
 import java.time.*
 import java.util.UUID
 import zio.json.JsonEncoder
 
 trait ColEncoder[T] { self =>
 
-  def encodeColumn(t: T): ColT
+  def encodeColumn(t: T): Object
 
   final def cmap[T2](f: T2 => T): ColEncoder[T2] =
     t => self.encodeColumn(f(t))
 
+  final def optional: ColEncoder[Option[T]] = {
+    case Some(value) => self.encodeColumn(value)
+    case None        => null
+  }
+
 }
 object ColEncoder {
 
-  // TODO (KR) : REMOVE
-  private def fromStringEncoder[T](implicit enc: harness.core.StringEncoder[T]): ColEncoder[T] = enc.encode(_)
+  val string: ColEncoder[String] = t => t
+  val uuid: ColEncoder[UUID] = t => t
+  val boolean: ColEncoder[Boolean] = java.lang.Boolean.valueOf(_)
 
-  val string: ColEncoder[String] = fromStringEncoder // TODO (KR) :
-  val uuid: ColEncoder[UUID] = fromStringEncoder // TODO (KR) :
-  val boolean: ColEncoder[Boolean] = fromStringEncoder // TODO (KR) :
+  val short: ColEncoder[Short] = java.lang.Short.valueOf(_)
+  val int: ColEncoder[Int] = java.lang.Integer.valueOf(_)
+  val long: ColEncoder[Long] = java.lang.Long.valueOf(_)
 
-  val short: ColEncoder[Short] = fromStringEncoder(using harness.core.StringEncoder.usingToString) // TODO (KR) :
-  val int: ColEncoder[Int] = fromStringEncoder // TODO (KR) :
-  val long: ColEncoder[Long] = fromStringEncoder // TODO (KR) :
+  val float: ColEncoder[Float] = java.lang.Float.valueOf(_)
+  val double: ColEncoder[Double] = java.lang.Double.valueOf(_)
 
-  val float: ColEncoder[Float] = fromStringEncoder // TODO (KR) :
-  val double: ColEncoder[Double] = fromStringEncoder // TODO (KR) :
-
-  val date: ColEncoder[LocalDate] = fromStringEncoder(using harness.core.StringEncoder.usingToString) // TODO (KR) :
-  val time: ColEncoder[LocalTime] = fromStringEncoder(using harness.core.StringEncoder.usingToString) // TODO (KR) :
-  val dateTime: ColEncoder[LocalDateTime] = fromStringEncoder(using harness.core.StringEncoder.usingToString) // TODO (KR) :
+  val date: ColEncoder[LocalDate] = java.sql.Date.valueOf(_)
+  val time: ColEncoder[LocalTime] = java.sql.Time.valueOf(_)
+  val dateTime: ColEncoder[LocalDateTime] = java.sql.Timestamp.valueOf(_)
 
   def json[T](implicit codec: JsonEncoder[T]): ColEncoder[T] =
     t => codec.encodeJson(t, None).toString

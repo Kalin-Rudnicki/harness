@@ -114,6 +114,7 @@ lazy val `harness-sql` =
       testSettings,
       libraryDependencies ++= Seq(
         "org.typelevel" %% "shapeless3-deriving" % "3.0.1",
+        // "org.postgresql" % "postgresql" % "42.5.0",
       ),
     )
     .dependsOn(`harness-zio`.jvm % "test->test;compile->compile")

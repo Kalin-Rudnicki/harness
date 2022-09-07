@@ -7,10 +7,7 @@ import java.time.*
 import java.util.UUID
 import zio.json.JsonCodec
 
-final case class ColCodec[T](encoder: ColEncoder[T], decoder: ColDecoder[T]) {
-
-  def encodeColumn(t: T): ColT = encoder.encodeColumn(t)
-  def decodeColumn(c: ColT): EitherNel[String, T] = decoder.decodeColumn(c)
+final case class ColCodec[T](encoder: ColEncoder[T], decoder: ColDecoder[T]) { self =>
 
   def imap[T2](mf: T => T2)(cmf: T2 => T): ColCodec[T2] = ColCodec(encoder.cmap(cmf), decoder.map(mf))
   def iemap[T2](mf: T => EitherNel[String, T2])(cmf: T2 => T): ColCodec[T2] = ColCodec(encoder.cmap(cmf), decoder.emap(mf))
