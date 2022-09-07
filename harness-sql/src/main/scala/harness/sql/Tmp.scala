@@ -1,6 +1,7 @@
 package harness.sql
 
 import cats.~>
+import harness.sql.typeclass.*
 import java.time.*
 import java.util.UUID
 import shapeless3.deriving.*
@@ -106,7 +107,13 @@ object Tmp extends App {
 
   println(Labelling[Musician[cats.Id]])
   println(Annotations[Col.Name, MusicianInBand[cats.Id]].apply().toList)
+  println(summon[K11.ProductGeneric[Musician]].toRepr(Musician.colInfo))
   println(K0.ProductGeneric[Musician[cats.Id]].toRepr(Musician(UUID.randomUUID, "F", "L", "I", LocalDate.now)))
   println()
+
+  val encoded = Musician.tableInfo.rowCodec.encodeRow(Musician(UUID.randomUUID, "F", "L", "I", LocalDate.now))
+  val decoded = Musician.tableInfo.rowCodec.decodeRow(encoded)
+
+  println(decoded)
 
 }

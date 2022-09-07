@@ -1,4 +1,4 @@
-package harness.sql
+package harness.sql.typeclass
 
 import shapeless3.deriving.*
 
@@ -13,7 +13,6 @@ object FunctorK {
     def mapK[A[_], B[_]](at: A[T])(f: A ~> B): B[T] = f(at)
   }
 
-  
   given functorKGen[H[_[_]]](using inst: => K11.Instances[FunctorK, H]): FunctorK[H] with {
     def mapK[A[_], B[_]](ha: H[A])(f: A ~> B): H[B] =
       inst.map(ha)([t[_[_]]] => (ft: FunctorK[t], ta: t[A]) => ft.mapK(ta)(f))

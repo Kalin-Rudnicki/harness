@@ -1,5 +1,7 @@
 package harness.sql
 
+import harness.sql.typeclass.ColCodec
+
 import java.time.*
 import java.util.UUID
 import zio.json.JsonCodec

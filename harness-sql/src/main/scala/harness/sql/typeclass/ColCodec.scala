@@ -1,7 +1,8 @@
-package harness.sql
+package harness.sql.typeclass
 
 import cats.data.{EitherNel, NonEmptyList}
 import cats.syntax.either.*
+import harness.sql.*
 import java.time.*
 import java.util.UUID
 import zio.json.JsonCodec

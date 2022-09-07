@@ -77,8 +77,8 @@ object StringDecoder {
 
     val us2Year = s"$numsOneTwo/$numsOneTwo/$numsTwo".r
     val us4Year = s"$numsOneTwo/$numsOneTwo/$numsFour".r
-    val other2Year = s"$numsOneTwo-$numsOneTwo-$numsTwo".r
-    val other4Year = s"$numsOneTwo-$numsOneTwo-$numsFour".r
+    val other2Year = s"$numsOneTwo\\.$numsOneTwo\\.$numsTwo".r
+    val other4Year = s"$numsOneTwo\\.$numsOneTwo\\.$numsFour".r
     val yearFirst = s"$numsFour-$numsOneTwo-$numsOneTwo".r
 
     def guessYear(y: Int): Int = {

@@ -24,3 +24,13 @@ extension [A](a: A) {
   def !==[B](b: B)(implicit qbo: QueryBoolOps[A, B]): QueryBool = qbo.build(a, b, "!=")
   // TODO (KR) : <, <=, >, >=, LIKE
 }
+
+extension [A](a: AppliedCol[Option[A]]) {
+  def isNull: QueryBool = QueryBool(s"${a.ref} IS NULL", true, false)
+  def isNotNull: QueryBool = QueryBool(s"${a.ref} IS NOT NULL", true, false)
+}
+
+extension [A](a: AppliedCol.Opt[A]) {
+  def isNull: QueryBool = QueryBool(s"${a.wrapped.ref} IS NULL", true, false)
+  def isNotNull: QueryBool = QueryBool(s"${a.wrapped.ref} IS NOT NULL", true, false)
+}
