@@ -2,15 +2,15 @@ package harness.sql.query
 
 import cats.syntax.option.*
 import harness.sql.*
+import harness.sql.errors.*
 import harness.sql.typeclass.*
-import harness.zio.*
 import zio.*
 
 final class InsertQueryI[I] private[query] (query: Insert.Query[I]) {
-  def apply(i: I): HRIO[ConnectionFactory, Int] =
+  def apply(i: I): RIO[ConnectionFactory, Int] =
     ZIO.scoped {
       Utils.preparedStatement(query.query, (i, query.encoder, QueryInputMapper.id).some).flatMap { ps =>
-        ZIO.hAttempt("Unable to execute query")(ps.executeUpdate())
+        ZIO.attempt(ps.executeUpdate()).mapError(ErrorWithSql(query.query, _))
       }
     }
 }

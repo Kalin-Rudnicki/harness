@@ -1,34 +1,33 @@
 package harness.sql.query
 
 import cats.syntax.option.*
-import harness.core.*
 import harness.sql.*
+import harness.sql.errors.*
 import harness.sql.typeclass.*
-import harness.zio.*
 import java.sql.{Array, PreparedStatement, ResultSet}
 import zio.*
 import zio.stream.*
 
-final class QueryResult[O] private (sql: String, _stream: => ZStream[ConnectionFactory & Scope, HError, O]) {
+final class QueryResult[O] private (sql: String, _stream: => ZStream[ConnectionFactory & Scope, Throwable, O]) {
 
-  inline def single: HRIO[ConnectionFactory, O] =
+  inline def single: RIO[ConnectionFactory, O] =
     chunk.flatMap {
       case Chunk(value) => ZIO.succeed(value)
-      case chunk        => ZIO.fail(HError.InternalDefect(s"Expected [1] result, but got ${chunk.length}\nsql: $sql"))
+      case chunk        => ZIO.fail(ErrorWithSql(sql, InvalidResultSetSize("1", chunk.length)))
     }
 
-  inline def option: HRIO[ConnectionFactory, Option[O]] =
+  inline def option: RIO[ConnectionFactory, Option[O]] =
     chunk.flatMap {
       case Chunk(value) => ZIO.some(value)
       case Chunk()      => ZIO.none
-      case chunk        => ZIO.fail(HError.InternalDefect(s"Expected [0..1] result, but got ${chunk.length}\nsql: $sql"))
+      case chunk        => ZIO.fail(ErrorWithSql(sql, InvalidResultSetSize("0..1", chunk.length)))
     }
 
-  inline def list: HRIO[ConnectionFactory, List[O]] = chunk.map(_.toList)
+  inline def list: RIO[ConnectionFactory, List[O]] = chunk.map(_.toList)
 
-  inline def chunk: HRIO[ConnectionFactory, Chunk[O]] = ZIO.scoped { stream.runCollect }
+  inline def chunk: RIO[ConnectionFactory, Chunk[O]] = ZIO.scoped { stream.runCollect }
 
-  def stream: ZStream[ConnectionFactory & Scope, HError, O] = _stream
+  def stream: ZStream[ConnectionFactory & Scope, Throwable, O] = _stream
 
 }
 object QueryResult {
@@ -40,36 +39,36 @@ object QueryResult {
   ): QueryResult[O] =
     QueryResult(
       sql, {
-        def resultSet: HRIO[ConnectionFactory & Scope, ResultSet] =
+        def resultSet: RIO[ConnectionFactory & Scope, ResultSet] =
           for {
-            ps: PreparedStatement <- Utils.preparedStatement(sql, input)
-            rs: ResultSet <-
-              ZIO
-                .acquireRelease(ZIO.hAttempt("Unable to create ResultSet")(ps.executeQuery()))
-                .apply(rs => ZIO.hAttempt("Unable to close ResultSet")(rs.close()).orDieH)
+            ps <- Utils.preparedStatement(sql, input)
+            rs <- Utils.acquireClosable(ps.executeQuery())
           } yield rs
 
-        def result(resultSet: ResultSet): IO[HError, O] =
+        def result(resultSet: ResultSet): Task[O] =
           for {
-            ncs <- ZIO.hAttempt("Unable to get ResultSet column count")(resultSet.getMetaData.getColumnCount)
+            ncs <- ZIO.attempt(resultSet.getMetaData.getColumnCount)
             outputs <-
-              if (ncs == decoder.width) ZIO.hAttempt("Unable to get ResultSet outputs")(IArray.range(0, decoder.width).map(i => resultSet.getObject(i + 1)))
-              else ZIO.fail(HError.InternalDefect(s"ResultSet width ($ncs) is different from expected (${decoder.width})"))
+              if (ncs == decoder.width) ZIO.attempt(IArray.range(0, decoder.width).map(i => resultSet.getObject(i + 1)))
+              else ZIO.fail(InvalidResultSetWidth(decoder.width, ncs))
             res <-
               decoder.decodeRow(0, outputs) match {
                 case Right(value) => ZIO.succeed(value)
-                case Left(errors) => ZIO.fail(HError.InternalDefect(s"Unable to decode row: ${errors.toList.mkString("[", ", ", "]")}"))
+                case Left(errors) => ZIO.fail(RowDecodeFailure(errors))
               }
           } yield res
 
-        ZStream.fromZIO(resultSet).flatMap { resultSet =>
-          ZStream.repeatZIOOption {
-            ZIO.hAttempt("Unable to get ResultSet.next")(resultSet.next()).asSomeError.flatMap {
-              case true  => result(resultSet).asSomeError
-              case false => ZIO.fail(None)
+        ZStream
+          .fromZIO(resultSet)
+          .flatMap { resultSet =>
+            ZStream.repeatZIOOption {
+              ZIO.attempt(resultSet.next()).asSomeError.flatMap {
+                case true  => result(resultSet).asSomeError
+                case false => ZIO.fail(None)
+              }
             }
           }
-        }
+          .mapError(ErrorWithSql(sql, _))
       },
     )
 

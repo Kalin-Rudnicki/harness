@@ -3,7 +3,6 @@ package harness.sql.typeclass
 import cats.data.EitherNel
 import cats.syntax.either.*
 import cats.syntax.option.*
-import harness.core.Zip
 import harness.sql.*
 import java.sql.ResultSet
 import scala.annotation.tailrec
@@ -25,14 +24,14 @@ trait RowDecoder[T] { self =>
       override def decodeRow(o: Int, arr: IArray[Object]): EitherNel[String, T2] = self.decodeRow(o, arr).flatMap(f)
     }
 
-  final def ~[T2](other: RowDecoder[T2])(implicit zip: Zip[T, T2]): RowDecoder[zip.Out] =
-    new RowDecoder[zip.Out] {
+  final def ~[T2](other: RowDecoder[T2])(implicit z: ZipCodec[T, T2]): RowDecoder[z.C] =
+    new RowDecoder[z.C] {
       override lazy val width: Int = self.width + other.width
-      override def decodeRow(o: Int, arr: IArray[Object]): EitherNel[String, zip.Out] =
+      override def decodeRow(o: Int, arr: IArray[Object]): EitherNel[String, z.C] =
         for {
           a <- self.decodeRow(o, arr)
           b <- other.decodeRow(o + self.width, arr)
-        } yield zip.zip(a, b)
+        } yield z.zip(a, b)
     }
 
   final def optional: RowDecoder[Option[T]] =

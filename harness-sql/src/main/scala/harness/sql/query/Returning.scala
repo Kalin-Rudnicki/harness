@@ -1,6 +1,5 @@
 package harness.sql.query
 
-import harness.core.Zip
 import harness.sql.*
 import harness.sql.typeclass.*
 import scala.annotation.targetName
@@ -11,7 +10,7 @@ final case class Returning[T] private (
     rowDecoder: RowDecoder[T],
 ) {
 
-  def ~[T2](that: Returning[T2])(implicit zip: Zip[T, T2]): Returning[zip.Out] =
+  def ~[T2](that: Returning[T2])(implicit z: ZipCodec[T, T2]): Returning[z.C] =
     Returning(this.columns ::: that.columns, this.rowDecoder ~ that.rowDecoder)
 
 }

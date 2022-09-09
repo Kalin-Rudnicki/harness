@@ -1,10 +1,7 @@
 package harness.sql.typeclass
 
-import harness.core.Zip
 import harness.sql.*
-import harness.sql.query.Input
 import java.sql.PreparedStatement
-import scala.annotation.tailrec
 import shapeless3.deriving.*
 
 trait RowEncoder[T] { self =>
@@ -18,11 +15,11 @@ trait RowEncoder[T] { self =>
       override def encodeRow(t: T2, o: Int, arr: Array[Object]): Unit = self.encodeRow(f(t), o, arr)
     }
 
-  final def ~[T2](other: RowEncoder[T2])(implicit zip: Zip[T, T2]): RowEncoder[zip.Out] =
-    new RowEncoder[zip.Out] {
+  final def ~[T2](other: RowEncoder[T2])(implicit z: ZipCodec[T, T2]): RowEncoder[z.C] =
+    new RowEncoder[z.C] {
       override lazy val width: Int = self.width + other.width
-      override def encodeRow(t: zip.Out, o: Int, arr: Array[Object]): Unit = {
-        val (a, b) = zip.unzip(t)
+      override def encodeRow(t: z.C, o: Int, arr: Array[Object]): Unit = {
+        val (a, b) = z.unzip(t)
         self.encodeRow(a, o, arr)
         other.encodeRow(b, o + self.width, arr)
       }

@@ -3,6 +3,7 @@ package harness.sql
 import cats.~>
 import cats.syntax.option.*
 import harness.cli.*
+import harness.core.*
 import harness.sql.query.{given, *}
 import harness.sql.typeclass.*
 import harness.zio.*
@@ -91,11 +92,27 @@ object Tmp extends ExecutableApp {
         .returning { m => m }
     }
 
+  val musicianById: SelectQueryIO[UUID, Musician.Id] =
+    Prepare.selectIO(Input[UUID]) { id =>
+      Select
+        .from[Musician]("m")
+        .where { m => m.id === id }
+        .returning { m => m }
+    }
+
   val musicianByNames: SelectQueryIO[(String, String), Musician.Id] =
     Prepare.selectIO(Input[String] ~ Input[String]) { (first, last) =>
       Select
         .from[Musician]("m")
         .where { m => m.lastName === last && m.firstName === first }
+        .returning { m => m }
+    }
+
+  val musicianWithFavNumGreaterThan: SelectQueryIO[Int, Musician.Id] =
+    Prepare.selectIO(Input[Int]) { num =>
+      Select
+        .from[Musician]("m")
+        .where { m => m.favoriteNumber > num }
         .returning { m => m }
     }
 
@@ -114,11 +131,11 @@ object Tmp extends ExecutableApp {
   val m1: Musician.Id =
     new Musician.Id(
       id = UUID.randomUUID,
-      firstName = "Janine",
+      firstName = "Joy",
       lastName = "Rudnicki",
-      instrument = "Homework",
-      birthday = LocalDate.of(2001, 2, 19),
-      favoriteNumber = None,
+      instrument = "Piano",
+      birthday = LocalDate.of(1967, 12, 20),
+      favoriteNumber = 30.some,
     )
 
   override val executable: Executable =
@@ -130,10 +147,16 @@ object Tmp extends ExecutableApp {
           _ <- Logger.log.info("Starting...")
           // i <- insertMusician(m1)
           // _ <- Logger.log.info(i)
-          ms <- musicians().chunk
+          ms <- musicians().chunk.mapError(HError.InternalDefect("...", _))
           _ <- Logger.log.info(ms)
-          m <- musicianByNames(("Kalin", "Rudnicki")).single
+          m <- musicianByNames(("Kalin", "Rudnicki")).single.mapError(HError.InternalDefect("...", _))
           _ <- Logger.log.info(m)
+          ms2 <- musicianWithFavNumGreaterThan(0).chunk.mapError(HError.InternalDefect("...", _))
+          _ <- Logger.log.info(ms2)
+          ms3 <- musicianWithFavNumGreaterThan(10).chunk.mapError(HError.InternalDefect("...", _))
+          _ <- Logger.log.info(ms3)
+          m2 <- musicianById(UUID.fromString("fd7791ce-11c3-482f-a9b5-b332168bcb58")).single.mapError(HError.InternalDefect("...", _))
+          _ <- Logger.log.info(m2)
         } yield ()
       }
 

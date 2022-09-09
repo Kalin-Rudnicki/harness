@@ -113,11 +113,15 @@ lazy val `harness-sql` =
       miscSettings,
       testSettings,
       libraryDependencies ++= Seq(
+        "dev.zio" %%% "zio" % "2.0.0",
+        "dev.zio" %%% "zio-json" % "0.3.0-RC10",
+        "org.typelevel" %%% "cats-core" % "2.8.0",
         "org.typelevel" %% "shapeless3-deriving" % "3.0.1",
+        // TODO (KR) : REMOVE
         "org.postgresql" % "postgresql" % "42.5.0",
       ),
     )
-    .dependsOn(`harness-zio`.jvm % "test->test;compile->compile")
+    .dependsOn(`harness-zio`.jvm % Test)
 
 lazy val `harness-web` =
   crossProject(JSPlatform, JVMPlatform)
