@@ -2,6 +2,7 @@ package harness.sql.typeclass
 
 import harness.core.Zip
 import harness.sql.*
+import harness.sql.query.Input
 import java.sql.PreparedStatement
 import scala.annotation.tailrec
 import shapeless3.deriving.*
@@ -27,6 +28,12 @@ trait RowEncoder[T] { self =>
       }
     }
 
+  final def optional: RowEncoder[Option[T]] =
+    new RowEncoder[Option[T]] {
+      override lazy val width: Int = self.width
+      override def encodeRow(t: Option[T], o: Int, arr: Array[Object]): Unit = t.foreach(self.encodeRow(_, o, arr))
+    }
+
 }
 object RowEncoder {
 
@@ -38,11 +45,11 @@ object RowEncoder {
 
   def forTable[T[_[_]] <: Table](encoders: T[ColEncoder])(using inst: => K11.ProductGeneric[T]): RowEncoder[T[Id]] =
     new RowEncoder[T[Id]] {
-      lazy val encodersTuple: Tuple = inst.toRepr(encoders)
-      override lazy val width: Int = encodersTuple.size
+      lazy val encodersTuple: IArray[ColEncoder[Any]] = inst.toRepr(encoders).toIArray.map(_.asInstanceOf[ColEncoder[Any]])
+      override lazy val width: Int = encodersTuple.length
       override def encodeRow(t: T[Id], o: Int, arr: Array[Object]): Unit = {
-        val rowTuple: Tuple = inst.toRepr(t)
-        rowTuple.zip(encodersTuple).toArray.asInstanceOf[Array[(Any, ColEncoder[Any])]].zipWithIndex.foreach { case ((t, e), i) =>
+        val rowTuple: IArray[Any] = inst.toRepr(t).toIArray.map(_.asInstanceOf[Any])
+        rowTuple.zip(encodersTuple).zipWithIndex.foreach { case ((t, e), i) =>
           arr(o + i) = e.encodeColumn(t)
         }
       }

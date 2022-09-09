@@ -2,8 +2,10 @@ package harness.sql.typeclass
 
 import cats.data.EitherNel
 import cats.syntax.either.*
+import cats.syntax.option.*
 import harness.core.Zip
 import harness.sql.*
+import java.sql.ResultSet
 import scala.annotation.tailrec
 import shapeless3.deriving.*
 
@@ -33,6 +35,14 @@ trait RowDecoder[T] { self =>
         } yield zip.zip(a, b)
     }
 
+  final def optional: RowDecoder[Option[T]] =
+    new RowDecoder[Option[T]] {
+      override lazy val width: Int = self.width
+      override def decodeRow(o: Int, arr: IArray[Object]): EitherNel[String, Option[T]] =
+        if (o.until(o + width).forall(arr(_) == null)) None.asRight
+        else self.decodeRow(o, arr).map(_.some)
+    }
+
 }
 object RowDecoder {
 
@@ -44,7 +54,7 @@ object RowDecoder {
 
   def forTable[T[_[_]] <: Table](t: T[ColDecoder])(using inst: => K11.ProductGeneric[T]): RowDecoder[T[Id]] =
     new RowDecoder[T[Id]] {
-      lazy val decoders: IArray[ColDecoder[Any]] = inst.toRepr(t).toIArray.asInstanceOf[IArray[ColDecoder[Any]]]
+      lazy val decoders: IArray[ColDecoder[Any]] = inst.toRepr(t).toIArray.map(_.asInstanceOf[ColDecoder[Any]])
       override lazy val width: Int = decoders.length
       override def decodeRow(o: Int, arr: IArray[Object]): EitherNel[String, T[Id]] = {
         val parsed: Array[Any] = new Array[Any](width)

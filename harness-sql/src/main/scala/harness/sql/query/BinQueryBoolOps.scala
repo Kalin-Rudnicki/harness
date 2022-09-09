@@ -1,6 +1,7 @@
-package harness.sql
+package harness.sql.query
 
 import cats.syntax.option.*
+import harness.sql.*
 import scala.util.NotGiven
 
 given Conversion[AppliedCol[Boolean], QueryBool] = a => QueryBool(s"${a.tableVarName}.${a.col.colName}", false, false, QueryInputMapper.empty)
@@ -74,8 +75,10 @@ object BinQueryBoolOps {
 extension [A](a: A) {
   def ===[B](b: B)(implicit qbo: BinQueryBoolOps[A, B]): QueryBool = qbo.build(a, b, "=")
   def !==[B](b: B)(implicit qbo: BinQueryBoolOps[A, B]): QueryBool = qbo.build(a, b, "!=")
-  // TODO (KR) : <, <=, >, >=
-  // TODO (KR) : LIKE
+  def <[B](b: B)(implicit qbo: BinQueryBoolOps[A, B]): QueryBool = qbo.build(a, b, "<")
+  def <=[B](b: B)(implicit qbo: BinQueryBoolOps[A, B]): QueryBool = qbo.build(a, b, "<=")
+  def >[B](b: B)(implicit qbo: BinQueryBoolOps[A, B]): QueryBool = qbo.build(a, b, ">")
+  def >=[B](b: B)(implicit qbo: BinQueryBoolOps[A, B]): QueryBool = qbo.build(a, b, ">=")
 }
 
 extension [A](a: AppliedCol[Option[A]]) {
@@ -88,4 +91,5 @@ extension [A](a: AppliedCol.Opt[A]) {
   def isNotNull: QueryBool = QueryBool(s"${a.wrapped.ref} IS NOT NULL", true, false, QueryInputMapper.empty)
 }
 
+// TODO (KR) : LIKE
 // TODO (KR) : IN

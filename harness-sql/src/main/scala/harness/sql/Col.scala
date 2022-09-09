@@ -1,19 +1,22 @@
 package harness.sql
 
-import harness.sql.typeclass.ColCodec
-
+import harness.sql.typeclass.*
 import java.time.*
 import java.util.UUID
 import zio.json.JsonCodec
 
-final class Col[T] private (
-    val colName: String,
-    val colType: String, // TODO (KR) :
-    val colCodec: ColCodec[T],
+final case class Col[T] private (
+    colName: String,
+    colType: String, // TODO (KR) :
+    colCodec: ColCodec[T],
+    nullable: Boolean,
 ) {
 
-  final def imap[T2](mf: T => T2)(cmf: T2 => T): Col[T2] =
-    Col(colName, colType, colCodec.imap(mf)(cmf))
+  def imap[T2](mf: T => T2)(cmf: T2 => T): Col[T2] =
+    Col(colName, colType, colCodec.imap(mf)(cmf), nullable)
+
+  def optional: Col[Option[T]] =
+    Col(colName, colType, colCodec.optional, true)
 
   override def toString: String = s"$colName[$colType]"
 
@@ -22,23 +25,23 @@ object Col {
 
   final case class Name(name: String) extends scala.annotation.Annotation
 
-  def string(name: String): Col[String] = Col(name, "TEXT", ColCodec.string)
-  def uuid(name: String): Col[UUID] = Col(name, "UUID", ColCodec.uuid)
-  def boolean(name: String): Col[Boolean] = Col(name, "BOOLEAN", ColCodec.boolean)
+  def string(name: String): Col[String] = Col(name, "TEXT", ColCodec.string, false)
+  def uuid(name: String): Col[UUID] = Col(name, "UUID", ColCodec.uuid, false)
+  def boolean(name: String): Col[Boolean] = Col(name, "BOOLEAN", ColCodec.boolean, false)
 
-  def short(name: String): Col[Short] = Col(name, "SMALLINT", ColCodec.short)
-  def int(name: String): Col[Int] = Col(name, "INTEGER", ColCodec.int)
-  def long(name: String): Col[Long] = Col(name, "BIGINT", ColCodec.long)
+  def short(name: String): Col[Short] = Col(name, "SMALLINT", ColCodec.short, false)
+  def int(name: String): Col[Int] = Col(name, "INTEGER", ColCodec.int, false)
+  def long(name: String): Col[Long] = Col(name, "BIGINT", ColCodec.long, false)
 
-  def float(name: String): Col[Float] = Col(name, "REAL", ColCodec.float)
-  def double(name: String): Col[Double] = Col(name, "DOUBLE PRECISION", ColCodec.double)
+  def float(name: String): Col[Float] = Col(name, "REAL", ColCodec.float, false)
+  def double(name: String): Col[Double] = Col(name, "DOUBLE PRECISION", ColCodec.double, false)
 
-  def date(name: String): Col[LocalDate] = Col(name, "DATE", ColCodec.date)
-  def time(name: String): Col[LocalTime] = Col(name, "TIME", ColCodec.time)
-  def dateTime(name: String): Col[LocalDateTime] = Col(name, "TIMESTAMP", ColCodec.dateTime)
+  def date(name: String): Col[LocalDate] = Col(name, "DATE", ColCodec.date, false)
+  def time(name: String): Col[LocalTime] = Col(name, "TIME", ColCodec.time, false)
+  def dateTime(name: String): Col[LocalDateTime] = Col(name, "TIMESTAMP", ColCodec.dateTime, false)
 
-  def json[T: JsonCodec](name: String): Col[T] = Col(name, "JSON", ColCodec.json[T])
-  def jsonb[T: JsonCodec](name: String): Col[T] = Col(name, "JSONB", ColCodec.json[T])
+  def json[T: JsonCodec](name: String): Col[T] = Col(name, "JSON", ColCodec.json[T], false)
+  def jsonb[T: JsonCodec](name: String): Col[T] = Col(name, "JSONB", ColCodec.json[T], false)
 
   trait GenCol[T] {
     def make(name: String): Col[T]

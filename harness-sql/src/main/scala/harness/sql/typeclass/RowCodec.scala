@@ -14,4 +14,6 @@ final case class RowCodec[T](encoder: RowEncoder[T], decoder: RowDecoder[T]) { s
   final def ~[T2](other: RowCodec[T2])(implicit zip: Zip[T, T2]): RowCodec[zip.Out] =
     RowCodec(self.encoder ~ other.encoder, self.decoder ~ other.decoder)
 
+  final def optional: RowCodec[Option[T]] = RowCodec(encoder.optional, decoder.optional)
+
 }

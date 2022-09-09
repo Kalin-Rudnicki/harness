@@ -12,6 +12,8 @@ final case class ColCodec[T](encoder: ColEncoder[T], decoder: ColDecoder[T]) { s
   def imap[T2](mf: T => T2)(cmf: T2 => T): ColCodec[T2] = ColCodec(encoder.cmap(cmf), decoder.map(mf))
   def iemap[T2](mf: T => EitherNel[String, T2])(cmf: T2 => T): ColCodec[T2] = ColCodec(encoder.cmap(cmf), decoder.emap(mf))
 
+  def optional: ColCodec[Option[T]] = ColCodec(encoder.optional, decoder.optional)
+
 }
 object ColCodec {
 

@@ -1,4 +1,4 @@
-package harness.sql
+package harness.sql.query
 
 final case class QueryBool private[sql] (
     wrapped: String,
