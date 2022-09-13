@@ -3,7 +3,7 @@ package harness.sql
 import harness.sql.typeclass.*
 import shapeless3.deriving.*
 
-final case class TableInfo[T[_[_]] <: Table](
+final case class TableSchema[T[_[_]] <: Table](
     tableName: String,
     colInfo: T[Col],
     functorK: FunctorK[T],
@@ -12,9 +12,9 @@ final case class TableInfo[T[_[_]] <: Table](
     createQuery: String,
     insertQuery: String,
 )
-object TableInfo {
+object TableSchema {
 
-  inline def derived[T[_[_]] <: Table](tableName: String)(colInfo: T[Col])(using gen: K11.ProductGeneric[T]): TableInfo[T] = {
+  inline def derived[T[_[_]] <: Table](tableName: String)(colInfo: T[Col])(using gen: K11.ProductGeneric[T]): TableSchema[T] = {
     val functorK: FunctorK[T] = FunctorK.derived[T]
     val rowCodec: RowCodec[T[Id]] =
       RowCodec(
@@ -22,7 +22,7 @@ object TableInfo {
         RowDecoder.forTable[T](functorK.mapK(colInfo) { [a] => (c: Col[a]) => c.colCodec.decoder }),
       )
     val cols: IArray[Col[Any]] = colArray(colInfo)
-    TableInfo[T](
+    TableSchema[T](
       tableName = tableName,
       colInfo = colInfo,
       functorK = functorK,

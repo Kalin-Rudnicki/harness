@@ -2,12 +2,11 @@ package harness.sql.query
 
 import harness.sql.*
 import harness.sql.typeclass.*
-import scala.annotation.targetName
 import shapeless3.deriving.Id
 
 object Select {
 
-  def from[T[_[_]] <: Table](name: String)(implicit ti: TableInfo[T]): Q1[T[AppliedCol]] =
+  def from[T[_[_]] <: Table](name: String)(implicit ti: TableSchema[T]): Q1[T[AppliedCol]] =
     Q1(
       ti.functorK.mapK(ti.colInfo)(AppliedCol.withVarName(name)),
       s"${ti.tableName} $name",
@@ -16,14 +15,14 @@ object Select {
 
   final class Q1[T] private[Select] (t: T, query: String, queryInputMapper: QueryInputMapper) {
 
-    def join[T2[_[_]] <: Table](name: String)(implicit t2ti: TableInfo[T2], z: ZipCodec[T, T2[AppliedCol]]): Q2[z.C] =
+    def join[T2[_[_]] <: Table](name: String)(implicit t2ti: TableSchema[T2], z: ZipCodec[T, T2[AppliedCol]]): Q2[z.C] =
       Q2(
         z.zip(t, t2ti.functorK.mapK(t2ti.colInfo)(AppliedCol.withVarName(name))),
         s"$query JOIN ${t2ti.tableName} $name",
         queryInputMapper,
       )
 
-    def leftJoin[T2[_[_]] <: Table](name: String)(implicit t2ti: TableInfo[T2], z: ZipCodec[T, T2[AppliedCol.Opt]]): Q2[z.C] =
+    def leftJoin[T2[_[_]] <: Table](name: String)(implicit t2ti: TableSchema[T2], z: ZipCodec[T, T2[AppliedCol.Opt]]): Q2[z.C] =
       Q2(
         z.zip(t, t2ti.functorK.mapK(t2ti.functorK.mapK(t2ti.colInfo)(AppliedCol.withVarName(name)))(AppliedCol.optional)),
         s"$query LEFT JOIN ${t2ti.tableName} $name",
@@ -38,6 +37,13 @@ object Select {
         queryInputMapper + qb.queryInputMapper,
       )
     }
+
+    def orderBy[C](f: T => AppliedCol[C]): Q4[T] =
+      Q4(
+        t,
+        s"$query ORDER BY ${f(t).ref}",
+        queryInputMapper,
+      )
 
     def returning[T2](f: T => Returning[T2]): Query[T2] = {
       val ret = f(t)
@@ -60,6 +66,22 @@ object Select {
   }
 
   final class Q3[T] private[Select] (t: T, query: String, queryInputMapper: QueryInputMapper) {
+
+    def orderBy[C](f: T => AppliedCol[C]): Q4[T] =
+      Q4(
+        t,
+        s"$query ORDER BY ${f(t).ref}",
+        queryInputMapper,
+      )
+
+    def returning[T2](f: T => Returning[T2]): Query[T2] = {
+      val ret = f(t)
+      Query(s"SELECT ${ret.columns.mkString(", ")} FROM $query", ret.rowDecoder, queryInputMapper)
+    }
+
+  }
+
+  final class Q4[T] private[Select] (t: T, query: String, queryInputMapper: QueryInputMapper) {
 
     def returning[T2](f: T => Returning[T2]): Query[T2] = {
       val ret = f(t)

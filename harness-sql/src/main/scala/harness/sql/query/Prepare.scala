@@ -9,14 +9,14 @@ object Prepare {
   def selectO[O](query: Select.Query[O]): SelectQueryO[O] = SelectQueryO(query)
   def selectIO[I, Q, O](input: Input[I, Q])(f: Q => Select.Query[O]): SelectQueryIO[I, O] = SelectQueryIO(input.encoder, f(input.buildQ(0)))
 
-  def update: UpdateQuery = ??? // TODO (KR) :
-  def updateI[I, Q]: UpdateQueryI[I] = ??? // TODO (KR) :
-  def updateO[O]: UpdateQueryO[O] = ??? // TODO (KR) :
-  def updateIO[I, Q, O]: UpdateQueryIO[I, O] = ??? // TODO (KR) :
+  def update[T](query: Update.Query[T]): UpdateQuery = UpdateQuery(query.asInstanceOf)
+  def updateI[I, Q, T](input: Input[I, Q])(f: Q => Update.Query[T]): UpdateQueryI[I] = UpdateQueryI(input.encoder, f(input.buildQ(0)).asInstanceOf)
+  def updateO[O](query: Update.QueryR[O]): UpdateQueryO[O] = UpdateQueryO(query)
+  def updateIO[I, Q, O](input: Input[I, Q])(f: Q => Update.QueryR[O]): UpdateQueryIO[I, O] = UpdateQueryIO(input.encoder, f(input.buildQ(0)).asInstanceOf)
 
-  def delete: DeleteQuery = ??? // TODO (KR) :
-  def deleteI[I, Q]: DeleteQueryI[I] = ??? // TODO (KR) :
-  def deleteO[O]: DeleteQueryO[O] = ??? // TODO (KR) :
-  def deleteIO[I, Q, O]: DeleteQueryIO[I, O] = ??? // TODO (KR) :
+  def delete[T](query: Delete.Query[T]): DeleteQuery = DeleteQuery(query.asInstanceOf)
+  def deleteI[I, Q, T](input: Input[I, Q])(f: Q => Delete.Query[T]): DeleteQueryI[I] = DeleteQueryI(input.encoder, f(input.buildQ(0)).asInstanceOf)
+  def deleteO[O](query: Delete.QueryR[O]): DeleteQueryO[O] = DeleteQueryO(query)
+  def deleteIO[I, Q, O](input: Input[I, Q])(f: Q => Delete.QueryR[O]): DeleteQueryIO[I, O] = DeleteQueryIO(input.encoder, f(input.buildQ(0)).asInstanceOf)
 
 }

@@ -6,7 +6,7 @@ import shapeless3.deriving.Id
 
 object Insert {
 
-  def into[T[_[_]] <: Table](implicit ti: TableInfo[T]): Query[T[Id]] =
+  def into[T[_[_]] <: Table](implicit ti: TableSchema[T]): Query[T[Id]] =
     Query(ti.insertQuery, ti.rowCodec.encoder)
 
   final class Query[I] private[Insert] (

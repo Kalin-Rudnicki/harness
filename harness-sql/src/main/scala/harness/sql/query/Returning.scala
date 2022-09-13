@@ -2,7 +2,6 @@ package harness.sql.query
 
 import harness.sql.*
 import harness.sql.typeclass.*
-import scala.annotation.targetName
 import shapeless3.deriving.Id
 
 final case class Returning[T] private (
@@ -16,10 +15,10 @@ final case class Returning[T] private (
 }
 object Returning {
 
-  given convertTable[T[_[_]] <: Table](using ti: TableInfo[T]): Conversion[T[AppliedCol], Returning[T[Id]]] =
+  given convertTable[T[_[_]] <: Table](using ti: TableSchema[T]): Conversion[T[AppliedCol], Returning[T[Id]]] =
     t => Returning(ti.tableCols.columns(t), ti.rowCodec.decoder)
 
-  given convertOptTable[T[_[_]] <: Table](using ti: TableInfo[T]): Conversion[T[AppliedCol.Opt], Returning[Option[T[Id]]]] =
+  given convertOptTable[T[_[_]] <: Table](using ti: TableSchema[T]): Conversion[T[AppliedCol.Opt], Returning[Option[T[Id]]]] =
     t => Returning(ti.tableCols.columns(ti.functorK.mapK(t) { [a] => (aco: AppliedCol.Opt[a]) => aco.wrapped }), ti.rowCodec.decoder.optional)
 
   given convertCol[T]: Conversion[AppliedCol[T], Returning[T]] =
