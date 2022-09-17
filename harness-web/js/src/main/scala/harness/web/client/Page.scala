@@ -13,7 +13,7 @@ sealed trait Page {
 
   val fetchState: SHTaskN[S]
   val titleF: Either[String, S => String]
-  val widget: vdom.PWidget[A, S, S, Any]
+  val widget: vdom.PModifier[A, S, S, Any]
   val handleA: A => SHTaskN[List[Raise.StandardOrUpdate[S]]]
 
   private final def renderAnd(
@@ -67,13 +67,13 @@ object Page {
       fetchState: SHTaskN[State],
       titleF: Either[String, State => String],
   ) {
-    def body[Action](widget: PWidget[Action, State, State, Any]): Builder4[Action, State] = Builder4(fetchState, titleF, widget)
+    def body[Action](widget: vdom.PModifier[Action, State, State, Any]): Builder4[Action, State] = Builder4(fetchState, titleF, widget)
   }
 
   final class Builder4[Action, State] private[Page] (
       fetchState: SHTaskN[State],
       titleF: Either[String, State => String],
-      widget: PWidget[Action, State, State, Any],
+      widget: vdom.PModifier[Action, State, State, Any],
   ) { self =>
 
     def handleA(_handleA: Action => SHTaskN[List[Raise.StandardOrUpdate[State]]]): Page =
@@ -82,7 +82,7 @@ object Page {
         override type S = State
         override val fetchState: SHTaskN[State] = self.fetchState
         override val titleF: Either[String, State => String] = self.titleF
-        override val widget: PWidget[Action, State, State, Any] = self.widget
+        override val widget: vdom.PModifier[Action, State, State, Any] = self.widget
         override val handleA: Action => SHTaskN[List[Raise.StandardOrUpdate[State]]] = _handleA
       }
 

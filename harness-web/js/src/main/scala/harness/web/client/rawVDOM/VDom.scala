@@ -7,6 +7,42 @@ import scala.scalajs.js
 
 object VDom {
 
+  final case class State(
+      elements: List[Element],
+      classNames: Set[String],
+      cssAttrs: Map[ScopedName, String],
+      stdAttrs: Map[ScopedName, String],
+      objAttrs: Map[String, js.Any],
+  )
+  object State {
+
+    def fromModifiers(modifiers: List[Modifier.Basic]): VDom.State = {
+      @tailrec
+      def loop(
+          queue: List[Modifier.Basic],
+          elements: List[Element],
+          classNames: Set[String],
+          cssAttrs: Map[ScopedName, String],
+          stdAttrs: Map[ScopedName, String],
+          objAttrs: Map[String, js.Any],
+      ): VDom.State =
+        queue match {
+          case head :: tail =>
+            head match {
+              case element: Element           => loop(tail, element :: elements, classNames, cssAttrs, stdAttrs, objAttrs)
+              case name: ClassName            => loop(tail, elements, classNames ++ name.classNames, cssAttrs, stdAttrs, objAttrs)
+              case CSSAttr(scopedName, value) => loop(tail, elements, classNames, cssAttrs.updated(scopedName, value), stdAttrs, objAttrs)
+              case StdAttr(scopedName, value) => loop(tail, elements, classNames, cssAttrs, stdAttrs.updated(scopedName, value), objAttrs)
+              case KeyAttr(name, value)       => loop(tail, elements, classNames, cssAttrs, stdAttrs, objAttrs.updated(name, value))
+            }
+          case Nil => VDom.State(elements.reverse, classNames, cssAttrs, stdAttrs, objAttrs)
+        }
+
+      loop(modifiers, Nil, Set.empty, Map.empty, Map.empty, Map.empty)
+    }
+
+  }
+
   // =====| ScopedName |=====
 
   final case class ScopedName(prefix: Option[String], name: String) {
@@ -33,6 +69,8 @@ object VDom {
     sealed trait Basic extends Modifier
     final case class Wrapped(children: List[Basic]) extends Modifier
 
+    sealed trait Attr extends Basic
+
     def apply(children: Modifier*): Modifier = Wrapped(children.toList.flatMap(_.toBasics))
     def flatten(children: List[Modifier]): Modifier = Wrapped(children.flatMap(_.toBasics))
 
@@ -57,30 +95,7 @@ object VDom {
       modifiers: List[Modifier.Basic],
   ) extends Element {
 
-    def splitModifiers: (List[Element], Set[String], Map[ScopedName, String], Map[ScopedName, String], Map[String, js.Any]) = {
-      @tailrec
-      def loop(
-          queue: List[Modifier.Basic],
-          elements: List[Element],
-          classNames: Set[String],
-          cssAttrs: Map[ScopedName, String],
-          stdAttrs: Map[ScopedName, String],
-          objAttrs: Map[String, js.Any],
-      ): (List[Element], Set[String], Map[ScopedName, String], Map[ScopedName, String], Map[String, js.Any]) =
-        queue match {
-          case head :: tail =>
-            head match {
-              case element: Element           => loop(tail, element :: elements, classNames, cssAttrs, stdAttrs, objAttrs)
-              case name: ClassName            => loop(tail, elements, classNames ++ name.classNames, cssAttrs, stdAttrs, objAttrs)
-              case CSSAttr(scopedName, value) => loop(tail, elements, classNames, cssAttrs.updated(scopedName, value), stdAttrs, objAttrs)
-              case StdAttr(scopedName, value) => loop(tail, elements, classNames, cssAttrs, stdAttrs.updated(scopedName, value), objAttrs)
-              case KeyAttr(name, value)       => loop(tail, elements, classNames, cssAttrs, stdAttrs, objAttrs.updated(name, value))
-            }
-          case Nil => (elements.reverse, classNames, cssAttrs, stdAttrs, objAttrs)
-        }
-
-      loop(modifiers, Nil, Set.empty, Map.empty, Map.empty, Map.empty)
-    }
+    def innerState: VDom.State = State.fromModifiers(modifiers)
 
   }
   object NodeElement {
@@ -89,7 +104,7 @@ object VDom {
 
   // =====| Attrs |=====
 
-  enum ClassName extends Modifier.Basic {
+  enum ClassName extends Modifier.Attr {
     case Block(block: String, modifiers: Set[String])
     case Element(block: String, element: String, modifiers: Set[String])
 
@@ -115,8 +130,8 @@ object VDom {
 
   }
 
-  final case class CSSAttr(scopedName: ScopedName, value: String) extends Modifier.Basic
-  final case class StdAttr(scopedName: ScopedName, value: String) extends Modifier.Basic
-  final case class KeyAttr(name: String, value: js.Any) extends Modifier.Basic
+  final case class CSSAttr(scopedName: ScopedName, value: String) extends Modifier.Attr
+  final case class StdAttr(scopedName: ScopedName, value: String) extends Modifier.Attr
+  final case class KeyAttr(name: String, value: js.Any) extends Modifier.Attr
 
 }

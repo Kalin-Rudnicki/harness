@@ -1,18 +1,13 @@
 package harness.web.client.vdom
 
-type CModifier = PModifier[Nothing, Any, Nothing]
-type CModifierA[+A] = PModifier[A, Any, Nothing]
-type Modifier[S] = PModifier[Nothing, S, S]
-type ModifierA[+A, S] = PModifier[A, S, S]
-
-type CWidget = PWidget[Nothing, Any, Nothing, Unit]
-type CWidgetA[+A] = PWidget[A, Any, Nothing, Unit]
-type CWidgetV[+V] = PWidget[Nothing, Any, Nothing, V]
-type CWidgetAV[+A, +V] = PWidget[A, Any, Nothing, V]
-type Widget[S] = PWidget[Nothing, S, S, Unit]
-type WidgetA[+A, S] = PWidget[A, S, S, Unit]
-type WidgetV[S, +V] = PWidget[Nothing, S, S, V]
-type WidgetAV[+A, S, +V] = PWidget[A, S, S, V]
+type CModifier = PModifier[Nothing, Any, Nothing, Unit]
+type CModifierA[+A] = PModifier[A, Any, Nothing, Unit]
+type CModifierV[+V] = PModifier[Nothing, Any, Nothing, V]
+type CModifierAV[+A, +V] = PModifier[A, Any, Nothing, V]
+type Modifier[S] = PModifier[Nothing, S, S, Unit]
+type ModifierA[+A, S] = PModifier[A, S, S, Unit]
+type ModifierV[S, +V] = PModifier[Nothing, S, S, V]
+type ModifierAV[+A, S, +V] = PModifier[A, S, S, V]
 
 type CNodeWidget = PNodeWidget[Nothing, Any, Nothing, Unit]
 type CNodeWidgetA[+A] = PNodeWidget[A, Any, Nothing, Unit]

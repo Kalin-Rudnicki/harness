@@ -5,7 +5,7 @@ import harness.core.*
 import harness.web.client.rawVDOM.Renderer
 import harness.web.client.vdom.{given, *}
 import harness.zio.*
-import org.scalajs.dom.console
+import org.scalajs.dom.{console, window}
 import scala.annotation.nowarn
 import zio.*
 
@@ -42,7 +42,7 @@ trait PageApp extends ZIOApp {
       .constState(())
       .constTitle("404 Not Found")
       .body(
-        PWidget(
+        PModifier(
           h1("404 Not Found"),
           h3(url.toString),
         ),
@@ -58,9 +58,9 @@ trait PageApp extends ZIOApp {
       .constState(())
       .constTitle("Bad URL")
       .body(
-        PWidget(
+        PModifier(
           h1("Error parsing URL"),
-          PWidget.foreach(errors.toList) { e =>
+          PModifier.foreach(errors.toList) { e =>
             h3(e.userMessage)
           },
         ),
@@ -74,7 +74,6 @@ trait PageApp extends ZIOApp {
     (for {
       runtime <- bootstrap.toRuntime
       renderer <- Renderer.Initial
-      url <- Url.fromWindowURL.toErrorNel
       urlToPage = { (url: Url) =>
         routeMatcher(url) match {
           case RouteMatcher.Result.Success(page) => page
@@ -82,8 +81,23 @@ trait PageApp extends ZIOApp {
           case RouteMatcher.Result.NotFound      => `404Page`(url)
         }
       }
-      page = urlToPage(url)
-      _ <- page.replaceNoTrace(renderer, runtime, urlToPage)
+      attemptToLoadPage =
+        for {
+          url <- Url.fromWindowURL.toErrorNel
+          page = urlToPage(url)
+          _ <- page.replaceNoTrace(renderer, runtime, urlToPage)
+        } yield ()
+      _ <- attemptToLoadPage
+      _ <-
+        ZIO
+          .hAttempt("Unable to set window.onpopstate") {
+            window.onpopstate = { _ =>
+              Unsafe.unsafe {
+                runtime.unsafe.run(attemptToLoadPage.dumpErrorsAndContinueNel)
+              }
+            }
+          }
+          .toErrorNel
     } yield ()).dumpErrorsAndContinueNel
 
 }

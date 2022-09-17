@@ -8,17 +8,21 @@ object Raise {
   // =====| Types |=====
 
   final case class Action[A](action: A) extends Raise[A, Nothing]
-
   sealed trait StandardOrUpdate[+S] extends Raise[Nothing, S]
 
   final case class ModifyState[S](modify: S => S, reRender: Boolean) extends Raise.StandardOrUpdate[S]
 
+  inline def updateState[S](f: S => S): ModifyState[S] = ModifyState[S](f, true)
+  inline def updateStateNoReRender[S](f: S => S): ModifyState[S] = ModifyState[S](f, false)
+  inline def setState[S](f:  => S): ModifyState[S] = ModifyState[S](_ => f, true)
+  inline def setStateNoReRender[S](f:  => S): ModifyState[S] = ModifyState[S](_ => f, false)
+
   sealed trait Standard extends Raise.StandardOrUpdate[Nothing]
 
   // TODO (KR) : format message
-  final case class DisplayMessage(message: String) extends Standard
+  final case class DisplayMessage(message: String) extends Raise.Standard
 
-  sealed trait History extends Standard
+  sealed trait History extends Raise.Standard
   object History {
     final case class Push(page: Url) extends History
     final case class Replace(page: Url) extends History
@@ -32,6 +36,6 @@ object Raise {
   }
 
   // TODO (KR) : Have a way to force reload the page
-  // case object ReloadPage extends Standard[Any]
+  // case object ReloadPage extends Raise.Standard
 
 }
