@@ -38,7 +38,7 @@ trait PageApp extends ZIOApp {
     * Page to display on 404-not-found. You can override this in your app.
     */
   val `404Page`: Url => Page = { url =>
-    Page(url)
+    Page.builder
       .constState(())
       .constTitle("404 Not Found")
       .body(
@@ -53,8 +53,8 @@ trait PageApp extends ZIOApp {
   /**
     * Page to display when URL parsing results in an error. You can override this in your app.
     */
-  val errorPage: NonEmptyList[HError] => Url => Page = { errors => url =>
-    Page(url)
+  val errorPage: NonEmptyList[HError] => Page = { errors =>
+    Page.builder
       .constState(())
       .constTitle("Bad URL")
       .body(
@@ -75,13 +75,15 @@ trait PageApp extends ZIOApp {
       runtime <- bootstrap.toRuntime
       renderer <- Renderer.Initial
       url <- Url.fromWindowURL.toErrorNel
-      page =
+      urlToPage = { (url: Url) =>
         routeMatcher(url) match {
           case RouteMatcher.Result.Success(page) => page
-          case RouteMatcher.Result.Fail(errors)  => errorPage(errors)(url)
+          case RouteMatcher.Result.Fail(errors)  => errorPage(errors)
           case RouteMatcher.Result.NotFound      => `404Page`(url)
         }
-      _ <- page.replaceNoTrace(renderer, runtime)
+      }
+      page = urlToPage(url)
+      _ <- page.replaceNoTrace(renderer, runtime, urlToPage)
     } yield ()).dumpErrorsAndContinueNel
 
 }
