@@ -17,19 +17,19 @@ object Tmp extends ExecutableApp {
   // =====|  |=====
 
   final case class Musician[F[_]](
-      id: F[UUID],
+      id: F[Musician.Id],
       firstName: F[String],
       lastName: F[String],
       instrument: F[String],
       birthday: F[LocalDate],
       favoriteNumber: F[Option[Int]],
-  ) extends Table.WithId[F]
+  ) extends Table.WithId[F, Musician.Id]
   object Musician extends Table.Companion.WithId[Musician] {
 
-    override implicit val tableSchema: TableSchema[Musician] =
+    override implicit lazy val tableSchema: TableSchema[Musician] =
       TableSchema.derived[Musician]("musician")(
         Musician[Col](
-          id = Col.uuid("id"),
+          id = Id.col("id"),
           firstName = Col.string("first_name"),
           lastName = Col.string("last_name"),
           instrument = Col.string("instrument"),
@@ -41,16 +41,16 @@ object Tmp extends ExecutableApp {
   }
 
   final case class Band[F[_]](
-      id: F[UUID],
+      id: F[Band.Id],
       name: F[String],
       formationDate: F[LocalDate],
-  ) extends Table.WithId[F]
+  ) extends Table.WithId[F, Band.Id]
   object Band extends Table.Companion.WithId[Band] {
 
-    override implicit val tableSchema: TableSchema[Band] =
+    override implicit lazy val tableSchema: TableSchema[Band] =
       TableSchema.derived[Band]("band")(
         Band[Col](
-          id = Col.uuid("id"),
+          id = Id.col("id"),
           name = Col.string("name"),
           formationDate = Col.date("formation_date"),
         ),
@@ -59,19 +59,19 @@ object Tmp extends ExecutableApp {
   }
 
   final case class MusicianInBand[F[_]](
-      id: F[UUID],
-      musicianId: F[UUID],
-      bandId: F[UUID],
+      id: F[MusicianInBand.Id],
+      musicianId: F[Musician.Id],
+      bandId: F[Band.Id],
       active: F[Boolean],
-  ) extends Table.WithId[F]
+  ) extends Table.WithId[F, MusicianInBand.Id]
   object MusicianInBand extends Table.Companion.WithId[MusicianInBand] {
 
-    override implicit val tableSchema: TableSchema[MusicianInBand] =
+    override implicit lazy val tableSchema: TableSchema[MusicianInBand] =
       TableSchema.derived[MusicianInBand]("musician_in_band")(
         MusicianInBand[Col](
-          id = Col.uuid("id"),
-          musicianId = Col.uuid("musician_id"),
-          bandId = Col.uuid("band_id"),
+          id = Id.col("id"),
+          musicianId = Musician.Id.col("musician_id"),
+          bandId = Band.Id.col("band_id"),
           active = Col.boolean("active"),
         ),
       )
@@ -80,77 +80,66 @@ object Tmp extends ExecutableApp {
 
   // =====|  |=====
 
-  val musicians: QueryO[Musician.Id] =
-    Prepare.selectO {
-      Select
-        .from[Musician]("m")
-        .returning { m => m }
-    }
+  object MusicianQueries extends TableQueries[Musician.Id, Musician] {
 
-  val musicianById: QueryIO[UUID, Musician.Id] =
-    Prepare.selectIO(Input[UUID]) { id =>
-      Select
-        .from[Musician]("m")
-        .where { m => m.id === id }
-        .returning { m => m }
-    }
+    val byNames: QueryIO[(String, String), Musician.Identity] =
+      Prepare.selectIO(Input[String] ~ Input[String]) { (first, last) =>
+        Select
+          .from[Musician]("m")
+          .where { m => m.lastName === last && m.firstName === first }
+          .returning { m => m }
+      }
 
-  val musicianByNames: QueryIO[(String, String), Musician.Id] =
-    Prepare.selectIO(Input[String] ~ Input[String]) { (first, last) =>
-      Select
-        .from[Musician]("m")
-        .where { m => m.lastName === last && m.firstName === first }
-        .returning { m => m }
-    }
+    val setFavoriteNumber: QueryIO[(Musician.Id, Option[Int]), Musician.Identity] =
+      Prepare.updateIO(Input[Musician.Id] ~ Input[Option[Int]]) { (id, fn) =>
+        Update[Musician]("m")
+          .where { m => m.id === id }
+          .set { m => m.favoriteNumber := fn }
+          .returning { m => m }
+      }
 
-  val musicianSetFavoriteNumber: QueryIO[(UUID, Option[Int]), Musician.Id] =
-    Prepare.updateIO(Input[UUID] ~ Input[Option[Int]]) { (id, fn) =>
-      Update[Musician]("m")
-        .where { m => m.id === id }
-        .set { m => m.favoriteNumber := fn }
-        .returning { m => m }
-    }
+    val withFavNumGreaterThan: QueryIO[Int, Musician.Identity] =
+      Prepare.selectIO(Input[Int]) { num =>
+        Select
+          .from[Musician]("m")
+          .where { m => m.favoriteNumber > num }
+          .returning { m => m }
+      }
 
-  val musicianDelete: QueryIO[UUID, Musician.Id] =
-    Prepare.deleteIO(Input[UUID]) { id =>
-      Delete
-        .from[Musician]("m")
-        .where { m => m.id === id }
-        .returning { m => m }
-    }
+    val musicianAndBandNames: QueryO[(Musician.Identity, Option[String])] =
+      Prepare.selectO {
+        Select
+          .from[Musician]("m")
+          .leftJoin[MusicianInBand]("mib")
+          .on { (m, mib) => mib.musicianId === m.id }
+          .leftJoin[Band]("b")
+          .on { (_, mib, b) => mib.bandId === b.id }
+          .where { (_, mib, _) => mib.active.isNull || mib.active }
+          .orderBy { (m, _, _) => m.id }
+          .returning { (m, _, b) => m ~ b.name }
+      }
 
-  val bandByName: QueryIO[String, Band.Id] =
-    Prepare.selectIO(Input[String]) { name =>
-      Select
-        .from[Band]("b")
-        .where { b => b.name === name }
-        .returning { b => b }
-    }
+  }
 
-  val musicianWithFavNumGreaterThan: QueryIO[Int, Musician.Id] =
-    Prepare.selectIO(Input[Int]) { num =>
-      Select
-        .from[Musician]("m")
-        .where { m => m.favoriteNumber > num }
-        .returning { m => m }
-    }
+  object BandQueries extends TableQueries[Band.Id, Band] {
 
-  val musicianAndBandNames: QueryO[(Musician.Id, Option[String])] =
-    Prepare.selectO {
-      Select
-        .from[Musician]("m")
-        .leftJoin[MusicianInBand]("mib")
-        .on { (m, mib) => mib.musicianId === m.id }
-        .leftJoin[Band]("b")
-        .on { (_, mib, b) => mib.bandId === b.id }
-        .where { (_, mib, _) => mib.active.isNull || mib.active }
-        .orderBy { (m, _, _) => m.id }
-        .returning { (m, _, b) => m ~ b.name }
-    }
+    val byName: QueryIO[String, Band.Identity] =
+      Prepare.selectIO(Input[String]) { name =>
+        Select
+          .from[Band]("b")
+          .where { b => b.name === name }
+          .returning { b => b }
+      }
 
-  val m1: Musician.Id =
-    new Musician.Id(
-      id = UUID.randomUUID,
+  }
+
+  object MusicianInBandQueries extends TableQueries[MusicianInBand.Id, MusicianInBand]
+
+  // =====|  |=====
+
+  val m1: Musician.Identity =
+    new Musician.Identity(
+      id = Musician.Id.gen,
       firstName = "Joy",
       lastName = "Rudnicki",
       instrument = "Piano",
@@ -174,24 +163,24 @@ object Tmp extends ExecutableApp {
           // theBest <- bandByName("The Best").single.mapError(HError.InternalDefect("...", _))
           // anotherBand <- bandByName("Another Band").single.mapError(HError.InternalDefect("...", _))
 
-          musicians <- Musician.selectAll().chunk.mapError(HError.InternalDefect("...", _))
+          musicians <- MusicianQueries.selectAll().chunk.mapError(HError.InternalDefect("...", _))
           _ <- Logger.log.info("")
           _ <- ZIO.foreachDiscard(musicians)(Logger.log.info(_))
           _ <- Logger.log.info("")
-          bands <- Band.selectAll().chunk.mapError(HError.InternalDefect("...", _))
+          bands <- BandQueries.selectAll().chunk.mapError(HError.InternalDefect("...", _))
           _ <- Logger.log.info(bands)
-          musicianInBands <- MusicianInBand.selectAll().chunk.mapError(HError.InternalDefect("...", _))
+          musicianInBands <- MusicianInBandQueries.selectAll().chunk.mapError(HError.InternalDefect("...", _))
           _ <- Logger.log.info(musicianInBands)
 
           // pairs1 <- musicianAndBandNames().groupByLeft(_._1)(_._2).chunk.mapError(HError.InternalDefect("...", _))
           // _ <- Logger.log.info("")
           // _ <- ZIO.foreachDiscard(pairs1)(Logger.log.info(_))
 
-          _ <- Logger.log.info("")
-          m <- Musician.delete(UUID.fromString("845e6c5b-c202-4882-854f-887c53124f7b")).single.mapError(HError.InternalDefect("...", _))
-          _ <- Logger.log.info(m)
+          // _ <- Logger.log.info("")
+          // m <- Musician.delete(UUID.fromString("845e6c5b-c202-4882-854f-887c53124f7b")).single.mapError(HError.InternalDefect("...", _))
+          // _ <- Logger.log.info(m)
 
-          musicians <- Musician.selectAll().chunk.mapError(HError.InternalDefect("...", _))
+          musicians <- MusicianQueries.selectAll().chunk.mapError(HError.InternalDefect("...", _))
           _ <- Logger.log.info("")
           _ <- ZIO.foreachDiscard(musicians)(Logger.log.info(_))
           _ <- Logger.log.info("")
