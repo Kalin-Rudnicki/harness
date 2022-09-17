@@ -60,11 +60,11 @@ object RouteMatcher {
 
   // =====| Builders |=====
 
-  final class PathArg[A] private (implicit val decoder: StringDecoder[A])
-  object PathArg {
-    def apply[A: StringDecoder]: PathArg[A] = new PathArg[A]
+  final class *[A] private (implicit val decoder: StringDecoder[A])
+  object * {
+    def apply[A: StringDecoder]: *[A] = new *[A]
   }
 
-  object RemainingArgs
+  object **
 
 }

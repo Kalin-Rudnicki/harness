@@ -1,6 +1,7 @@
 package harness.web.server
 
 import harness.core.*
+import harness.zio.*
 import java.io.OutputStream
 import zio.json.JsonEncoder
 
@@ -48,7 +49,8 @@ object HttpResponse {
       Map("Location" -> location),
     )
 
-  // TODO (KR) : file
+  def file(path: Path): HTask[HttpResponse.Found] =
+    path.readString.map(HttpResponse(_))
 
   // TODO (KR) : jar resource
 
