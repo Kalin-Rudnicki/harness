@@ -72,6 +72,7 @@ object RaiseHandler {
       handleA: A => SHTaskN[List[Raise.StandardOrUpdate[S]]],
       titleF: Either[String, S => String],
       runtime: Runtime[HarnessEnv],
+      urlToPage: Url => Page,
   ): RaiseHandler[A, S] =
     new RaiseHandler[A, S](runtime) { self =>
       override val handleRaise: Raise[A, S] => SHTaskN[Unit] = { raise =>
@@ -82,9 +83,9 @@ object RaiseHandler {
               raise match {
                 case history: Raise.History =>
                   history match {
-                    case Raise.History.Push(page)    => page().push(renderer, runtime)
-                    case Raise.History.Replace(page) => page().replace(renderer, runtime)
-                    case Raise.History.Go(_)         =>
+                    case Raise.History.Push(url)    => urlToPage(url).push(renderer, runtime, urlToPage, url)
+                    case Raise.History.Replace(url) => urlToPage(url).replace(renderer, runtime, urlToPage, url)
+                    case Raise.History.Go(_)        =>
                       // TODO (KR) : This probably needs to have access to the RouteMatcher, or a way to store the page in the history somehow
                       ZIO.failNel(HError.???("History.go"))
                   }

@@ -20,12 +20,12 @@ object Raise {
 
   sealed trait History extends Standard
   object History {
-    final case class Push(page: () => Page) extends History
-    final case class Replace(page: () => Page) extends History
+    final case class Push(page: Url) extends History
+    final case class Replace(page: Url) extends History
     final case class Go(delta: Int) extends History
 
-    inline def push(page: => Page): Push = Push(() => page)
-    inline def replace(page: => Page): Replace = Replace(() => page)
+    inline def push(url: Url): Push = Push(url)
+    inline def replace(url: Url): Replace = Replace(url)
     inline def go(delta: Int): Go = Go(delta)
     val forward: Go = go(1)
     val back: Go = go(-1)

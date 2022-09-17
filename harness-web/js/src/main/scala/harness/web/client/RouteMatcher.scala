@@ -33,13 +33,13 @@ trait RouteMatcher[I] private { self =>
   /**
     * Will consume all strings from the path
     */
-  final def /:[O](@unused ra: RouteMatcher.RemainingArgs.type)(implicit zip: Zip.Out[O, List[String], I]): RouteMatcher[O] =
+  final def /:[O](@unused ra: RouteMatcher.**.type)(implicit zip: Zip.Out[O, List[String], I]): RouteMatcher[O] =
     (i, path, params, rPPath, rPParams) => self.routeInternal(zip.zip(i, path), Nil, params, path reverse_::: rPPath, rPParams)
 
   /**
     * Will consume a string from the path, and that string must be decoded
     */
-  final def /:[A, O](arg: RouteMatcher.PathArg[A])(implicit zip: Zip.Out[O, A, I]): RouteMatcher[O] =
+  final def /:[A, O](arg: RouteMatcher.*[A])(implicit zip: Zip.Out[O, A, I]): RouteMatcher[O] =
     (i, path, params, rPPath, rPParams) =>
       path match {
         case value :: tail =>
@@ -144,30 +144,32 @@ object RouteMatcher {
 
   // =====| Builders |=====
 
-  final class PathArg[A] private (implicit val decoder: StringDecoder[A])
-  object PathArg {
-    def apply[A: StringDecoder]: PathArg[A] = new PathArg[A]
+  // path arg
+  final class *[A] private (implicit val decoder: StringDecoder[A])
+  object * {
+    def apply[A: StringDecoder]: *[A] = new *[A]
   }
+
+  // all remaining path args
+  object **
 
   final class ParamArg[A] private (val param: String)(implicit val decoder: StringDecoder[A])
   object ParamArg {
     def apply[A: StringDecoder](param: String): ParamArg[A] = new ParamArg[A](param)
   }
 
-  object RemainingArgs
-
   // =====| Implementations |=====
 
-  def finish[I](f: I => Url => Page): RouteMatcher[I] =
+  def finish[I](f: I => Page): RouteMatcher[I] =
     (i, path, _, rPPath, rPParams) =>
-      if (path.isEmpty) Result.Success(f(i)(Url(rPPath.reverse, rPParams.reverse.toMap)))
+      if (path.isEmpty) Result.Success(f(i))
       else Result.NotFound
 
-  inline def const(page: Url => Page): RouteMatcher.Root =
-    RouteMatcher.finish[Unit] { _ => page(_) }
+  inline def const(page: => Page): RouteMatcher.Root =
+    RouteMatcher.finish[Unit] { _ => page }
 
-  inline def constIgnorePath(page: Url => Page): RouteMatcher.Root =
-    RemainingArgs /: finish[List[String]] { _ => page }
+  inline def constIgnorePath(page: => Page): RouteMatcher.Root =
+    ** /: finish[List[String]] { _ => page }
 
   def oneOf[I](children: RouteMatcher[I]*): RouteMatcher[I] = { (i, path, params, rPPath, rPParams) =>
     @tailrec
