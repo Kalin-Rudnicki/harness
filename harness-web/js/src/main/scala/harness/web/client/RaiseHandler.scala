@@ -38,6 +38,11 @@ abstract class RaiseHandler[-A, -S] private (
   inline final def setState(f: => S): Unit = updateState[S] { _ => f }
   inline final def setStateNoReRender(f: => S): Unit = updateStateNoReRender[S] { _ => f }
 
+  // --- History ---
+
+  inline final def pushUrl(url: Url): Unit = raise(Raise.History.Push(url))
+  inline final def replaceUrl(url: Url): Unit = raise(Raise.History.Replace(url))
+
   // --- Transform ---
 
   @nowarn
@@ -47,6 +52,10 @@ abstract class RaiseHandler[-A, -S] private (
       case raise: Raise.Action[A]         => handleRaise(raise)
       case raise: Raise.Standard          => handleRaise(raise)
     }
+
+  @nowarn
+  private[client] final def mapRaise[NewA, S2 <: S](f: Raise[NewA, S2] => SHTaskN[List[Raise[A, S]]]): RaiseHandler[NewA, S2] =
+    RaiseHandler[NewA, S2](runtime) { f(_).flatMap(ZIO.foreachDiscard(_)(handleRaise)) }
 
   @nowarn
   private[client] final def mapAction[NewA](f: NewA => SHTaskN[List[Raise[A, S]]]): RaiseHandler[NewA, S] =
@@ -68,7 +77,7 @@ object RaiseHandler {
   private[client] def root[A, S](
       renderer: rawVDOM.Renderer,
       stateRef: Ref.Synchronized[S],
-      widget: PWidget[A, S, S, Any],
+      widget: PModifier[A, S, S, Any],
       handleA: A => SHTaskN[List[Raise.StandardOrUpdate[S]]],
       titleF: Either[String, S => String],
       runtime: Runtime[HarnessEnv],
