@@ -41,9 +41,9 @@ object Route {
     Route.oneOf(
       "api" /: Route.oneOf(apis*),
       // TODO (KR) :
-      (HttpMethod.GET / "page" / RouteMatcher.RemainingArgs).implement { _ => ZIO.failNel(HError.???("return page")) },
+      (HttpMethod.GET / "page" / RouteMatcher.**).implement { _ => ZIO.failNel(HError.???("return page")) },
       // TODO (KR) :
-      (HttpMethod.GET / "favicon.ico" / RouteMatcher.RemainingArgs).implement { _ => ZIO.failNel(HError.???("return favicon.ico")) },
+      (HttpMethod.GET / "favicon.ico" / RouteMatcher.**).implement { _ => ZIO.failNel(HError.???("return favicon.ico")) },
       HttpMethod.GET.implement { _ => ZIO.succeed(HttpResponse.redirect("/page")) },
     )
 
