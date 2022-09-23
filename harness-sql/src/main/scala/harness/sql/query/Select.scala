@@ -9,7 +9,7 @@ object Select {
   def from[T[_[_]] <: Table](name: String)(implicit ti: TableSchema[T]): Q1[T[AppliedCol]] =
     Q1(
       ti.functorK.mapK(ti.colInfo)(AppliedCol.withVarName(name)),
-      s"${ti.tableName} $name",
+      s"${ti.referenceName} $name",
       QueryInputMapper.empty,
     )
 
@@ -18,14 +18,14 @@ object Select {
     def join[T2[_[_]] <: Table](name: String)(implicit t2ti: TableSchema[T2], z: ZipCodec[T, T2[AppliedCol]]): Q2[z.C] =
       Q2(
         z.zip(t, t2ti.functorK.mapK(t2ti.colInfo)(AppliedCol.withVarName(name))),
-        s"$query JOIN ${t2ti.tableName} $name",
+        s"$query JOIN ${t2ti.referenceName} $name",
         queryInputMapper,
       )
 
     def leftJoin[T2[_[_]] <: Table](name: String)(implicit t2ti: TableSchema[T2], z: ZipCodec[T, T2[AppliedCol.Opt]]): Q2[z.C] =
       Q2(
         z.zip(t, t2ti.functorK.mapK(t2ti.functorK.mapK(t2ti.colInfo)(AppliedCol.withVarName(name)))(AppliedCol.optional)),
-        s"$query LEFT JOIN ${t2ti.tableName} $name",
+        s"$query LEFT JOIN ${t2ti.referenceName} $name",
         queryInputMapper,
       )
 

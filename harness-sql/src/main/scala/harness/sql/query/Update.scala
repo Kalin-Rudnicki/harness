@@ -9,7 +9,7 @@ object Update {
   def apply[T[_[_]] <: Table](name: String)(implicit ti: TableSchema[T]): Q1[T[AppliedCol]] =
     Q1(
       ti.functorK.mapK(ti.colInfo)(AppliedCol.withVarName(name)),
-      s"${ti.tableName} $name",
+      s"${ti.referenceName} $name",
     )
 
   final class Q1[T] private[Update] (

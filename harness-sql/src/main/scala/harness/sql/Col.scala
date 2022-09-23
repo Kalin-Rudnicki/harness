@@ -1,5 +1,7 @@
 package harness.sql
 
+import cats.data.EitherNel
+import cats.syntax.option.*
 import harness.sql.typeclass.*
 import java.time.*
 import java.util.UUID
@@ -10,38 +12,45 @@ final case class Col[T] private (
     colType: String,
     colCodec: ColCodec[T],
     nullable: Boolean,
+    constraints: List[Col.Constraint],
 ) {
 
   def imap[T2](mf: T => T2)(cmf: T2 => T): Col[T2] =
-    Col(colName, colType, colCodec.imap(mf)(cmf), nullable)
+    Col(colName, colType, colCodec.imap(mf)(cmf), nullable, constraints)
+
+  def iemap[T2](mf: T => EitherNel[String, T2])(cmf: T2 => T): Col[T2] =
+    Col(colName, colType, colCodec.iemap(mf)(cmf), nullable, constraints)
 
   def optional: Col[Option[T]] =
-    Col(colName, colType, colCodec.optional, true)
+    Col(colName, colType, colCodec.optional, true, constraints)
+
+  def primaryKey: Col[T] =
+    Col(colName, colType, colCodec, nullable, Col.Constraint.PrimaryKey :: constraints)
+  def references(foreignKeyRef: ForeignKeyRef): Col[T] =
+    Col(colName, colType, colCodec, nullable, Col.Constraint.ForeignKey(foreignKeyRef) :: constraints)
 
   override def toString: String = s"$colName[$colType]"
 
 }
 object Col {
 
-  final case class Name(name: String) extends scala.annotation.Annotation
+  def string(name: String): Col[String] = Col(name, "TEXT", ColCodec.string, false, Nil)
+  def uuid(name: String): Col[UUID] = Col(name, "UUID", ColCodec.uuid, false, Nil)
+  def boolean(name: String): Col[Boolean] = Col(name, "BOOLEAN", ColCodec.boolean, false, Nil)
 
-  def string(name: String): Col[String] = Col(name, "TEXT", ColCodec.string, false)
-  def uuid(name: String): Col[UUID] = Col(name, "UUID", ColCodec.uuid, false)
-  def boolean(name: String): Col[Boolean] = Col(name, "BOOLEAN", ColCodec.boolean, false)
+  def short(name: String): Col[Short] = Col(name, "SMALLINT", ColCodec.short, false, Nil)
+  def int(name: String): Col[Int] = Col(name, "INTEGER", ColCodec.int, false, Nil)
+  def long(name: String): Col[Long] = Col(name, "BIGINT", ColCodec.long, false, Nil)
 
-  def short(name: String): Col[Short] = Col(name, "SMALLINT", ColCodec.short, false)
-  def int(name: String): Col[Int] = Col(name, "INTEGER", ColCodec.int, false)
-  def long(name: String): Col[Long] = Col(name, "BIGINT", ColCodec.long, false)
+  def float(name: String): Col[Float] = Col(name, "REAL", ColCodec.float, false, Nil)
+  def double(name: String): Col[Double] = Col(name, "DOUBLE PRECISION", ColCodec.double, false, Nil)
 
-  def float(name: String): Col[Float] = Col(name, "REAL", ColCodec.float, false)
-  def double(name: String): Col[Double] = Col(name, "DOUBLE PRECISION", ColCodec.double, false)
+  def date(name: String): Col[LocalDate] = Col(name, "DATE", ColCodec.date, false, Nil)
+  def time(name: String): Col[LocalTime] = Col(name, "TIME", ColCodec.time, false, Nil)
+  def dateTime(name: String): Col[LocalDateTime] = Col(name, "TIMESTAMP", ColCodec.dateTime, false, Nil)
 
-  def date(name: String): Col[LocalDate] = Col(name, "DATE", ColCodec.date, false)
-  def time(name: String): Col[LocalTime] = Col(name, "TIME", ColCodec.time, false)
-  def dateTime(name: String): Col[LocalDateTime] = Col(name, "TIMESTAMP", ColCodec.dateTime, false)
-
-  def json[T: JsonCodec](name: String): Col[T] = Col(name, "JSON", ColCodec.json[T], false)
-  def jsonb[T: JsonCodec](name: String): Col[T] = Col(name, "JSONB", ColCodec.json[T], false)
+  def json[T: JsonCodec](name: String): Col[T] = Col(name, "JSON", ColCodec.json[T], false, Nil)
+  def jsonb[T: JsonCodec](name: String): Col[T] = Col(name, "JSONB", ColCodec.json[T], false, Nil)
 
   trait GenCol[T] {
     def make(name: String): Col[T]
@@ -62,6 +71,18 @@ object Col {
     given GenCol[LocalDate] = Col.date(_)
     given GenCol[LocalTime] = Col.time(_)
     given GenCol[LocalDateTime] = Col.dateTime(_)
+
+  }
+
+  enum Constraint {
+    case PrimaryKey
+    case ForeignKey(fkr: ForeignKeyRef)
+
+    override def toString: String =
+      this match {
+        case PrimaryKey                                                => "PRIMARY KEY"
+        case ForeignKey(ForeignKeyRef(schemaName, tableName, colName)) => s"REFERENCES $schemaName.$tableName($colName)"
+      }
 
   }
 

@@ -9,7 +9,7 @@ object Delete {
   def from[T[_[_]] <: Table](name: String)(implicit ti: TableSchema[T]): Q1[T[AppliedCol]] =
     Q1(
       ti.functorK.mapK(ti.colInfo)(AppliedCol.withVarName(name)),
-      s"DELETE FROM ${ti.tableName} $name",
+      s"DELETE FROM ${ti.referenceName} $name",
     )
 
   final class Q1[T] private[Delete] (

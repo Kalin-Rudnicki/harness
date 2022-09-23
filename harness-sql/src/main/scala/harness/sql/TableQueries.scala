@@ -12,13 +12,13 @@ abstract class TableQueries[Id, T[F[_]] <: Table.WithId[F, Id]](implicit ti: Tab
 
   final val selectAll: QueryO[T[Identity]] =
     Prepare.selectO {
-      Select.from[T](ti.tableName.head.toString).returning { t => t }
+      Select.from[T](ti.referenceName.head.toString).returning { t => t }
     }
 
   final val selectById: QueryIO[Id, T[Identity]] =
     Prepare.selectIO { Input[Id] } { pk =>
       Select
-        .from[T](ti.tableName.head.toString)
+        .from[T](ti.referenceName.head.toString)
         .where { t => t.id === pk }
         .returning { t => t }
     }
@@ -28,7 +28,7 @@ abstract class TableQueries[Id, T[F[_]] <: Table.WithId[F, Id]](implicit ti: Tab
   final val deleteById: QueryIO[Id, T[Identity]] =
     Prepare.deleteIO { Input[Id] } { pk =>
       Delete
-        .from[T](ti.tableName.head.toString)
+        .from[T](ti.referenceName.head.toString)
         .where { t => t.id === pk }
         .returning { t => t }
     }
