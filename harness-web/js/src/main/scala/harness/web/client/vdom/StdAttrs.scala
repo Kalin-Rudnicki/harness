@@ -32,3 +32,7 @@ object `type` extends StdAttrBuilder("type") { self =>
   inline def url: CModifier = self := "url"
   inline def week: CModifier = self := "week"
 }
+
+object `for` extends StdAttrBuilder("for")
+
+object id extends StdAttrBuilder("id")

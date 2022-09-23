@@ -1,4 +1,4 @@
-package harness.web.server
+package harness.web
 
 final case class HttpCode(code: Int)
 object HttpCode {

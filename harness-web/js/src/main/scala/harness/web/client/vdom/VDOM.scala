@@ -105,6 +105,17 @@ trait PModifier[+Action, -StateGet, +StateSet <: StateGet, +Value] { self =>
 
   // =====| Mapping Value |=====
 
+  // --- as ---
+
+  final def as[Value2](f: => Value2): SelfT[Action, StateGet, StateSet, Value2] =
+    self.mapValueImpl[StateGet, StateSet, Value2] { (_, _) => f.asRight }
+
+  final def eitherAs[Value2](f: => EitherNel[String, Value2]): SelfT[Action, StateGet, StateSet, Value2] =
+    self.mapValueImpl[StateGet, StateSet, Value2] { (_, _) => f }
+
+  inline final def unit: SelfT[Action, StateGet, StateSet, Unit] =
+    self.as { () }
+
   // --- asValue ---
 
   final def asValue[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Value2](f: StateGet2 => Value2): SelfT[Action, StateGet2, StateSet2, Value2] =
@@ -183,9 +194,9 @@ trait PModifier[+Action, -StateGet, +StateSet <: StateGet, +Value] { self =>
 
   // =====| Combinators with Value |=====
 
-  final def labeled(labelText: String): PModifier[Action, StateGet, StateSet, Value] =
+  final def labeled(labelText: String, buildLabel: String => CModifier = label(_)): PModifier[Action, StateGet, StateSet, Value] =
     PModifier[Action, StateGet, StateSet](
-      label(labelText),
+      buildLabel(labelText),
       self,
     ).eitherAsValue[StateGet, StateSet, Value] {
       self.value(_).leftMap {
@@ -340,6 +351,11 @@ final case class PNodeWidget[+Action, -StateGet, +StateSet <: StateGet, +Value](
       append: PModifier[Action2, StateGet2, StateSet2, Any]*,
   ): PNodeWidget[Action2, StateGet2, StateSet2, Value] =
     PNodeWidget[Action2, StateGet2, StateSet2, Value](self.tagName, self.modifiers ++ append.toList, self.value)
+
+  def defer[Action2 >: Action, StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Value2](
+      append: PModifier[Action2, StateGet2, StateSet2, Value2],
+  ): PNodeWidget[Action2, StateGet2, StateSet2, Value2] =
+    PNodeWidget[Action2, StateGet2, StateSet2, Value2](self.tagName, self.modifiers :+ append, append.value)
 
 }
 object PNodeWidget {

@@ -1,10 +1,16 @@
 package harness.web.server
 
 import harness.core.*
+import harness.web.*
 import harness.zio.*
 import zio.*
 
 trait Route[-R] { self =>
+
+  final def /:(met: HttpMethod): Route[R] =
+    (method, path) =>
+      if (method == met) self(method, path)
+      else ZIO.succeed(HttpResponse.NotFound)
 
   final def /:(str: String): Route[R] =
     (method, path) =>
@@ -37,13 +43,49 @@ object Route {
     rec(routes.toList)
   }
 
-  def root[R](apis: Route[R]*): Route[R] =
+  /**
+    * {res} : resource dir, can be set via `--res-dir=VALUE`
+    *
+    * Expects things to be set up in the following format:
+    *  - /api/{*}          ->  provided api routes
+    *  - /page/{*}         ->  {res}/index.html
+    *  - /res/favicon.ico  ->  {res}/favicon.ico
+    *  - /res/js/{*}       ->  {res}/js/{*}
+    *  - /res/css/{*}      ->  {res}/css/{*}
+    */
+  def stdRoot[R](config: ServerConfig)(apis: Route[R]*): Route[R] =
     Route.oneOf(
       "api" /: Route.oneOf(apis*),
-      // TODO (KR) :
-      (HttpMethod.GET / "page" / RouteMatcher.**).implement { _ => ZIO.failNel(HError.???("return page")) },
-      // TODO (KR) :
-      (HttpMethod.GET / "favicon.ico" / RouteMatcher.**).implement { _ => ZIO.failNel(HError.???("return favicon.ico")) },
+      (HttpMethod.GET / "page" / RouteMatcher.**).implement { _ =>
+        (for {
+          resDir <- Path(config.resDir)
+          file <- resDir.child("index.html")
+          response <- HttpResponse.fileOrNotFound(file)
+        } yield response).toErrorNel
+      },
+      HttpMethod.GET /: "res" /: Route.oneOf(
+        "favicon.ico".implement { _ =>
+          (for {
+            resDir <- Path(config.resDir)
+            file <- resDir.child("favicon.ico")
+            response <- HttpResponse.fileOrNotFound(file)
+          } yield response).toErrorNel
+        },
+        ("js" / RouteMatcher.**).implement { routes =>
+          (for {
+            resDir <- Path(config.resDir)
+            file <- resDir.child(("js" :: routes).mkString("/"))
+            response <- HttpResponse.fileOrFail(file)
+          } yield response).toErrorNel
+        },
+        ("css" / RouteMatcher.**).implement { routes =>
+          (for {
+            resDir <- Path(config.resDir)
+            file <- resDir.child(("css" :: routes).mkString("/"))
+            response <- HttpResponse.fileOrFail(file)
+          } yield response).toErrorNel
+        },
+      ),
       HttpMethod.GET.implement { _ => ZIO.succeed(HttpResponse.redirect("/page")) },
     )
 
