@@ -3,7 +3,7 @@ package harness.web.client
 import harness.core.*
 import harness.web.client.vdom.*
 import harness.zio.*
-import monocle.Lens
+import monocle.{Lens, Optional}
 import scala.annotation.nowarn
 import zio.*
 
@@ -46,7 +46,7 @@ abstract class RaiseHandler[-A, -S] private (
   // --- Transform ---
 
   @nowarn
-  private[client] final def mapState[S2 <: S, NewS](lens: Lens[S2, NewS]): RaiseHandler[A, NewS] =
+  private[client] final def mapState[S2 <: S, NewS](lens: Optional[S2, NewS]): RaiseHandler[A, NewS] =
     RaiseHandler[A, NewS](runtime) {
       case raise: Raise.ModifyState[NewS] => handleRaise(Raise.ModifyState[S2](lens.modify(raise.modify), raise.reRender))
       case raise: Raise.Action[A]         => handleRaise(raise)

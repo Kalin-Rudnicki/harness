@@ -5,6 +5,7 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.sun.net.httpserver.HttpExchange
 import harness.core.*
+import harness.web.*
 import harness.zio.*
 import java.io.InputStream
 import java.net.URI
@@ -37,7 +38,7 @@ object HttpRequest {
   def body[T: StringDecoder]: HRION[HttpRequest, T] =
     for {
       req <- ZIO.service[HttpRequest]
-      contentLength <- HttpRequest.query.find[Long]("Content-length")
+      contentLength <- HttpRequest.header.find[Long]("Content-length")
       body <-
         contentLength match {
           case Some(contentLength) if contentLength > Int.MaxValue =>

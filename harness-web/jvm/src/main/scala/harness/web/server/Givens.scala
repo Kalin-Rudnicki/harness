@@ -1,6 +1,7 @@
 package harness.web.server
 
 import harness.core.*
+import harness.web.*
 
 given Conversion[String, RouteMatcher[Unit]] = { str => (_, path) =>
   path match {
@@ -12,10 +13,10 @@ given Conversion[HttpMethod, RouteMatcher[Unit]] = { m1 => (m2, path) =>
   if (m1 == m2) RouteMatcher.Result.Success(path, ())
   else RouteMatcher.Result.NotFound
 }
-given Conversion[RouteMatcher.**.type, RouteMatcher[List[String]]] = { _ =>(_, path) =>
+given Conversion[RouteMatcher.**.type, RouteMatcher[List[String]]] = { _ => (_, path) =>
   RouteMatcher.Result.Success(Nil, path)
 }
-given [A]: Conversion[RouteMatcher.*[A], RouteMatcher[A]] = { arg =>(_, path) =>
+given [A]: Conversion[RouteMatcher.*[A], RouteMatcher[A]] = { arg => (_, path) =>
   path match {
     case head :: tail =>
       arg.decoder.decodeAccumulating(head) match {
