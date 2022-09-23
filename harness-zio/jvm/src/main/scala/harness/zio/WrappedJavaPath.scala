@@ -63,4 +63,13 @@ final case class WrappedJavaPath(javaPath: JavaPath) extends Path {
   override def readBytes(errorType: => HError.ErrorType): HTask[Array[Byte]] = ZIO.hAttempt(errorType, s"Unable to read bytes from file : $show")(JavaFiles.readAllBytes(javaPath))
   override def readString(errorType: => HError.ErrorType): HTask[String] = ZIO.hAttempt(errorType, s"Unable to read string from file : $show")(JavaFiles.readString(javaPath))
 
+  override def outputStream(errorType: => HError.ErrorType): HRIO[Scope, java.io.OutputStream] =
+    ZIO.acquireClosable {
+      ZIO.hAttempt(errorType, s"Unable to get OutputStream for file : $show")(JavaFiles.newOutputStream(javaPath))
+    }
+  override def inputStream(errorType: => HError.ErrorType): HRIO[Scope, java.io.InputStream] =
+    ZIO.acquireClosable {
+      ZIO.hAttempt(errorType, s"Unable to get InputStream for file : $show")(JavaFiles.newInputStream(javaPath))
+    }
+
 }

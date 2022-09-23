@@ -81,6 +81,9 @@ extension (self: ZIO.type) {
   def failNel[E](fail0: E, failN: E*): IO[NonEmptyList[E], Nothing] =
     ZIO.fail(NonEmptyList(fail0, failN.toList))
 
+  def acquireClosable[R, E, A <: java.io.Closeable](acq: => ZIO[R, E, A]): ZIO[R & Scope, E, A] =
+    ZIO.acquireRelease(acq)(c => ZIO.attempt(c.close()).orDie)
+
 }
 
 // =====| Error Mapping |=====

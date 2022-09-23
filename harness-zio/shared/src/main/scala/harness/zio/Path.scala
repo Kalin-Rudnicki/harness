@@ -48,6 +48,9 @@ trait Path {
   inline final def readString: HTask[String] = readString(ErrorType.SystemFailure)
   inline final def readJson[T](implicit decoder: JsonDecoder[T]): HTask[T] = readJson[T](ErrorType.SystemFailure)
 
+  inline final def outputStream: HRIO[Scope, java.io.OutputStream] = outputStream(ErrorType.SystemFailure)
+  inline final def inputStream: HRIO[Scope, java.io.InputStream] = inputStream(ErrorType.SystemFailure)
+
   // =====| With ErrorType |=====
 
   def createFile(errorType: => HError.ErrorType): HTask[Unit]
@@ -96,6 +99,9 @@ trait Path {
         case Left(error)  => ZIO.fail(HError(errorType)(s"Unable to decode json:\n$error"))
       }
     }
+
+  def outputStream(errorType: => HError.ErrorType): HRIO[Scope, java.io.OutputStream]
+  def inputStream(errorType: => HError.ErrorType): HRIO[Scope, java.io.InputStream]
 
 }
 object Path {
