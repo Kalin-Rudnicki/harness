@@ -62,14 +62,15 @@ object QueryResult {
 
   private[query] def stream[I, O](
       sql: String,
-      input: Option[(I, RowEncoder[I], QueryInputMapper)],
+      input: Option[(I, RowEncoder[I])],
+      qim: QueryInputMapper,
       decoder: RowDecoder[O],
   ): QueryResult[O] =
     QueryResult(
       sql, {
         def resultSet: RIO[ConnectionFactory & Scope, ResultSet] =
           for {
-            ps <- Utils.preparedStatement(sql, input)
+            ps <- Utils.preparedStatement(sql, input, qim)
             rs <- Utils.acquireClosable(ps.executeQuery())
           } yield rs
 

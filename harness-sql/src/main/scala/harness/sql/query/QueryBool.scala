@@ -72,6 +72,23 @@ object QueryBoolOps {
         QueryInputMapper(_ => 1, (in, out, off) => out(off) = a.col.colCodec.encoder.encodeColumn(in(b.idx).some.asInstanceOf)),
       )
 
+  implicit def col_const[A]: QueryBoolOps[AppliedCol[A], Constant[A]] =
+    (a, b, o) =>
+      QueryBool(
+        s"${a.ref} $o ?",
+        true,
+        false,
+        QueryInputMapper(_ => 1, (_, out, off) => out(off) = a.col.colCodec.encoder.encodeColumn(b.value)),
+      )
+  implicit def oCol_const[A]: QueryBoolOps[AppliedCol[Option[A]], Constant[A]] =
+    (a, b, o) =>
+      QueryBool(
+        s"${a.ref} $o ?",
+        true,
+        false,
+        QueryInputMapper(_ => 1, (_, out, off) => out(off) = a.col.colCodec.encoder.encodeColumn(b.value.some)),
+      )
+
   implicit def optCol_id[A]: QueryBoolOps[AppliedCol.Opt[A], QueryInput[A]] =
     (a, b, o) =>
       QueryBool(
@@ -87,6 +104,23 @@ object QueryBoolOps {
         true,
         false,
         QueryInputMapper(_ => 1, (in, out, off) => out(off) = a.wrapped.col.colCodec.encoder.encodeColumn(in(b.idx).some.asInstanceOf)),
+      )
+
+  implicit def optCol_const[A]: QueryBoolOps[AppliedCol.Opt[A], Constant[A]] =
+    (a, b, o) =>
+      QueryBool(
+        s"${a.wrapped.ref} $o ?",
+        true,
+        false,
+        QueryInputMapper(_ => 1, (_, out, off) => out(off) = a.wrapped.col.colCodec.encoder.encodeColumn(b.value)),
+      )
+  implicit def oOptCol_const[A]: QueryBoolOps[AppliedCol.Opt[Option[A]], Constant[A]] =
+    (a, b, o) =>
+      QueryBool(
+        s"${a.wrapped.ref} $o ?",
+        true,
+        false,
+        QueryInputMapper(_ => 1, (_, out, off) => out(off) = a.wrapped.col.colCodec.encoder.encodeColumn(b.value.some)),
       )
 
   implicit def fromEmpty[A, B](implicit e: QueryBoolOps.Empty[A, B]): QueryBoolOps[A, B] = { (a, b, op) =>
