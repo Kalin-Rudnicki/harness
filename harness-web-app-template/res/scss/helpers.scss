@@ -1,0 +1,76 @@
+@import "colors";
+
+// =====| Basic Backgrounds |=====
+
+%bg-primary {
+  background-color: $color-primary;
+  color: $color-on-primary;
+}
+
+%bg-primary-accent {
+  background-color: $color-primary-accent;
+  color: $color-on-primary;
+}
+
+%bg-primary-light {
+  background-color: $color-primary-light;
+  color: $color-on-primary;
+}
+
+%bg-primary-dark {
+  background-color: $color-primary-dark;
+  color: $color-on-primary;
+}
+
+%bg-secondary {
+  background-color: $color-secondary;
+  color: $color-on-secondary;
+}
+
+%bg-secondary-accent {
+  background-color: $color-secondary-accent;
+  color: $color-on-secondary;
+}
+
+%bg-secondary-light {
+  background-color: $color-secondary-light;
+  color: $color-on-secondary;
+}
+
+%bg-secondary-dark {
+  background-color: $color-secondary-dark;
+  color: $color-on-secondary;
+}
+
+%bg-background {
+  background-color: $color-background;
+  color: $color-on-background;
+}
+
+%bg-surface {
+  background-color: $color-surface;
+  color: $color-on-surface;
+}
+
+%bg-error {
+  background-color: $color-error;
+  color: $color-on-error;
+}
+
+// =====| Mixins / Extends |=====
+
+%clickable {
+  cursor: pointer;
+  user-select: none;
+}
+
+%pb {
+  @extend %bg-primary;
+  @extend %clickable;
+  border: 2px solid black;
+  padding: 5px 10px;
+
+  &:hover {
+    background-color: $color-primary-accent;
+  }
+}
