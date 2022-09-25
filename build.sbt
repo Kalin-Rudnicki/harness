@@ -106,7 +106,7 @@ lazy val `harness-zio` =
       testSettings,
       libraryDependencies ++= Seq(
         "dev.zio" %%% "zio" % "2.0.0",
-        "dev.zio" %%% "zio-json" % "0.3.0-RC10",
+        "dev.zio" %%% "zio-json" % "0.3.0",
       ),
     )
     .dependsOn(`harness-cli` % "test->test;compile->compile")
@@ -124,7 +124,7 @@ lazy val `harness-sql` =
         "dev.zio" %%% "zio-json" % "0.3.0",
         "org.typelevel" %%% "cats-core" % "2.8.0",
         "org.typelevel" %% "shapeless3-deriving" % "3.0.1",
-        "org.postgresql" % "postgresql" % "42.5.0" % Test,
+        "org.postgresql" % "postgresql" % "42.5.0",
       ),
     )
     .dependsOn(`harness-zio`.jvm % Test)
@@ -153,6 +153,9 @@ lazy val `harness-web` =
 lazy val `harness-web-app-template` =
   project
     .in(file("harness-web-app-template"))
+    .settings(
+      publish / skip := true,
+    )
     .aggregate(
       `harness-web-app-template--model`.jvm,
       `harness-web-app-template--model`.js,
@@ -179,9 +182,6 @@ lazy val `harness-web-app-template--db-model` =
       publish / skip := true,
       miscSettings,
       testSettings,
-      libraryDependencies ++= Seq(
-        "org.postgresql" % "postgresql" % "42.5.0",
-      ),
     )
     .dependsOn(`harness-sql`)
 

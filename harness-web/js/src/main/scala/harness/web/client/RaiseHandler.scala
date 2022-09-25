@@ -16,7 +16,7 @@ abstract class RaiseHandler[-A, -S] private (
   // =====| Public API |=====
 
   final def raiseManyZIO(raises: SHTaskN[List[Raise[A, S]]]*): Unit =
-    Unsafe.unsafe {
+    Unsafe.unsafe { implicit unsafe =>
       runtime.unsafe.run {
         ZIO
           .foreachDiscard(raises) {

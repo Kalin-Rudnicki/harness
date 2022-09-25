@@ -92,7 +92,7 @@ trait PageApp extends ZIOApp {
         ZIO
           .hAttempt("Unable to set window.onpopstate") {
             window.onpopstate = { _ =>
-              Unsafe.unsafe {
+              Unsafe.unsafe { implicit unsafe =>
                 runtime.unsafe.run(attemptToLoadPage.dumpErrorsAndContinueNel)
               }
             }

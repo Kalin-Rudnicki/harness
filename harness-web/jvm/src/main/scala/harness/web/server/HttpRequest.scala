@@ -25,15 +25,18 @@ object HttpRequest {
 
   // =====| Public API |=====
 
-  object query extends Lookup(req => name => req.queries.get(name).asRight)
+  object query extends Lookup("query-param", req => name => req.queries.get(name).asRight)
   object header
-      extends Lookup({ req => name =>
-        req.headers.get(name).traverse {
-          case v :: Nil => v.asRight
-          case _        => HError.UserError(s"Malformed header '$name'").asLeft
-        }
-      })
-  object cookie extends Lookup(req => name => req.cookies.get(name).asRight)
+      extends Lookup(
+        "header",
+        { req => name =>
+          req.headers.get(name).traverse {
+            case v :: Nil => v.asRight
+            case _        => HError.UserError(s"Malformed header '$name'").asLeft
+          }
+        },
+      )
+  object cookie extends Lookup("cookie", req => name => req.cookies.get(name).asRight)
 
   def body[T: StringDecoder]: HRION[HttpRequest, T] =
     for {
@@ -92,7 +95,7 @@ object HttpRequest {
     )
   }
 
-  sealed abstract class Lookup(lookup: HttpRequest => String => EitherError[Option[String]]) {
+  sealed abstract class Lookup(g: String, lookup: HttpRequest => String => EitherError[Option[String]]) {
 
     inline def apply[T](name: String)(implicit decoder: StringDecoder[T]): HRION[HttpRequest, T] =
       get[T](name)
@@ -105,7 +108,7 @@ object HttpRequest {
               case Right(value) => ZIO.succeed(value)
               case Left(errors) => ZIO.fail(errors.map(HError.UserError(_)))
             }
-          case Right(None) => ZIO.failNel(HError.UserError(s"Missing required query-param '$name'"))
+          case Right(None) => ZIO.failNel(HError.UserError(s"Missing required $g '$name'"))
           case Left(error) => ZIO.failNel(error)
         }
       }

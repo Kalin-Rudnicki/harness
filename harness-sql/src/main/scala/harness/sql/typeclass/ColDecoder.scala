@@ -7,6 +7,7 @@ import harness.sql.*
 import java.sql.ResultSet
 import java.time.*
 import java.util.UUID
+import org.postgresql.util.PGobject
 import scala.util.Try
 import zio.json.JsonDecoder
 
@@ -48,6 +49,9 @@ object ColDecoder {
   val dateTime: ColDecoder[LocalDateTime] = unsafeDecode { case dateTime: java.sql.Timestamp => dateTime.toLocalDateTime }
 
   def json[T](implicit codec: JsonDecoder[T]): ColDecoder[T] =
-    unsafeDecodeE { case string: String => codec.decodeJson(string).leftMap(NonEmptyList.one) }
+    unsafeDecodeE {
+      case string: String => codec.decodeJson(string).leftMap(NonEmptyList.one)
+      case obj: PGobject  => codec.decodeJson(obj.toString).leftMap(NonEmptyList.one)
+    }
 
 }

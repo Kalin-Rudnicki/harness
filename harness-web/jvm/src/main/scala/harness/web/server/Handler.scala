@@ -40,7 +40,7 @@ final case class Handler[R](runtime: Runtime[HarnessEnv & ServerEnv & R], route:
         _ <- ZIO.hAttemptNel("Error closing response body")(responseBody.close())
       } yield ()
 
-    Unsafe.unsafe {
+    Unsafe.unsafe { implicit unsafe =>
       runtime.unsafe.run {
         effect.provideSomeLayer(requestLayer).dumpErrorsAndContinueNel
       }
