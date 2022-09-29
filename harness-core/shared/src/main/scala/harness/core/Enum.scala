@@ -3,7 +3,7 @@ package harness.core
 trait Enum[E <: Enum[E]] extends java.lang.Enum[E] { self: E => }
 object Enum {
 
-  inline def values[E <: Enum[E]](implicit hc: HasCompanion[E]): Set[E] = hc.companion.enumValues
+  inline def values[E <: Enum[E]](implicit hc: HasCompanion[E]): Seq[E] = hc.companion.enumValues
 
   // =====|  |=====
 
@@ -15,7 +15,7 @@ object Enum {
 
     def values: Array[E]
 
-    final lazy val enumValues: Set[E] = values.toSet
+    final lazy val enumValues: Seq[E] = values.toSeq
 
     abstract class EnumMap[Enc](enc: E => Enc) {
       private final lazy val map: Map[Enc, E] = values.map { e => (enc(e), e) }.toMap
@@ -30,7 +30,7 @@ object Enum {
   // =====|  |=====
 
   trait WithEnc[E <: Enum[E], Enc] private[Enum] {
-    def values: Set[E]
+    def values: Seq[E]
     def encode(e: E): Enc
     def decode(enc: Enc): Option[E]
   }
@@ -40,7 +40,7 @@ object Enum {
 
     given [E <: Enum[E], Enc](using hc: HasCompanion[E], em: Enum.Companion[E]#EnumMap[Enc]): WithEnc[E, Enc] =
       new WithEnc[E, Enc] {
-        override def values: Set[E] = hc.companion.enumValues
+        override def values: Seq[E] = hc.companion.enumValues
         override def encode(e: E): Enc = em.encode(e)
         override def decode(enc: Enc): Option[E] = em.decode(enc)
       }
