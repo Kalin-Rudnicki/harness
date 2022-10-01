@@ -29,7 +29,7 @@ object Tmp extends ExecutableApp {
     override implicit lazy val tableSchema: TableSchema[Musician] =
       TableSchema.derived[Musician]("musician")(
         Musician[Col](
-          id = Id.col("id"),
+          id = Id.pkCol,
           firstName = Col.string("first_name"),
           lastName = Col.string("last_name"),
           instrument = Col.string("instrument"),
@@ -50,7 +50,7 @@ object Tmp extends ExecutableApp {
     override implicit lazy val tableSchema: TableSchema[Band] =
       TableSchema.derived[Band]("band")(
         Band[Col](
-          id = Id.col("id"),
+          id = Id.pkCol,
           name = Col.string("name"),
           formationDate = Col.date("formation_date"),
         ),
@@ -69,9 +69,9 @@ object Tmp extends ExecutableApp {
     override implicit lazy val tableSchema: TableSchema[MusicianInBand] =
       TableSchema.derived[MusicianInBand]("musician_in_band")(
         MusicianInBand[Col](
-          id = Id.col("id"),
-          musicianId = Musician.Id.col("musician_id"),
-          bandId = Band.Id.col("band_id"),
+          id = Id.pkCol,
+          musicianId = Musician.Id.fkCol("musician_id"),
+          bandId = Band.Id.fkCol("band_id"),
           active = Col.boolean("active"),
         ),
       )

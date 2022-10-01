@@ -26,7 +26,7 @@ final case class Col[T] private (
 
   def primaryKey: Col[T] =
     Col(colName, colType, colCodec, nullable, Col.Constraint.PrimaryKey :: constraints)
-  def references(foreignKeyRef: ForeignKeyRef): Col[T] =
+  def references(foreignKeyRef: => ForeignKeyRef): Col[T] =
     Col(colName, colType, colCodec, nullable, Col.Constraint.ForeignKey(foreignKeyRef) :: constraints)
 
   override def toString: String = s"$colName[$colType]"
@@ -74,15 +74,24 @@ object Col {
 
   }
 
-  enum Constraint {
-    case PrimaryKey
-    case ForeignKey(fkr: ForeignKeyRef)
+  sealed trait Constraint {
 
     override def toString: String =
       this match {
-        case PrimaryKey                                                => "PRIMARY KEY"
-        case ForeignKey(ForeignKeyRef(schemaName, tableName, colName)) => s"REFERENCES $schemaName.$tableName($colName)"
+        case Constraint.PrimaryKey                                 => "PRIMARY KEY"
+        case Constraint.ForeignKey(schemaName, tableName, colName) => s"REFERENCES $schemaName.$tableName($colName)"
       }
+
+  }
+  object Constraint {
+
+    case object PrimaryKey extends Constraint
+
+    final class ForeignKey private (val fkr: () => ForeignKeyRef) extends Constraint
+    object ForeignKey {
+      def apply(fkr: => ForeignKeyRef): ForeignKey = new ForeignKey(() => fkr)
+      def unapply(foreignKey: ForeignKey): ForeignKeyRef = foreignKey.fkr()
+    }
 
   }
 
