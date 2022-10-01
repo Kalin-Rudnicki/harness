@@ -46,7 +46,7 @@ abstract class RaiseHandler[-A, -S] private (
   // --- Transform ---
 
   @nowarn
-  private[client] final def mapState[S2 <: S, NewS](lens: Optional[S2, NewS]): RaiseHandler[A, NewS] =
+  final def mapState[S2 <: S, NewS](lens: Optional[S2, NewS]): RaiseHandler[A, NewS] =
     RaiseHandler[A, NewS](runtime) {
       case raise: Raise.ModifyState[NewS] => handleRaise(Raise.ModifyState[S2](lens.modify(raise.modify), raise.reRender))
       case raise: Raise.Action[A]         => handleRaise(raise)
@@ -54,11 +54,11 @@ abstract class RaiseHandler[-A, -S] private (
     }
 
   @nowarn
-  private[client] final def mapRaise[NewA, S2 <: S](f: Raise[NewA, S2] => SHTaskN[List[Raise[A, S]]]): RaiseHandler[NewA, S2] =
+  final def mapRaise[NewA, S2 <: S](f: Raise[NewA, S2] => SHTaskN[List[Raise[A, S]]]): RaiseHandler[NewA, S2] =
     RaiseHandler[NewA, S2](runtime) { f(_).flatMap(ZIO.foreachDiscard(_)(handleRaise)) }
 
   @nowarn
-  private[client] final def mapAction[NewA](f: NewA => SHTaskN[List[Raise[A, S]]]): RaiseHandler[NewA, S] =
+  final def mapAction[NewA](f: NewA => SHTaskN[List[Raise[A, S]]]): RaiseHandler[NewA, S] =
     RaiseHandler[NewA, S](runtime) {
       case raise: Raise.Action[NewA]   => f(raise.action).flatMap(ZIO.foreachDiscard(_)(handleRaise))
       case raise: Raise.ModifyState[S] => handleRaise(raise)
