@@ -24,13 +24,13 @@ trait Route[-R] { self =>
   def apply(
       method: HttpMethod,
       path: List[String],
-  ): SHRION[ServerEnv & RequestEnv & R, HttpResponse]
+  ): SHRION[BuiltInRequestEnv & R, HttpResponse]
 
 }
 object Route {
 
   def oneOf[R](routes: Route[R]*): Route[R] = { (method, path) =>
-    def rec(routes: List[Route[R]]): SHRION[ServerEnv & RequestEnv & R, HttpResponse] =
+    def rec(routes: List[Route[R]]): SHRION[BuiltInRequestEnv & R, HttpResponse] =
       routes match {
         case head :: tail =>
           head(method, path).flatMap {

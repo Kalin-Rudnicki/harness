@@ -8,14 +8,18 @@ import harness.zio.*
 import zio.*
 import zio.json.*
 
-final case class Handler[R](runtime: Runtime[HarnessEnv & ServerEnv & R], route: Route[R]) extends HttpHandler {
+final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
+    serverRuntime: Runtime[HarnessEnv & ServerEnv],
+    reqLayer: ZLayer[ServerEnv & Scope, NonEmptyList[HError], ReqEnv],
+    route: Route[ServerEnv & ReqEnv],
+) extends HttpHandler {
 
   override def handle(exchange: HttpExchange): Unit = {
-    val requestLayer: Layer[NonEmptyList[HError], RequestEnv] =
+    val builtInReqLayer: Layer[NonEmptyList[HError], BuiltInRequestEnv] =
       ZLayer.fromZIO(ZIO.hAttemptNel("Error parsing http request")(HttpRequest.read(exchange))) ++
         Scope.default
 
-    val effect: SHRION[ServerEnv & RequestEnv & R, Unit] =
+    val effect: SHRION[ServerEnv & BuiltInRequestEnv & ReqEnv, Unit] =
       for {
         req <- ZIO.service[HttpRequest]
         _ <- Logger.log.info(s"received ${req.method.method} request @ '${req.path.mkString("/", "/", "")}'")
@@ -41,8 +45,10 @@ final case class Handler[R](runtime: Runtime[HarnessEnv & ServerEnv & R], route:
       } yield ()
 
     Unsafe.unsafe { implicit unsafe =>
-      runtime.unsafe.run {
-        effect.provideSomeLayer(requestLayer).dumpErrorsAndContinueNel
+      serverRuntime.unsafe.run {
+        ZIO.scoped {
+          effect.provideSomeLayer[HarnessEnv & ServerEnv & Scope](builtInReqLayer ++ reqLayer).dumpErrorsAndContinueNel
+        }
       }
     }
   }

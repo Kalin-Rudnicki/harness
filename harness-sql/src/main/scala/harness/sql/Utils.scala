@@ -10,7 +10,7 @@ private[sql] object Utils {
   def acquireClosable[C <: AutoCloseable](acq: => C): RIO[Scope, C] =
     ZIO.acquireRelease(ZIO.attempt(acq))(c => ZIO.attempt(c.close()).orDie)
 
-  private def encodeInputs[I](input: Option[(I, RowEncoder[I])], queryInputMapper: QueryInputMapper): IArray[Object] = {
+  def encodeInputs[I](input: Option[(I, RowEncoder[I])], queryInputMapper: QueryInputMapper): IArray[Object] = {
     val arr1: Array[Object] =
       input match {
         case Some((t, encoder)) =>
@@ -29,16 +29,12 @@ private[sql] object Utils {
     iArr2
   }
 
-  def preparedStatement[I](sql: String, input: Option[(I, RowEncoder[I])], qim: QueryInputMapper): RIO[ConnectionFactory & Scope, PreparedStatement] =
+  def preparedStatement[I](sql: String, input: Option[(I, RowEncoder[I])], qim: QueryInputMapper): RIO[JDBCConnection & Scope, PreparedStatement] =
     for {
-      connectionFactory <- ZIO.service[ConnectionFactory]
-      connection <- connectionFactory.getJDBCConnection
-      ps: PreparedStatement <- Utils.acquireClosable { connection.prepareStatement(sql) }
-      inputs <- ZIO.attempt { encodeInputs(input, qim) }
-      _ <-
-        ZIO.attempt {
-          inputs.zipWithIndex.foreach { (input, idx) => ps.setObject(idx + 1, input) }
-        }
+      connection <- ZIO.service[JDBCConnection]
+      ps: PreparedStatement <- Utils.acquireClosable { connection.jdbcConnection.prepareStatement(sql) }
+      inputs <- ZIO.attempt { Utils.encodeInputs(input, qim) }
+      _ <- ZIO.attempt { inputs.zipWithIndex.foreach { (input, idx) => ps.setObject(idx + 1, input) } }
     } yield ps
 
 }

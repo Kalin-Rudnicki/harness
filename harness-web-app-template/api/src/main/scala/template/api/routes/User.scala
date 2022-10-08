@@ -12,7 +12,7 @@ import zio.*
 
 object User {
 
-  val routes: Route[ConnectionFactory] =
+  val routes: Route[JDBCConnection] =
     "user" /: Route.oneOf(
       (HttpMethod.GET / "from-session-token").implement { _ =>
         for {

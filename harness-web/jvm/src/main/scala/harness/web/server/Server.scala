@@ -1,6 +1,8 @@
 package harness.web.server
 
+import cats.data.NonEmptyList
 import com.sun.net.httpserver.*
+import harness.core.*
 import harness.zio.*
 import java.io.{FileInputStream, InputStream, OutputStream}
 import java.net.InetSocketAddress
@@ -10,18 +12,19 @@ import zio.*
 
 object Server {
 
-  def start[R](
+  def start[ServerEnv, ReqEnv: EnvironmentTag](
       config: ServerConfig,
+      reqLayer: ZLayer[ServerEnv & Scope, NonEmptyList[HError], ReqEnv],
   )(
-      route: Route[R],
-  ): SHRION[ServerEnv & R, Unit] = {
+      route: Route[ServerEnv & ReqEnv],
+  ): SHRION[ServerEnv, Unit] = {
     val port: Int = config.port.getOrElse(if (config.sslConfig.nonEmpty) 443 else 8080)
     for {
       _ <- Logger.log.info(s"Starting server on port $port")
       inet <- ZIO.hAttemptNel("Error creating inet address")(InetSocketAddress(port))
       server <- createHttpServer(config, inet)
-      runtime <- ZIO.runtime[HarnessEnv & ServerEnv & R]
-      handler = Handler(runtime, route)
+      runtime <- ZIO.runtime[HarnessEnv & ServerEnv]
+      handler = Handler(runtime, reqLayer, route)
       _ <- ZIO.hAttemptNel("Error setting server context")(server.createContext("/", handler))
       _ <- ZIO.hAttemptNel("Error setting executor")(server.setExecutor(null))
       _ <- ZIO.hAttemptNel("Error starting server")(server.start())

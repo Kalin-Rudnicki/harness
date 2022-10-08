@@ -6,6 +6,7 @@ import cats.syntax.option.*
 import harness.web.client.*
 import harness.web.client.vdom.{given, *}
 import monocle.*
+import monocle.macros.GenLens
 import scala.annotation.tailrec
 
 object SumWidget {
@@ -29,17 +30,12 @@ object SumWidget {
       none: CModifierA[Action] = PModifier(),
   ): ModifierAV[Action, Option[State], Option[Value]] =
     SumWidget[Action, Option[State], Option[Value]](
-      Case[Action, Option[State], State, Some[Value]](
-        Optional[Option[State], State](identity) { s => _ => s.some },
-        some.mapValue(Some(_)),
-      ),
-      Case[Action, Option[State], None.type, None.type](
-        Optional[Option[State], None.type] {
-          case None    => None.some
-          case Some(_) => None
-        } { n => _ => n },
-        none.asValue(_ => None),
-      ),
+      Case.subTypeThen[Action, Option[State], Some[State], State, Some[Value]] { case Some(value) => Some(value) }(_.value) {
+        some.mapValue(Some(_))
+      },
+      Case.subType[Action, Option[State], None.type, None.type] { case None => None } {
+        none.asValue(_ => None)
+      },
     )
 
   def either[Action, LS, RS, LV, RV](
@@ -47,20 +43,12 @@ object SumWidget {
       right: ModifierAV[Action, RS, RV],
   ): ModifierAV[Action, Either[LS, RS], Either[LV, RV]] =
     SumWidget[Action, Either[LS, RS], Either[LV, RV]](
-      Case[Action, Either[LS, RS], LS, Left[LV, Nothing]](
-        Optional[Either[LS, RS], LS] {
-          case Left(value) => value.some
-          case Right(_)    => None
-        } { s => _ => s.asLeft },
-        left.mapValue(Left(_)),
-      ),
-      Case[Action, Either[LS, RS], RS, Right[Nothing, RV]](
-        Optional[Either[LS, RS], RS] {
-          case Right(value) => value.some
-          case Left(_)      => None
-        } { s => _ => s.asRight },
-        right.mapValue(Right(_)),
-      ),
+      Case.subTypeThen[Action, Either[LS, RS], Left[LS, Nothing], LS, Left[LV, Nothing]] { case Left(value) => Left(value) }(_.value) {
+        left.mapValue(Left(_))
+      },
+      Case.subTypeThen[Action, Either[LS, RS], Right[Nothing, RS], RS, Right[Nothing, RV]] { case Right(value) => Right(value) }(_.value) {
+        right.mapValue(Right(_))
+      },
     )
 
   final case class Case[+Action, OuterState, InnerState, +Value](
@@ -85,6 +73,28 @@ object SumWidget {
 
   }
   object Case {
+
+    def subType[Action, OuterState, InnerState <: OuterState, Value](
+        get: PartialFunction[OuterState, InnerState],
+    )(
+        widget: ModifierAV[Action, InnerState, Value],
+    ): Case[Action, OuterState, InnerState, Value] =
+      Case[Action, OuterState, InnerState, Value](
+        Optional(get.lift) { v => _ => v },
+        widget,
+      )
+
+    inline def subTypeThen[Action, OuterState, TmpInnerState <: OuterState, InnerState, Value](
+        get: PartialFunction[OuterState, TmpInnerState],
+    )(
+        inline f: TmpInnerState => InnerState,
+    )(
+        widget: ModifierAV[Action, InnerState, Value],
+    ): Case[Action, OuterState, InnerState, Value] =
+      Case[Action, OuterState, InnerState, Value](
+        Optional(get.lift) { v => _ => v }.andThen(GenLens[TmpInnerState](f).asInstanceOf[Optional[TmpInnerState, InnerState]]),
+        widget,
+      )
 
     private[SumWidget] def firstOf[Action, State, Value, O](
         cases: List[Case[Action, State, _, Value]],

@@ -19,7 +19,7 @@ trait RouteMatcher[+O] private[server] { self =>
   final def map[O2](f: O => O2): RouteMatcher[O2] =
     self.routeInternal(_, _).map(f)
 
-  final def implement[R](f: O => SHRION[ServerEnv & RequestEnv & R, HttpResponse]): Route[R] =
+  final def implement[R](f: O => SHRION[BuiltInRequestEnv & R, HttpResponse]): Route[R] =
     (method, path) =>
       self.routeInternal(method, path) match {
         case RouteMatcher.Result.Success(Nil, value) => f(value)

@@ -56,11 +56,11 @@ object Executable {
 
   final class Builder1[ParseT] private[Executable] (parser: FinalizedParser[ParseT]) {
 
-    def withLayerNel[R: EnvironmentTag](layer: ParseT => ZLayer[HarnessEnv, NonEmptyList[HError], R]): Builder2[ParseT, R] = Builder2(parser, layer)
-    inline def withLayerNel[R: EnvironmentTag](layer: => ZLayer[HarnessEnv, NonEmptyList[HError], R]): Builder2[ParseT, R] = this.withLayerNel { _ => layer }
+    def withLayerNel[R: EnvironmentTag](layer: ParseT => ZLayer[HarnessEnv & Scope, NonEmptyList[HError], R]): Builder2[ParseT, R] = Builder2(parser, layer)
+    inline def withLayerNel[R: EnvironmentTag](layer: => ZLayer[HarnessEnv & Scope, NonEmptyList[HError], R]): Builder2[ParseT, R] = this.withLayerNel { _ => layer }
 
-    inline def withLayer[R: EnvironmentTag](layer: ParseT => ZLayer[HarnessEnv, HError, R]): Builder2[ParseT, R] = this.withLayerNel(layer(_).mapError(NonEmptyList.one))
-    inline def withLayer[R: EnvironmentTag](layer: => ZLayer[HarnessEnv, HError, R]): Builder2[ParseT, R] = this.withLayer { _ => layer }
+    inline def withLayer[R: EnvironmentTag](layer: ParseT => ZLayer[HarnessEnv & Scope, HError, R]): Builder2[ParseT, R] = this.withLayerNel(layer(_).mapError(NonEmptyList.one))
+    inline def withLayer[R: EnvironmentTag](layer: => ZLayer[HarnessEnv & Scope, HError, R]): Builder2[ParseT, R] = this.withLayer { _ => layer }
 
     def withEffectNel(effect: ParseT => ZIO[HarnessEnv, NonEmptyList[HError], Any]): Executable = { args =>
       Executable.finalizedResultToExecutableResult(parser.parse(args)) match {
@@ -76,11 +76,11 @@ object Executable {
 
   }
 
-  final class Builder2[ParseT, R: EnvironmentTag] private[Executable] (parser: FinalizedParser[ParseT], layer: ParseT => ZLayer[HarnessEnv, NonEmptyList[HError], R]) {
+  final class Builder2[ParseT, R: EnvironmentTag] private[Executable] (parser: FinalizedParser[ParseT], layer: ParseT => ZLayer[HarnessEnv & Scope, NonEmptyList[HError], R]) {
 
     def withEffectNel(effect: ParseT => ZIO[HarnessEnv & R, NonEmptyList[HError], Any]): Executable = { args =>
       Executable.finalizedResultToExecutableResult(parser.parse(args)) match {
-        case Executable.Result.Success(parseT) => effect(parseT).provideSomeLayer(layer(parseT))
+        case Executable.Result.Success(parseT) => ZIO.scoped { effect(parseT).provideSomeLayer(layer(parseT)) }
         case Executable.Result.Help(message)   => Logger.log.info(message)
         case Executable.Result.Fail(error)     => ZIO.failNel(error)
       }

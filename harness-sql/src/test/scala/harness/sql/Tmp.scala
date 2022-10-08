@@ -150,7 +150,10 @@ object Tmp extends ExecutableApp {
   override val executable: Executable =
     Executable
       .withParser(Parser.unit)
-      .withLayer { ZLayer.succeed(ConnectionFactory("jdbc:postgresql:postgres", "kalin", "psql-pass")) }
+      .withLayer {
+        ZLayer.succeed(ConnectionFactory("jdbc:postgresql:postgres", "kalin", "psql-pass")) >+>
+          JDBCConnection.connectionFactoryLayer.mapError(HError.SystemFailure("Unable to get db connection", _))
+      }
       .withEffect {
         for {
           _ <- Logger.log.info("Starting...")

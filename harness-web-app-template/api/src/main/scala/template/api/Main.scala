@@ -15,13 +15,18 @@ object Main extends ExecutableApp {
     Executable
       .withParser(ServerConfig.parser)
       .withLayer {
-        ZLayer.succeed(ConnectionFactory("jdbc:postgresql:postgres", "kalin", "psql-pass"))
+        ZLayer
+          .fromZIO { JDBCConnectionPool(ConnectionFactory("jdbc:postgresql:postgres", "kalin", "psql-pass"), 4, 16, Duration.fromSeconds(60)) }
+          .mapError(HError.SystemFailure("Error with db-pool", _))
       }
       .withEffectNel { config =>
-        PostgresMeta
-          .schemaDiff(Tables(db.model.User.tableSchema, db.model.Session.tableSchema))
+        PostgresMeta.schemaDiff
+          .withPool(Tables(db.model.User.tableSchema, db.model.Session.tableSchema))
           .mapErrorToNel(HError.SystemFailure("Failed to execute schema diff", _)) *>
-          Server.start(config) {
+          Server.start[JDBCConnectionPool, JDBCConnection](
+            config,
+            JDBCConnection.poolLayer.mapErrorToNel(HError.SystemFailure("Unable to get db connection", _)),
+          ) {
             Route.stdRoot(config)(
               R.User.routes,
             )

@@ -8,31 +8,31 @@ import java.sql.{Array, PreparedStatement, ResultSet}
 import zio.*
 import zio.stream.*
 
-final class QueryResult[O] private (sql: String, _stream: => ZStream[ConnectionFactory & Scope, Throwable, O]) {
+final class QueryResult[O] private (sql: String, _stream: => ZStream[JDBCConnection & Scope, Throwable, O]) {
 
-  inline def single: RIO[ConnectionFactory, O] =
+  inline def single: RIO[JDBCConnection, O] =
     chunk.flatMap {
       case Chunk(value) => ZIO.succeed(value)
       case chunk        => ZIO.fail(ErrorWithSql(sql, InvalidResultSetSize("1", chunk.length)))
     }
 
-  inline def option: RIO[ConnectionFactory, Option[O]] =
+  inline def option: RIO[JDBCConnection, Option[O]] =
     chunk.flatMap {
       case Chunk(value) => ZIO.some(value)
       case Chunk()      => ZIO.none
       case chunk        => ZIO.fail(ErrorWithSql(sql, InvalidResultSetSize("0..1", chunk.length)))
     }
 
-  inline def list: RIO[ConnectionFactory, List[O]] = chunk.map(_.toList)
+  inline def list: RIO[JDBCConnection, List[O]] = chunk.map(_.toList)
 
-  inline def chunk: RIO[ConnectionFactory, Chunk[O]] = ZIO.scoped { stream.runCollect }
+  inline def chunk: RIO[JDBCConnection, Chunk[O]] = ZIO.scoped { stream.runCollect }
 
-  def stream: ZStream[ConnectionFactory & Scope, Throwable, O] = _stream
+  def stream: ZStream[JDBCConnection & Scope, Throwable, O] = _stream
 
   // =====|  |=====
 
   // NOTE : Make sure results are ordered by `K`
-  def groupBy[K, V](kf: O => K)(vf: O => V): ZStream[ConnectionFactory & Scope, Throwable, (K, NonEmptyChunk[V])] =
+  def groupBy[K, V](kf: O => K)(vf: O => V): ZStream[JDBCConnection & Scope, Throwable, (K, NonEmptyChunk[V])] =
     _stream.groupAdjacentBy(kf).map { (k, os) => (k, os.map(vf)) }
 
   // NOTE : Make sure results are ordered by `K`
@@ -68,7 +68,7 @@ object QueryResult {
   ): QueryResult[O] =
     QueryResult(
       sql, {
-        def resultSet: RIO[ConnectionFactory & Scope, ResultSet] =
+        def resultSet: RIO[JDBCConnection & Scope, ResultSet] =
           for {
             ps <- Utils.preparedStatement(sql, input, qim)
             rs <- Utils.acquireClosable(ps.executeQuery())

@@ -12,12 +12,12 @@ private[routes] object Helpers {
   // TODO (KR) : name this on a project specific basis
   val SessionToken: String = "Template-Session-Token"
 
-  val userFromSession: HRION[ConnectionFactory & HttpRequest, M.User.Identity] =
+  val userFromSession: HRION[JDBCConnection & HttpRequest, M.User.Identity] =
     HttpRequest.cookie.get[String](Helpers.SessionToken).flatMap { tok =>
       Q.User.fromSessionToken(tok).single.mapErrorToNel(HError.UserError("error getting user session", _))
     }
 
-  val userFromSessionOptional: HRION[ConnectionFactory & HttpRequest, Option[M.User.Identity]] =
+  val userFromSessionOptional: HRION[JDBCConnection & HttpRequest, Option[M.User.Identity]] =
     HttpRequest.cookie.find[String](Helpers.SessionToken).flatMap {
       case Some(tok) => Q.User.fromSessionToken(tok).single.asSome.mapErrorToNel(HError.UserError("error getting user session", _))
       case None      => ZIO.none

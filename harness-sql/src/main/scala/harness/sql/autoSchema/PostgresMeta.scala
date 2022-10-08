@@ -100,57 +100,67 @@ object PostgresMeta {
 
   // =====| effects |=====
 
-  private val tablesAndColumns: RIO[ConnectionFactory, Map[InformationSchemaTables.Identity, Chunk[InformationSchemaColumns.Identity]]] =
+  private val tablesAndColumns: RIO[JDBCConnection, Map[InformationSchemaTables.Identity, Chunk[InformationSchemaColumns.Identity]]] =
     queryTablesAndColumns().groupByLeft(_._1)(_._2).chunk.map(_.toMap)
 
-  def schemaDiff(tables: Tables): RIO[ConnectionFactory, Unit] =
-    for {
-      dbTAC <- tablesAndColumns
-      schemaTAC = tablesToMap(tables)
-      schemaIdx = tables.tableSchemas.map { ts => new InformationSchemaTables.Identity(ts.tableSchema, ts.tableName) }.zipWithIndex.toMap
-      tablePairs = (dbTAC.keySet | schemaTAC.keySet).toList.sortBy(schemaIdx.getOrElse(_, 0)).map { k => (k, dbTAC.get(k), schemaTAC.get(k)) }
-      _ <-
-        ZIO.foreachDiscard(tablePairs) {
-          case (t, Some(db), Some(schema)) =>
-            val columnNames: Set[String] = db.map(_.columnName).toSet | schema.map(_._2.columnName).toSet
-            val columnPairs: List[(Option[InformationSchemaColumns.Identity], Option[(List[Col.Constraint], InformationSchemaColumns.Identity)])] =
-              columnNames.toList.map { c => (db.find(_.columnName == c), schema.find(_._2.columnName == c)) }
-            val alterations: List[String] =
-              columnPairs.flatMap {
-                case (Some(_), Some(_)) =>
-                  None // TODO (KR) : this one is a bit trickier...
-                case (None, Some((constraints, col))) =>
-                  s"ADD COLUMN ${col.columnName} ${col.dataType}${if (col.isNullable) "" else " NOT"} NULL${constraints.mkString(" ", " ", "")}".some
-                case (Some(col), None) =>
-                  s"DROP COLUMN ${col.columnName}".some
-                case (None, None) =>
-                  None
-              }
+  object schemaDiff {
 
-            ZIO.when(alterations.nonEmpty) {
-              val alterSql: String = s"ALTER TABLE ${t.tableSchema}.${t.tableName} ${alterations.mkString(", ")}"
-              val query: Query = new Query(alterSql, QueryInputMapper.id)
+    def apply(tables: Tables): RIO[JDBCConnection, Unit] =
+      for {
+        dbTAC <- tablesAndColumns
+        schemaTAC = tablesToMap(tables)
+        schemaIdx = tables.tableSchemas.map { ts => new InformationSchemaTables.Identity(ts.tableSchema, ts.tableName) }.zipWithIndex.toMap
+        tablePairs = (dbTAC.keySet | schemaTAC.keySet).toList.sortBy(schemaIdx.getOrElse(_, 0)).map { k => (k, dbTAC.get(k), schemaTAC.get(k)) }
+        _ <-
+          ZIO.foreachDiscard(tablePairs) {
+            case (t, Some(db), Some(schema)) =>
+              val columnNames: Set[String] = db.map(_.columnName).toSet | schema.map(_._2.columnName).toSet
+              val columnPairs: List[(Option[InformationSchemaColumns.Identity], Option[(List[Col.Constraint], InformationSchemaColumns.Identity)])] =
+                columnNames.toList.map { c => (db.find(_.columnName == c), schema.find(_._2.columnName == c)) }
+              val alterations: List[String] =
+                columnPairs.flatMap {
+                  case (Some(_), Some(_)) =>
+                    None // TODO (KR) : this one is a bit trickier...
+                  case (None, Some((constraints, col))) =>
+                    s"ADD COLUMN ${col.columnName} ${col.dataType}${if (col.isNullable) "" else " NOT"} NULL${constraints.mkString(" ", " ", "")}".some
+                  case (Some(col), None) =>
+                    s"DROP COLUMN ${col.columnName}".some
+                  case (None, None) =>
+                    None
+                }
+
+              ZIO.when(alterations.nonEmpty) {
+                val alterSql: String = s"ALTER TABLE ${t.tableSchema}.${t.tableName} ${alterations.mkString(", ")}"
+                val query: Query = new Query(alterSql, QueryInputMapper.id)
+
+                query().unit
+              }
+            case (t, None, Some(schema)) =>
+              val createSql: String =
+                schema
+                  .map { case (constraints, col) =>
+                    s"${col.columnName} ${col.dataType}${if (col.isNullable) "" else " NOT"} NULL${constraints.mkString(" ", " ", "")}"
+                  }
+                  .mkString(s"CREATE TABLE ${t.tableSchema}.${t.tableName} (", ", ", ")")
+              val query: Query = new Query(createSql, QueryInputMapper.id)
 
               query().unit
-            }
-          case (t, None, Some(schema)) =>
-            val createSql: String =
-              schema
-                .map { case (constraints, col) =>
-                  s"${col.columnName} ${col.dataType}${if (col.isNullable) "" else " NOT"} NULL${constraints.mkString(" ", " ", "")}"
-                }
-                .mkString(s"CREATE TABLE ${t.tableSchema}.${t.tableName} (", ", ", ")")
-            val query: Query = new Query(createSql, QueryInputMapper.id)
+            case (t, Some(_), None) =>
+              val deleteSql: String = s"DROP TABLE ${t.tableSchema}.${t.tableName}"
+              val query: Query = new Query(deleteSql, QueryInputMapper.id)
 
-            query().unit
-          case (t, Some(_), None) =>
-            val deleteSql: String = s"DROP TABLE ${t.tableSchema}.${t.tableName}"
-            val query: Query = new Query(deleteSql, QueryInputMapper.id)
+              query().unit
+            case (_, None, None) =>
+              ZIO.unit
+          }
+      } yield ()
 
-            query().unit
-          case (_, None, None) =>
-            ZIO.unit
-        }
-    } yield ()
+    def withConnectionFactory(tables: Tables): RIO[ConnectionFactory, Unit] =
+      ZIO.scoped { schemaDiff(tables).provideSomeLayer(JDBCConnection.connectionFactoryLayer) }
+
+    def withPool(tables: Tables): RIO[JDBCConnectionPool, Unit] =
+      ZIO.scoped { schemaDiff(tables).provideSomeLayer(JDBCConnection.poolLayer) }
+
+  }
 
 }
