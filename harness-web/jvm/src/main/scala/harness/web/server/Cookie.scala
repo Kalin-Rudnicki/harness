@@ -10,6 +10,7 @@ final case class Cookie private (
     private val _secure: Boolean,
     private val _maxAge: Option[Int],
     private val _path: Option[String],
+    private val _sameSite: Option[Cookie.SameSite],
 ) { self =>
 
   def secure(s: Boolean): Cookie = self.copy(_secure = s)
@@ -22,6 +23,9 @@ final case class Cookie private (
   inline def path(p: String): Cookie = self.path(p.some)
   inline def rootPath: Cookie = self.path("/")
 
+  def sameSite(ss: Option[Cookie.SameSite]): Cookie = self.copy(_sameSite = ss)
+  inline def sameSite(ss: Cookie.SameSite): Cookie = self.sameSite(ss.some)
+
   // TODO (KR) : Make sure things are encoded properly
   def cookieString: String =
     List[Option[String]](
@@ -29,6 +33,7 @@ final case class Cookie private (
       Option.when(_secure)("Secure"),
       _maxAge.map { a => s"Max-Age=$a" },
       _path.map { p => s"Path=$p" },
+      _sameSite.map { ss => s"SameSite=$ss" },
     ).flatten.mkString("; ")
 
 }
@@ -41,6 +46,7 @@ object Cookie {
       _secure = false,
       _maxAge = None,
       _path = None,
+      _sameSite = None,
     )
 
   def json[V](name: String, value: V)(implicit encoder: JsonEncoder[V]): Cookie =
@@ -50,6 +56,7 @@ object Cookie {
       _secure = false,
       _maxAge = None,
       _path = None,
+      _sameSite = None,
     )
 
   def unset(name: String): Cookie =
@@ -59,6 +66,9 @@ object Cookie {
       _secure = false,
       _maxAge = 0.some,
       _path = None,
+      _sameSite = None,
     )
+
+  enum SameSite { case Lax, Strict, None }
 
 }
