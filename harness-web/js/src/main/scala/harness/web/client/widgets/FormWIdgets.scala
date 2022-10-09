@@ -30,18 +30,28 @@ private def genFormInput[V](
   tag(
     PModifier.builder.withState[String] { value := _ },
     PModifier.builder.withAction[Submit].withState[String] { (rh, _) =>
-      onKeyUp := { e =>
-        val target = e.target.asInstanceOf[scala.scalajs.js.Dynamic]
-        val targetValue = target.value.asInstanceOf[String]
+      PModifier(
+        onKeyUp := { e =>
+          val target = e.target.asInstanceOf[scala.scalajs.js.Dynamic]
+          val targetValue = target.value.asInstanceOf[String]
 
-        if (filterSubmit(e)) {
-          e.preventDefault()
-          rh.raise(
-            Raise.setState { targetValue },
-            Raise.Action(Submit),
-          )
-        } else rh.setState { targetValue }
-      }
+          if (filterSubmit(e)) {
+            e.preventDefault()
+            rh.raise(
+              Raise.setState {
+                targetValue
+              },
+              Raise.Action(Submit),
+            )
+          } else rh.setState { targetValue }
+        },
+        onChange := { e =>
+          val target = e.target.asInstanceOf[scala.scalajs.js.Dynamic]
+          val targetValue = target.value.asInstanceOf[String]
+
+          rh.setState(targetValue)
+        },
+      )
     },
   ).flatMapValueS { (s, _) =>
     if (s.nonEmpty) decoder.decodeAccumulating(s).map(_.some)
