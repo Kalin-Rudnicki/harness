@@ -10,28 +10,48 @@ import java.util.UUID
 import org.postgresql.util.PGobject
 import scala.util.Try
 import zio.json.JsonDecoder
+import zio.json.ast.Json
 
 trait ColDecoder[T] { self =>
 
   def decodeColumn(c: Object): EitherNel[String, T]
+  val jsonDecoder: JsonDecoder[T]
 
-  final def map[T2](f: T => T2): ColDecoder[T2] = self.decodeColumn(_).map(f)
-  final def emap[T2](f: T => EitherNel[String, T2]): ColDecoder[T2] = self.decodeColumn(_).flatMap(f)
+  final def map[T2](f: T => T2): ColDecoder[T2] =
+    new ColDecoder[T2] {
+      override def decodeColumn(c: Object): EitherNel[String, T2] = self.decodeColumn(c).map(f)
+      override val jsonDecoder: JsonDecoder[T2] = self.jsonDecoder.map(f)
+    }
+  final def emap[T2](f: T => EitherNel[String, T2]): ColDecoder[T2] =
+    new ColDecoder[T2] {
+      override def decodeColumn(c: Object): EitherNel[String, T2] = self.decodeColumn(c).flatMap(f)
+      override val jsonDecoder: JsonDecoder[T2] = self.jsonDecoder.mapOrFail(f(_).leftMap(_.head))
+    }
 
   final def optional: ColDecoder[Option[T]] =
-    Option(_) match {
-      case Some(c) => self.decodeColumn(c).map(_.some)
-      case None    => None.asRight
+    new ColDecoder[Option[T]] {
+      override def decodeColumn(c: Object): EitherNel[String, Option[T]] =
+        Option(c) match {
+          case Some(c) => self.decodeColumn(c).map(_.some)
+          case None    => None.asRight
+        }
+      override val jsonDecoder: JsonDecoder[Option[T]] = JsonDecoder.option[T](self.jsonDecoder)
     }
 
 }
 object ColDecoder {
 
-  private def unsafeDecode[T](pf: PartialFunction[Object, T]): ColDecoder[T] =
-    c => pf(c).asRight
+  private def unsafeDecode[T: JsonDecoder](pf: PartialFunction[Object, T]): ColDecoder[T] =
+    new ColDecoder[T] {
+      override def decodeColumn(c: Object): EitherNel[String, T] = pf(c).asRight
+      override val jsonDecoder: JsonDecoder[T] = JsonDecoder[T]
+    }
 
-  private def unsafeDecodeE[T](pf: PartialFunction[Object, EitherNel[String, T]]): ColDecoder[T] =
-    c => pf(c)
+  private def unsafeDecodeE[T: JsonDecoder](pf: PartialFunction[Object, EitherNel[String, T]]): ColDecoder[T] =
+    new ColDecoder[T] {
+      override def decodeColumn(c: Object): EitherNel[String, T] = pf(c)
+      override val jsonDecoder: JsonDecoder[T] = JsonDecoder[T]
+    }
 
   val string: ColDecoder[String] = unsafeDecode { case string: String => string }
   val uuid: ColDecoder[UUID] = unsafeDecode { case uuid: UUID => uuid }

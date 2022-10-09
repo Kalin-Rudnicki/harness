@@ -4,6 +4,7 @@ import cats.~>
 import cats.syntax.option.*
 import harness.cli.*
 import harness.core.*
+import harness.sql.autoSchema.*
 import harness.sql.query.{given, *}
 import harness.sql.typeclass.*
 import harness.zio.*
@@ -119,6 +120,22 @@ object Tmp extends ExecutableApp {
           .returning { (m, _, b) => m ~ b.name }
       }
 
+    val musicianAndBandNames2: QueryO[(Musician.Identity, Chunk[(String, Boolean)])] =
+      Prepare.selectO {
+        Select
+          .from[Musician]("m")
+          .returning { m =>
+            m ~
+              Select
+                .from[MusicianInBand]("mib")
+                .join[Band]("b")
+                .on { (mib, b) => mib.bandId === b.id }
+                .where { (mib, _) => mib.musicianId === m.id }
+                .returningJson { (mib, b) => b.name.toMulti ~ mib.active }
+                .chunk
+          }
+      }
+
   }
 
   object BandQueries extends TableQueries[Band.Id, Band] {
@@ -137,15 +154,63 @@ object Tmp extends ExecutableApp {
 
   // =====|  |=====
 
-  val m1: Musician.Identity =
-    new Musician.Identity(
-      id = Musician.Id.gen,
-      firstName = "Joy",
-      lastName = "Rudnicki",
-      instrument = "Piano",
-      birthday = LocalDate.of(1967, 12, 20),
-      favoriteNumber = 30.some,
-    )
+  object Sample {
+
+    def kalin: Musician.Identity =
+      new Musician.Identity(
+        id = Musician.Id.gen,
+        firstName = "Kalin",
+        lastName = "Rudnicki",
+        instrument = "Coding",
+        birthday = LocalDate.of(1998, 7, 5),
+        favoriteNumber = 18.some,
+      )
+
+    def janine: Musician.Identity =
+      new Musician.Identity(
+        id = Musician.Id.gen,
+        firstName = "Janine",
+        lastName = "Rudnicki",
+        instrument = "Homework",
+        birthday = LocalDate.of(2001, 2, 19),
+        favoriteNumber = 21.some,
+      )
+
+    def bob: Musician.Identity =
+      new Musician.Identity(
+        id = Musician.Id.gen,
+        firstName = "Bob",
+        lastName = "Rudnicki",
+        instrument = "The News",
+        birthday = LocalDate.of(1965, 12, 6),
+        favoriteNumber = None,
+      )
+
+    def joy: Musician.Identity =
+      new Musician.Identity(
+        id = Musician.Id.gen,
+        firstName = "Joy",
+        lastName = "Rudnicki",
+        instrument = "Piano",
+        birthday = LocalDate.of(1967, 12, 20),
+        favoriteNumber = 7.some,
+      )
+
+    def theBest: Band.Identity =
+      new Band.Identity(
+        id = Band.Id.gen,
+        name = "The Best",
+        formationDate = LocalDate.of(2000, 1, 1),
+      )
+
+    def anotherBand: Band.Identity =
+      new Band.Identity(
+        id = Band.Id.gen,
+        name = "Another Band",
+        formationDate = LocalDate.of(2020, 3, 15),
+      )
+
+  }
 
   override val executable: Executable =
     Executable
@@ -158,6 +223,31 @@ object Tmp extends ExecutableApp {
         for {
           _ <- Logger.log.info("Starting...")
 
+          _ <- PostgresMeta.schemaDiff(Tables(Musician.tableSchema, Band.tableSchema, MusicianInBand.tableSchema)).mapError(HError.SystemFailure("postgres-meta", _))
+
+          // m1 = Sample.kalin
+          // m2 = Sample.janine
+          // m3 = Sample.bob
+          // m4 = Sample.joy
+          // _ <- MusicianQueries.insert(m1).mapError(HError.SystemFailure("insert m1", _))
+          // _ <- MusicianQueries.insert(m2).mapError(HError.SystemFailure("insert m2", _))
+          // _ <- MusicianQueries.insert(m3).mapError(HError.SystemFailure("insert m3", _))
+          // _ <- MusicianQueries.insert(m4).mapError(HError.SystemFailure("insert m4", _))
+
+          // b1 = Sample.theBest
+          // b2 = Sample.anotherBand
+          // _ <- BandQueries.insert(b1).mapError(HError.SystemFailure("insert b1", _))
+          // _ <- BandQueries.insert(b2).mapError(HError.SystemFailure("insert b2", _))
+
+          // mib1 = new MusicianInBand.Identity(id = MusicianInBand.Id.gen, musicianId = m1.id, bandId = b1.id, active = true)
+          // mib2 = new MusicianInBand.Identity(id = MusicianInBand.Id.gen, musicianId = m2.id, bandId = b1.id, active = true)
+          // mib3 = new MusicianInBand.Identity(id = MusicianInBand.Id.gen, musicianId = m1.id, bandId = b2.id, active = true)
+          // mib4 = new MusicianInBand.Identity(id = MusicianInBand.Id.gen, musicianId = m4.id, bandId = b2.id, active = true)
+          // _ <- MusicianInBandQueries.insert(mib1).mapError(HError.SystemFailure("insert mib1", _))
+          // _ <- MusicianInBandQueries.insert(mib2).mapError(HError.SystemFailure("insert mib2", _))
+          // _ <- MusicianInBandQueries.insert(mib3).mapError(HError.SystemFailure("insert mib3", _))
+          // _ <- MusicianInBandQueries.insert(mib4).mapError(HError.SystemFailure("insert mib4", _))
+
           // kalin <- musicianByNames(("Kalin", "Rudnicki")).single.mapError(HError.InternalDefect("...", _))
           // janine <- musicianByNames(("Janine", "Rudnicki")).single.mapError(HError.InternalDefect("...", _))
           // joy <- musicianByNames(("Joy", "Rudnicki")).single.mapError(HError.InternalDefect("...", _))
@@ -166,14 +256,14 @@ object Tmp extends ExecutableApp {
           // theBest <- bandByName("The Best").single.mapError(HError.InternalDefect("...", _))
           // anotherBand <- bandByName("Another Band").single.mapError(HError.InternalDefect("...", _))
 
-          musicians <- MusicianQueries.selectAll().chunk.mapError(HError.InternalDefect("...", _))
-          _ <- Logger.log.info("")
-          _ <- ZIO.foreachDiscard(musicians)(Logger.log.info(_))
-          _ <- Logger.log.info("")
-          bands <- BandQueries.selectAll().chunk.mapError(HError.InternalDefect("...", _))
-          _ <- Logger.log.info(bands)
-          musicianInBands <- MusicianInBandQueries.selectAll().chunk.mapError(HError.InternalDefect("...", _))
-          _ <- Logger.log.info(musicianInBands)
+          // musicians <- MusicianQueries.selectAll().chunk.mapError(HError.InternalDefect("...", _))
+          // _ <- Logger.log.info("")
+          // _ <- ZIO.foreachDiscard(musicians)(Logger.log.info(_))
+          // _ <- Logger.log.info("")
+          // bands <- BandQueries.selectAll().chunk.mapError(HError.InternalDefect("...", _))
+          // _ <- Logger.log.info(bands)
+          // musicianInBands <- MusicianInBandQueries.selectAll().chunk.mapError(HError.InternalDefect("...", _))
+          // _ <- Logger.log.info(musicianInBands)
 
           // pairs1 <- musicianAndBandNames().groupByLeft(_._1)(_._2).chunk.mapError(HError.InternalDefect("...", _))
           // _ <- Logger.log.info("")
@@ -186,6 +276,8 @@ object Tmp extends ExecutableApp {
           musicians <- MusicianQueries.selectAll().chunk.mapError(HError.InternalDefect("...", _))
           _ <- Logger.log.info("")
           _ <- ZIO.foreachDiscard(musicians)(Logger.log.info(_))
+          _ <- Logger.log.info("")
+          _ <- ZIO.scoped(MusicianQueries.musicianAndBandNames2.apply().stream.foreach(Logger.log.info(_)).mapError(HError.InternalDefect("...", _)))
           _ <- Logger.log.info("")
 
         } yield ()

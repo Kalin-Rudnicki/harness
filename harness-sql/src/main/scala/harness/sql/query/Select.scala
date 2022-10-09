@@ -3,6 +3,8 @@ package harness.sql.query
 import harness.sql.*
 import harness.sql.typeclass.*
 import shapeless3.deriving.Id
+import zio.Chunk
+import zio.json.JsonDecoder
 
 object Select {
 
@@ -47,7 +49,12 @@ object Select {
 
     def returning[T2](f: T => Returning[T2]): Select.Query[T2] = {
       val ret = f(t)
-      Select.Query(s"SELECT ${ret.columns.mkString(", ")} FROM $query", ret.rowDecoder, queryInputMapper)
+      Select.Query(s"SELECT ${ret.selects.mkString(", ")} FROM $query", ret.rowDecoder, queryInputMapper + ret.qim)
+    }
+
+    def returningJson[T2](f: T => ReturningJson[T2]): Select.Q5[T2] = {
+      val ret = f(t)
+      Select.Q5(ret.selectStr, query, ret.decoder, queryInputMapper)
     }
 
   }
@@ -76,7 +83,12 @@ object Select {
 
     def returning[T2](f: T => Returning[T2]): Select.Query[T2] = {
       val ret = f(t)
-      Select.Query(s"SELECT ${ret.columns.mkString(", ")} FROM $query", ret.rowDecoder, queryInputMapper)
+      Select.Query(s"SELECT ${ret.selects.mkString(", ")} FROM $query", ret.rowDecoder, queryInputMapper)
+    }
+
+    def returningJson[T2](f: T => ReturningJson[T2]): Select.Q5[T2] = {
+      val ret = f(t)
+      Select.Q5(ret.selectStr, query, ret.decoder, queryInputMapper)
     }
 
   }
@@ -85,15 +97,46 @@ object Select {
 
     def returning[T2](f: T => Returning[T2]): Select.Query[T2] = {
       val ret = f(t)
-      Select.Query(s"SELECT ${ret.columns.mkString(", ")} FROM $query", ret.rowDecoder, queryInputMapper)
+      Select.Query(s"SELECT ${ret.selects.mkString(", ")} FROM $query", ret.rowDecoder, queryInputMapper)
+    }
+
+    def returningJson[T2](f: T => ReturningJson[T2]): Select.Q5[T2] = {
+      val ret = f(t)
+      Select.Q5(ret.selectStr, query, ret.decoder, queryInputMapper)
     }
 
   }
+
+  final class Q5[O] private[Select] (
+      select: String,
+      query: String,
+      decoder: JsonDecoder[O],
+      queryInputMapper: QueryInputMapper,
+  ) {
+
+    def single: Query[O] with JsonReturn =
+      Select.Query(s"SELECT $select FROM $query", RowDecoder.fromColDecoder(ColDecoder.json[O](decoder)), queryInputMapper).asInstanceOf[Select.Query[O] with JsonReturn]
+    def option: Query[Option[O]] with JsonReturn =
+      Select.Query(s"SELECT $select FROM $query", RowDecoder.fromColDecoder(ColDecoder.json[O](decoder)).optional, queryInputMapper).asInstanceOf[Select.Query[Option[O]] with JsonReturn]
+    def chunk: Query[Chunk[O]] with JsonReturn =
+      Select
+        .Query(
+          s"COALESCE((SELECT json_agg($select) FROM $query), '[]' :: JSON)",
+          RowDecoder.fromColDecoder(ColDecoder.json[Chunk[O]](JsonDecoder.chunk[O](decoder))),
+          queryInputMapper,
+        )
+        .asInstanceOf[Select.Query[Chunk[O]] with JsonReturn]
+
+  }
+
+  // =====|  |=====
 
   final class Query[O] private[Select] (
       private[query] val query: String,
       private[query] val decoder: RowDecoder[O],
       private[query] val queryInputMapper: QueryInputMapper,
   )
+
+  type JsonReturn
 
 }

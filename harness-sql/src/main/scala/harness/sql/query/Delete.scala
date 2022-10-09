@@ -39,7 +39,7 @@ object Delete {
     def returning[T2](f: T => Returning[T2]): QueryR[T2] = {
       val ret = f(t)
       QueryR(
-        s"$query RETURNING ${ret.columns.mkString(", ")}",
+        s"$query RETURNING ${ret.selects.mkString(", ")}",
         ret.rowDecoder,
         queryInputMapper,
       )

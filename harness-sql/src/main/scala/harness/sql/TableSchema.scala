@@ -39,6 +39,7 @@ object TableSchema {
           cols
             .map { c =>
               if (c.colType == "JSONB") "? :: JSONB"
+              else if (c.colType == "JSON") "? :: JSON"
               else "?"
             }
             .mkString(", ")
