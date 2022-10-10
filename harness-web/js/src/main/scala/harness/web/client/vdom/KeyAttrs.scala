@@ -1,11 +1,10 @@
 package harness.web.client.vdom
 
-import harness.web.client.rawVDOM.VDom
 import org.scalajs.dom.*
 import scala.scalajs.js
 
 abstract class KeyAttrBuilder[T](name: String, convert: T => js.Any) {
-  final def :=(value: T): CModifier = PModifier(VDom.KeyAttr(name, convert(value)))
+  final def :=(value: T): CModifier = PModifier.keyAttr(name, convert(value))
 }
 
 object onClick extends KeyAttrBuilder[MouseEvent => Unit]("onclick", identity(_))

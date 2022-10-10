@@ -3,11 +3,13 @@ package harness.web.client.vdom
 import harness.web.client.rawVDOM.VDom
 import scala.scalajs.js
 
-abstract class StdAttrBuilder(scopedName: VDom.ScopedName) {
-  final def :=(value: String): CModifier = PModifier(VDom.StdAttr(scopedName, value))
+abstract class StdAttrBuilder[T](scopedName: VDom.ScopedName, convert: T => String = (_: T).toString) { self =>
+  final def :=(value: T): CModifier = PModifier.stdAttr(scopedName, convert(value))
+
+  inline final def empty(implicit ev: String <:< T): CModifier = self := ev("")
 }
 
-object `type` extends StdAttrBuilder("type") { self =>
+object `type` extends StdAttrBuilder[String]("type") { self =>
   inline def text: CModifier = self := "text"
   inline def number: CModifier = self := "number"
   inline def password: CModifier = self := "password"
@@ -33,6 +35,13 @@ object `type` extends StdAttrBuilder("type") { self =>
   inline def week: CModifier = self := "week"
 }
 
-object `for` extends StdAttrBuilder("for")
+object `for` extends StdAttrBuilder[String]("for")
+object id extends StdAttrBuilder[String]("id")
+object src extends StdAttrBuilder[String]("src")
 
-object id extends StdAttrBuilder("id")
+object rowSpan extends StdAttrBuilder[Int]("rowSpan")
+object colSpan extends StdAttrBuilder[Int]("colSpan")
+
+object multiple extends StdAttrBuilder[String]("multiple")
+object controls extends StdAttrBuilder[String]("controls")
+object autoplay extends StdAttrBuilder[String]("autoplay")

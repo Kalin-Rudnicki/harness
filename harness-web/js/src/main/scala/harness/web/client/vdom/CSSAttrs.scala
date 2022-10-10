@@ -1,11 +1,11 @@
 package harness.web.client.vdom
 
-import harness.web.client.rawVDOM.VDom
+import harness.web.client.rawVDOM
 import org.scalajs.dom.MouseEvent
 import scala.scalajs.js
 
-abstract class CSSAttrBuilder(scopedName: VDom.ScopedName) { self =>
-  final def :=(value: String): CModifier = PModifier(VDom.CSSAttr(scopedName, value))
+abstract class CSSAttrBuilder(scopedName: rawVDOM.VDom.ScopedName) { self =>
+  final def :=(value: String): CModifier = PModifier.cssAttr(scopedName, value)
 
   inline final def inherit: CModifier = self := "inherit"
   inline final def initial: CModifier = self := "initial"
@@ -13,7 +13,7 @@ abstract class CSSAttrBuilder(scopedName: VDom.ScopedName) { self =>
   inline final def revert: CModifier = self := "revert"
 }
 
-abstract class ColorCSSAttrBuilder(scopedName: VDom.ScopedName) extends CSSAttrBuilder(scopedName) { self =>
+abstract class ColorCSSAttrBuilder(scopedName: rawVDOM.VDom.ScopedName) extends CSSAttrBuilder(scopedName) { self =>
   inline final def red: CModifier = self := "red"
   inline final def blue: CModifier = self := "blue"
   inline final def green: CModifier = self := "green"

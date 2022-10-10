@@ -11,6 +11,7 @@ import harness.zio.*
 import monocle.Lens
 import monocle.macros.GenLens
 import scala.annotation.targetName
+import scala.scalajs.js
 import zio.*
 import zio.json.*
 
@@ -218,8 +219,21 @@ object PModifier {
   ): PModifier[Action, StateGet, StateSet, Unit] =
     Simple.unit[Action, StateGet, StateSet] { (rh, state) => modifiers.toList.flatMap(_.build(rh, state)) }
 
+  // =====|  |=====
+
   def textElement(text: String): PModifier[Nothing, Any, Nothing, Unit] =
     Simple.const { rawVDOM.VDom.TextElement(text) :: Nil }
+
+  def cssAttr(scopedName: rawVDOM.VDom.ScopedName, value: String): CModifier =
+    Simple.const { rawVDOM.VDom.CSSAttr(scopedName, value) :: Nil }
+
+  def keyAttr(name: String, value: js.Any): CModifier =
+    Simple.const { rawVDOM.VDom.KeyAttr(name, value) :: Nil }
+
+  def stdAttr(scopedName: rawVDOM.VDom.ScopedName, value: String): CModifier =
+    Simple.const { rawVDOM.VDom.StdAttr(scopedName, value) :: Nil }
+
+  // =====|  |=====
 
   def foreach[I, Action, StateGet, StateSet <: StateGet](
       iter: IterableOnce[I],
