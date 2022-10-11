@@ -92,12 +92,32 @@ trait PageApp extends ZIOApp {
         ZIO
           .hAttempt("Unable to set window.onpopstate") {
             window.onpopstate = { _ =>
-              Unsafe.unsafe { implicit unsafe =>
-                runtime.unsafe.run(attemptToLoadPage.dumpErrorsAndContinueNel)
-              }
+              PageApp.runZIO(
+                runtime,
+                attemptToLoadPage,
+              )
             }
           }
           .toErrorNel
     } yield ()).dumpErrorsAndContinueNel
+
+}
+object PageApp {
+
+  private[client] def runZIO(
+      runtime: Runtime[HarnessEnv],
+      effect: SHTaskN[Any],
+  ): Unit =
+    Unsafe.unsafe { implicit unsafe =>
+      runtime.unsafe.runToFuture {
+        effect
+          .mapErrorCause {
+            case fail @ Cause.Fail(_, _)     => fail
+            case Cause.Die(throwable, trace) => Cause.fail(NonEmptyList.one(HError.InternalDefect("died", throwable)), trace)
+            case fail                        => Cause.fail(NonEmptyList.one(HError.InternalDefect(s"Failed with other cause: $fail")), fail.trace)
+          }
+          .dumpErrorsAndContinueNel(Logger.LogLevel.Error)
+      }
+    }
 
 }

@@ -1,5 +1,6 @@
 package harness.web.client
 
+import cats.data.NonEmptyList
 import harness.core.*
 import harness.web.client.vdom.*
 import harness.zio.*
@@ -16,17 +17,10 @@ abstract class RaiseHandler[-A, -S] private (
   // =====| Public API |=====
 
   final def raiseManyZIO(raises: SHTaskN[List[Raise[A, S]]]*): Unit =
-    Unsafe.unsafe { implicit unsafe =>
-      runtime.unsafe.run {
-        ZIO
-          .foreachDiscard(raises) {
-            _.flatMap {
-              ZIO.foreachDiscard(_)(self.handleRaise)
-            }
-          }
-          .dumpErrorsAndContinueNel(Logger.LogLevel.Error)
-      }
-    }
+    PageApp.runZIO(
+      runtime,
+      ZIO.foreachDiscard(raises) { _.flatMap { ZIO.foreachDiscard(_)(self.handleRaise) } },
+    )
 
   inline final def raiseZIO(raises: SHTaskN[Raise[A, S]]*): Unit = self.raiseManyZIO(raises.map(_.map(_ :: Nil))*)
   inline final def raise(raises: Raise[A, S]*): Unit = self.raiseManyZIO(raises.map { r => ZIO.succeed(r :: Nil) }*)
