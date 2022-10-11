@@ -7,7 +7,8 @@ import harness.web.client.*
 import harness.web.client.vdom.{given, *}
 import monocle.*
 import monocle.macros.GenLens
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
+import scala.reflect.ClassTag
 
 object SumWidget {
 
@@ -30,10 +31,10 @@ object SumWidget {
       none: CModifierA[Action] = PModifier(),
   ): ModifierAV[Action, Option[State], Option[Value]] =
     SumWidget[Action, Option[State], Option[Value]](
-      Case.subTypeThen[Action, Option[State], Some[State], State, Some[Value]] { case Some(value) => Some(value) }(_.value) {
+      Case.subType[Option[State]].filterType[Some[State]].focus(_.value).withWidget {
         some.mapValue(Some(_))
       },
-      Case.subType[Action, Option[State], None.type, None.type] { case None => None } {
+      Case.subType[Option[State]].filterType[None.type].withWidget {
         none.asValue(_ => None)
       },
     )
@@ -43,10 +44,10 @@ object SumWidget {
       right: ModifierAV[Action, RS, RV],
   ): ModifierAV[Action, Either[LS, RS], Either[LV, RV]] =
     SumWidget[Action, Either[LS, RS], Either[LV, RV]](
-      Case.subTypeThen[Action, Either[LS, RS], Left[LS, Nothing], LS, Left[LV, Nothing]] { case Left(value) => Left(value) }(_.value) {
+      Case.subType[Either[LS, RS]].filterType[Left[LS, Nothing]].focus(_.value).withWidget {
         left.mapValue(Left(_))
       },
-      Case.subTypeThen[Action, Either[LS, RS], Right[Nothing, RS], RS, Right[Nothing, RV]] { case Right(value) => Right(value) }(_.value) {
+      Case.subType[Either[LS, RS]].filterType[Right[Nothing, RS]].focus(_.value).withWidget {
         right.mapValue(Right(_))
       },
     )
@@ -74,27 +75,33 @@ object SumWidget {
   }
   object Case {
 
-    def subType[Action, OuterState, InnerState <: OuterState, Value](
-        get: PartialFunction[OuterState, InnerState],
-    )(
-        widget: ModifierAV[Action, InnerState, Value],
-    ): Case[Action, OuterState, InnerState, Value] =
-      Case[Action, OuterState, InnerState, Value](
-        Optional(get.lift) { v => _ => v },
-        widget,
-      )
+    final class SubTypeBuilder1[OuterState] {
 
-    inline def subTypeThen[Action, OuterState, TmpInnerState <: OuterState, InnerState, Value](
-        get: PartialFunction[OuterState, TmpInnerState],
-    )(
-        inline f: TmpInnerState => InnerState,
-    )(
-        widget: ModifierAV[Action, InnerState, Value],
-    ): Case[Action, OuterState, InnerState, Value] =
-      Case[Action, OuterState, InnerState, Value](
-        Optional(get.lift) { v => _ => v }.andThen(GenLens[TmpInnerState](f).asInstanceOf[Optional[TmpInnerState, InnerState]]),
-        widget,
-      )
+      inline def filter[InnerState <: OuterState](get: PartialFunction[OuterState, InnerState]): SubTypeBuilder2[OuterState, InnerState] =
+        SubTypeBuilder2(Optional(get.lift) { v => _ => v })
+
+      @nowarn
+      inline def filterType[InnerState <: OuterState](implicit ct: ClassTag[InnerState]): SubTypeBuilder2[OuterState, InnerState] =
+        filter { case ct(is) => is }
+
+    }
+
+    final class SubTypeBuilder2[OuterState, InnerState](
+        lens: Optional[OuterState, InnerState],
+    ) {
+
+      inline def focus[InnerState2](inline f: InnerState => InnerState2): SubTypeBuilder2[OuterState, InnerState2] =
+        SubTypeBuilder2[OuterState, InnerState2](lens.andThen(GenLens[InnerState](f).asInstanceOf[Optional[InnerState, InnerState2]]))
+
+      inline def withWidget[Action, Value](widget: ModifierAV[Action, InnerState, Value]): Case[Action, OuterState, InnerState, Value] =
+        Case[Action, OuterState, InnerState, Value](
+          lens,
+          widget,
+        )
+
+    }
+
+    inline def subType[OuterState]: SubTypeBuilder1[OuterState] = new SubTypeBuilder1[OuterState]
 
     private[SumWidget] def firstOf[Action, State, Value, O](
         cases: List[Case[Action, State, _, Value]],
