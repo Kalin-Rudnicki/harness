@@ -133,7 +133,6 @@ object Executable {
 
   private final case class Config(
       minLogTolerance: Logger.LogLevel,
-      maxLogTolerance: Logger.LogLevel,
       runMode: RunMode,
   )
   private object Config {
@@ -146,13 +145,6 @@ object Executable {
           helpHint = List("Disregard log messages below this level"),
         )
         .default(Logger.LogLevel.Info, true) &&
-      Parser
-        .value[Logger.LogLevel](
-          LongName.unsafe("max-log-tolerance"),
-          Defaultable.Some(ShortName.unsafe('T')),
-          helpHint = List("Disregard log messages above this level"),
-        )
-        .default(Logger.LogLevel.Always, true) &&
       Parser
         .flag(
           LongName.unsafe("dev"),
@@ -186,8 +178,8 @@ object Executable {
   private def parseLayer(args: IndexedArgs): Result[ULayer[HarnessEnv]] =
     finalizedResultToExecutableResult(Config.parser.finalized.parse(args)).map { config =>
       val logger: Logger =
-        Logger(
-          sources = Logger.Source.stdOut(config.minLogTolerance, config.maxLogTolerance) :: Nil,
+        Logger.default(
+          defaultMinLogTolerance = config.minLogTolerance,
         )
 
       ZLayer.succeed(logger) ++

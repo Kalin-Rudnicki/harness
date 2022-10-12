@@ -22,7 +22,7 @@ trait PageApp extends ZIOApp {
         new Logger.Target {
           override def log(string: String): UIO[Unit] = ZIO.hAttempt("Unable to log to js console") { console.log(string) }.orDieH
         }
-      ZLayer.succeed(Logger(Logger.Source.const(target, Logger.LogLevel.Info, Logger.LogLevel.Always) :: Nil))
+      ZLayer.succeed(Logger.default(sources = Logger.Source.const(target, None) :: Nil))
     }
 
     loggerLayer ++

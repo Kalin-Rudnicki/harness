@@ -5,6 +5,7 @@ import com.sun.net.httpserver.*
 import harness.core.*
 import harness.web.*
 import harness.zio.*
+import java.util.UUID
 import zio.*
 import zio.json.*
 
@@ -47,7 +48,7 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
     Unsafe.unsafe { implicit unsafe =>
       serverRuntime.unsafe.run {
         ZIO.scoped {
-          effect.provideSomeLayer[HarnessEnv & ServerEnv & Scope](builtInReqLayer ++ reqLayer).dumpErrorsAndContinueNel
+          Logger.addContext("request-id" -> UUID.randomUUID())(effect).provideSomeLayer[HarnessEnv & ServerEnv & Scope](builtInReqLayer ++ reqLayer).dumpErrorsAndContinueNel
         }
       }
     }

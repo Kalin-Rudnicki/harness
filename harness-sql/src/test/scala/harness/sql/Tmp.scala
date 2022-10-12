@@ -273,12 +273,20 @@ object Tmp extends ExecutableApp {
           // m <- Musician.delete(UUID.fromString("845e6c5b-c202-4882-854f-887c53124f7b")).single.mapError(HError.InternalDefect("...", _))
           // _ <- Logger.log.info(m)
 
-          musicians <- MusicianQueries.selectAll().chunk.mapError(HError.InternalDefect("...", _))
-          _ <- Logger.log.info("")
-          _ <- ZIO.foreachDiscard(musicians)(Logger.log.info(_))
-          _ <- Logger.log.info("")
-          _ <- ZIO.scoped(MusicianQueries.musicianAndBandNames2.apply().stream.foreach(Logger.log.info(_)).mapError(HError.InternalDefect("...", _)))
-          _ <- Logger.log.info("")
+          // musicians <- MusicianQueries.selectAll().chunk.mapError(HError.InternalDefect("...", _))
+          // _ <- Logger.log.info("")
+          // _ <- ZIO.foreachDiscard(musicians)(Logger.log.info(_))
+          // _ <- Logger.log.info("")
+          // _ <- ZIO.scoped(MusicianQueries.musicianAndBandNames2.apply().stream.foreach(Logger.log.info(_)).mapError(HError.InternalDefect("...", _)))
+          // _ <- Logger.log.info("")
+
+          _ <- Logger.log.info("A")
+          _ <- Logger.log.info("B", "context" -> "c")
+          _ <- Logger.addContext("default-context" -> "dc") {
+            Logger.log.info("C") *>
+              Logger.log.info("D", "context" -> "c") *>
+              Logger.log.info("E\nF", "context" -> "c2", "more-context" -> 5)
+          }
 
         } yield ()
       }

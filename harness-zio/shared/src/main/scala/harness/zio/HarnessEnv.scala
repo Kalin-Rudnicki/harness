@@ -7,7 +7,7 @@ type HarnessEnv = Logger & RunMode & FileSystem
 object HarnessEnv {
 
   val defaultLayer: Layer[HError, HarnessEnv] =
-    ZLayer.succeed(Logger(Logger.Source.stdOut(Logger.LogLevel.Info, Logger.LogLevel.Always) :: Nil)) ++
+    ZLayer.succeed(Logger.default()) ++
       ZLayer.succeed(RunMode.Prod) ++
       FileSystem.liveLayer
 
