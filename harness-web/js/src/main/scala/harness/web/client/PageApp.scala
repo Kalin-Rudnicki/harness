@@ -22,7 +22,7 @@ trait PageApp extends ZIOApp {
         new Logger.Target {
           override def log(string: String): UIO[Unit] = ZIO.hAttempt("Unable to log to js console") { console.log(string) }.orDieH
         }
-      ZLayer.succeed(Logger.default(sources = Logger.Source.const(target, None, None) :: Nil))
+      ZLayer.succeed(Logger.default(sources = Logger.Source.const(target, None, None) :: Nil, defaultMinLogTolerance = logTolerance))
     }
 
     loggerLayer ++
@@ -32,6 +32,7 @@ trait PageApp extends ZIOApp {
 
   // TODO (KR) : Come up with a better system for this
   protected val runMode: RunMode = RunMode.Dev
+  protected val logTolerance: Logger.LogLevel = Logger.LogLevel.Info
 
   // TODO (KR) : Make this prettier
   /**
