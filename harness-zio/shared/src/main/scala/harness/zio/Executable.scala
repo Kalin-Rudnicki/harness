@@ -133,6 +133,7 @@ object Executable {
 
   private final case class Config(
       minLogTolerance: Logger.LogLevel,
+      colorMode: ColorMode,
       runMode: RunMode,
   )
   private object Config {
@@ -145,6 +146,13 @@ object Executable {
           helpHint = List("Disregard log messages below this level"),
         )
         .default(Logger.LogLevel.Info, true) &&
+      Parser
+        .value[ColorMode](
+          LongName.unsafe("color-mode"),
+          Defaultable.Some(ShortName.unsafe('c')),
+          helpHint = List("Default logger colorization"),
+        )
+        .default(ColorMode.Extended, true) &&
       Parser
         .flag(
           LongName.unsafe("dev"),
@@ -180,6 +188,7 @@ object Executable {
       val logger: Logger =
         Logger.default(
           defaultMinLogTolerance = config.minLogTolerance,
+          defaultColorMode = config.colorMode,
         )
 
       ZLayer.succeed(logger) ++

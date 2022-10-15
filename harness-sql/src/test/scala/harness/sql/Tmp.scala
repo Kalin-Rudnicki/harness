@@ -287,6 +287,9 @@ object Tmp extends ExecutableApp {
               Logger.log.info("D", "context" -> "c") *>
               Logger.log.info("E\nF", "context" -> "c2", "more-context" -> 5)
           }
+          _ <- Logger.addContext("stage" -> "log-levels-and-colors") {
+            ZIO.foreach(Logger.LogLevel.allLevels)(ll => Logger.log(ll, ll.name))
+          }
 
         } yield ()
       }

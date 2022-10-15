@@ -11,29 +11,30 @@ final case class Logger(
     sources: List[Logger.Source],
     defaultMinLogTolerance: Logger.LogLevel,
     defaultContext: List[(String, Any)],
-    colorize: Boolean, // TODO (KR) : Make this source-specific
+    defaultColorMode: ColorMode,
 ) { self =>
 
   def execute(event: Logger.Event): UIO[Unit] = {
     def handle(
         sourceMinLogTolerance: Logger.LogLevel,
+        sourceColorMode: ColorMode,
         target: Logger.Target,
         logLevel: Option[Logger.LogLevel],
         event: Logger.Event,
     ): UIO[Any] =
       event match {
         case Logger.Event.Compound(events) =>
-          ZIO.foreachDiscard(events)(handle(sourceMinLogTolerance, target, logLevel, _))
+          ZIO.foreachDiscard(events)(handle(sourceMinLogTolerance, sourceColorMode, target, logLevel, _))
         case Logger.Event.Output(context, message) =>
-          target.log(Logger.formatMessage(logLevel, message, defaultContext ::: context, colorize))
+          target.log(Logger.formatMessage(logLevel, message, defaultContext ::: context, sourceColorMode))
         case e @ Logger.Event.AtLogLevel(logLevel, _) =>
           ZIO.when(logLevel.logPriority >= sourceMinLogTolerance.logPriority) {
-            handle(sourceMinLogTolerance, target, logLevel.some, e.event)
+            handle(sourceMinLogTolerance, sourceColorMode, target, logLevel.some, e.event)
           }
       }
 
     def execOnSource(source: Logger.Source): URIO[Scope, Any] =
-      source.target.flatMap(handle(source.minLogTolerance.getOrElse(defaultMinLogTolerance), _, None, event))
+      source.target.flatMap(handle(source.minLogTolerance.getOrElse(defaultMinLogTolerance), source.colorMode.getOrElse(defaultColorMode), _, None, event))
 
     ZIO.scoped {
       ZIO.foreachParDiscard(sources)(execOnSource)
@@ -47,16 +48,16 @@ final case class Logger(
 object Logger { self =>
 
   def default(
-      sources: List[Logger.Source] = Logger.Source.stdOut(None) :: Nil,
+      sources: List[Logger.Source] = Logger.Source.stdOut(None, None) :: Nil,
       defaultMinLogTolerance: Logger.LogLevel = Logger.LogLevel.Info,
       defaultContext: List[(String, Any)] = Nil,
-      colorize: Boolean = true,
+      defaultColorMode: ColorMode = ColorMode.Extended,
   ): Logger =
     Logger(
       sources = sources,
       defaultMinLogTolerance = defaultMinLogTolerance,
       defaultContext = defaultContext,
-      colorize = colorize,
+      defaultColorMode = defaultColorMode,
     )
 
   // =====| API |=====
@@ -138,35 +139,42 @@ object Logger { self =>
   final case class Source(
       target: URIO[Scope, Target],
       minLogTolerance: Option[LogLevel],
+      colorMode: Option[ColorMode],
   )
   object Source {
 
     def const(
         target: Target,
         minLogTolerance: Option[LogLevel],
+        colorMode: Option[ColorMode],
     ): Source =
       Source(
         ZIO.succeed(target),
         minLogTolerance,
+        colorMode,
       )
 
     def stdOut(
         minLogTolerance: Option[LogLevel],
+        colorMode: Option[ColorMode],
     ): Source =
       Source.const(
         Target.fromPrintStream("StdOut", scala.Console.out),
         minLogTolerance,
+        colorMode,
       )
 
     def stringBuilder(
         sb: mutable.StringBuilder,
         minLogTolerance: Option[LogLevel],
+        colorMode: Option[ColorMode],
     ): Source =
       Source.const(
         new Target {
           override def log(string: String): UIO[Unit] = ZIO.succeed { sb.append(string); sb.append('\n') }
         },
         minLogTolerance,
+        colorMode,
       )
 
   }
@@ -176,22 +184,39 @@ object Logger { self =>
       final val rawDisplayName: String,
       final val tolerancePriority: Int,
       final val logPriority: Int,
+      final val extendedColor: Color,
+      final val simpleColor: Color.Simple,
   ) {
 
     def this(
         name: String,
         rawDisplayName: String,
         priority: Int,
+        extendedColor: Color,
+        simpleColor: Color.Simple,
     ) =
       this(
         name = name,
         rawDisplayName = rawDisplayName,
         tolerancePriority = priority,
         logPriority = priority,
+        extendedColor = extendedColor,
+        simpleColor = simpleColor,
       )
 
     final lazy val displayName: String =
       s"$rawDisplayName${" " * (LogLevel.maxDisplayNameLength - rawDisplayName.length)}"
+
+    private final lazy val colorModeDisplayNameMap: Map[ColorMode, String] =
+      ColorMode.all.map { cm =>
+        cm ->
+          (cm.selectColor(extendedColor, simpleColor) match {
+            case Color.Default => displayName
+            case color         => s"${cm.fgANSI(color)}$displayName${cm.fgANSI(Color.Default)}"
+          })
+      }.toMap
+
+    final def colorizedDisplayName(colorMode: ColorMode): String = colorModeDisplayNameMap(colorMode)
 
     override final def toString: String = rawDisplayName
 
@@ -204,6 +229,8 @@ object Logger { self =>
           rawDisplayName = "NEVER",
           tolerancePriority = 10,
           logPriority = 0,
+          extendedColor = Color.Default,
+          simpleColor = Color.Default,
         )
 
     case object Trace
@@ -211,6 +238,8 @@ object Logger { self =>
           name = "Trace",
           rawDisplayName = "TRACE",
           priority = 1,
+          extendedColor = Color(0x30f2c2),
+          simpleColor = Color.Named.Cyan,
         )
 
     case object Debug
@@ -218,6 +247,8 @@ object Logger { self =>
           name = "Debug",
           rawDisplayName = "DEBUG",
           priority = 2,
+          extendedColor = Color(0x0277bd),
+          simpleColor = Color.Named.Cyan,
         )
 
     case object Detailed
@@ -225,6 +256,8 @@ object Logger { self =>
           name = "Detailed",
           rawDisplayName = "DETLD",
           priority = 3,
+          extendedColor = Color(0x66bb6a),
+          simpleColor = Color.Named.Blue,
         )
 
     case object Info
@@ -232,6 +265,8 @@ object Logger { self =>
           name = "Info",
           rawDisplayName = "INFO",
           priority = 4,
+          extendedColor = Color(0x1b5e20),
+          simpleColor = Color.Named.Green,
         )
 
     case object Important
@@ -239,6 +274,8 @@ object Logger { self =>
           name = "Important",
           rawDisplayName = "IMPRT",
           priority = 5,
+          extendedColor = Color(0x880e4f),
+          simpleColor = Color.Named.Yellow,
         )
 
     case object Warning
@@ -246,6 +283,8 @@ object Logger { self =>
           name = "Warning",
           rawDisplayName = "WARN",
           priority = 6,
+          extendedColor = Color(0xffff00),
+          simpleColor = Color.Named.Yellow,
         )
 
     case object Error
@@ -253,6 +292,8 @@ object Logger { self =>
           name = "Error",
           rawDisplayName = "ERROR",
           priority = 7,
+          extendedColor = Color(0xff3d00),
+          simpleColor = Color.Named.Red,
         )
 
     case object Fatal
@@ -260,6 +301,8 @@ object Logger { self =>
           name = "Fatal",
           rawDisplayName = "FATAL",
           priority = 8,
+          extendedColor = Color(0xd50000),
+          simpleColor = Color.Named.Red,
         )
 
     case object Always
@@ -267,6 +310,8 @@ object Logger { self =>
           name = "Always",
           rawDisplayName = "ALWYS",
           priority = 9,
+          extendedColor = Color.Default,
+          simpleColor = Color.Default,
         )
 
     val allLevels: List[LogLevel] =
@@ -293,7 +338,7 @@ object Logger { self =>
       s"\n $emptyDisplayName : "
 
     val nameMap: Map[String, LogLevel] =
-      allLevels.map(l => (l.rawDisplayName, l)).toMap
+      allLevels.map(l => (l.rawDisplayName.toUpperCase, l)).toMap
 
     implicit val stringDecoder: StringDecoder[LogLevel] =
       StringDecoder.fromOptionF("LogLevel", str => nameMap.get(str.toUpperCase))
@@ -317,9 +362,8 @@ object Logger { self =>
       logLevel: Option[LogLevel],
       message: Any,
       context: List[(String, Any)],
-      colorize: Boolean,
+      colorMode: ColorMode,
   ): String = {
-    import scala.Console.{MAGENTA, CYAN, RESET}
     val tmpMsg: String = message.toString
     val msg: String =
       if (tmpMsg.contains('\n')) tmpMsg.replaceAll("\n", LogLevel.newLineIndent)
@@ -327,9 +371,8 @@ object Logger { self =>
     // TODO (KR) : Colorization config
     val contextMsg =
       if (context.isEmpty) ""
-      else if (colorize) s"${context.map { (k, v) => s"$CYAN$k$RESET=$MAGENTA$v$RESET" }.mkString(" ; ")}${LogLevel.newLineIndent}"
-      else s"${context.map { (k, v) => s"$k=$v" }.mkString(" ; ")}${LogLevel.newLineIndent}"
-    s"[${logLevel.fold(LogLevel.emptyDisplayName)(_.displayName)}]: $contextMsg$msg"
+      else s"${context.map { (k, v) => s"${colorMode.fgColorize(Color.Named.Cyan, k)}=${colorMode.fgColorize(Color.Named.Magenta, v)}" }.mkString(" ; ")}${LogLevel.newLineIndent}"
+    s"[${logLevel.fold(LogLevel.emptyDisplayName)(_.colorizedDisplayName(colorMode))}]: $contextMsg$msg"
   }
 
 }
