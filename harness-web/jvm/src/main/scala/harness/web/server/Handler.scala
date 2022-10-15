@@ -20,7 +20,7 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
       ZLayer.fromZIO(ZIO.hAttemptNel("Error parsing http request")(HttpRequest.read(exchange))) ++
         Scope.default
 
-    val effect: SHRION[ServerEnv & BuiltInRequestEnv & ReqEnv, Unit] =
+    val baseEffect: SHRION[ServerEnv & BuiltInRequestEnv & ReqEnv, Unit] =
       for {
         req <- ZIO.service[HttpRequest]
         _ <- Logger.log.info(s"received ${req.method.method} request @ '${req.path.mkString("/", "/", "")}'")
@@ -45,10 +45,16 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
         _ <- ZIO.hAttemptNel("Error closing response body")(responseBody.close())
       } yield ()
 
+    val timedEffect: SHRION[ServerEnv & BuiltInRequestEnv & ReqEnv, Unit] =
+      baseEffect.timed.flatMap { case (duration, _) => Logger.log.detailed(s"Duration: ${duration.toMillis} ms") }
+
     Unsafe.unsafe { implicit unsafe =>
       serverRuntime.unsafe.run {
         ZIO.scoped {
-          Logger.addContext("request-id" -> UUID.randomUUID())(effect).provideSomeLayer[HarnessEnv & ServerEnv & Scope](builtInReqLayer ++ reqLayer).dumpErrorsAndContinueNel
+          Logger
+            .addContext("request-id" -> UUID.randomUUID())(timedEffect)
+            .provideSomeLayer[HarnessEnv & ServerEnv & Scope](builtInReqLayer ++ reqLayer)
+            .dumpErrorsAndContinueNel
         }
       }
     }
