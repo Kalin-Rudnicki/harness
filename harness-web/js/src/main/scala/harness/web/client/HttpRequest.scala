@@ -62,6 +62,13 @@ object HttpRequest {
         paramList,
         (k, encoder.encode(v)) :: headers,
       )
+    def optHeader[V](k: String, v: Option[V])(implicit encoder: StringEncoder[V]): Stage1 =
+      Stage1(
+        method,
+        baseUrl,
+        paramList,
+        v.fold(headers)(v => (k, encoder.encode(v)) :: headers),
+      )
 
     def jsonHeader[V](k: String, v: V)(implicit encoder: JsonEncoder[V]): Stage1 =
       Stage1(
@@ -69,6 +76,13 @@ object HttpRequest {
         baseUrl,
         paramList,
         (k, encoder.encodeJson(v, None).toString) :: headers,
+      )
+    def optJsonHeader[V](k: String, v: Option[V])(implicit encoder: JsonEncoder[V]): Stage1 =
+      Stage1(
+        method,
+        baseUrl,
+        paramList,
+        v.fold(headers)(v => (k, encoder.encodeJson(v, None).toString) :: headers),
       )
 
     // =====| body |=====
