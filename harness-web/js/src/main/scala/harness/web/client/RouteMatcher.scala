@@ -45,7 +45,7 @@ trait RouteMatcher[I] private { self =>
         case value :: tail =>
           arg.decoder.decodeAccumulating(value) match {
             case Right(decoded) => self.routeInternal(zip.zip(i, decoded), tail, params, value :: rPPath, rPParams)
-            case Left(errors)   => RouteMatcher.Result.Fail(errors.map(HError.UserError(_)))
+            case Left(errors)   => RouteMatcher.Result.Fail(HError(errors.map(HError.UserError(_))))
           }
         case Nil => RouteMatcher.Result.NotFound
       }
@@ -61,10 +61,10 @@ trait RouteMatcher[I] private { self =>
         case Some(value) =>
           arg.decoder.decodeAccumulating(value) match {
             case Right(decoded) => self.routeInternal(zip.zip(i, decoded), path, params, rPPath, (arg.param, value) :: rPParams)
-            case Left(errors)   => RouteMatcher.Result.Fail(errors.map(HError.UserError(_)))
+            case Left(errors)   => RouteMatcher.Result.Fail(HError(errors.map(HError.UserError(_))))
           }
         case None =>
-          RouteMatcher.Result.Fail(NonEmptyList.one(HError.UserError(s"Missing query param: '${arg.param}'")))
+          RouteMatcher.Result.Fail(HError.UserError(s"Missing query param: '${arg.param}'"))
       }
 
   /**
@@ -78,7 +78,7 @@ trait RouteMatcher[I] private { self =>
         case Some(value) =>
           arg.decoder.decodeAccumulating(value) match {
             case Right(decoded) => self.routeInternal(zip.zip(i, decoded.some), path, params, rPPath, (arg.param, value) :: rPParams)
-            case Left(errors)   => RouteMatcher.Result.Fail(errors.map(HError.UserError(_)))
+            case Left(errors)   => RouteMatcher.Result.Fail(HError(errors.map(HError.UserError(_))))
           }
         case None =>
           self.routeInternal(zip.zip(i, None), path, params, rPPath, rPParams)
@@ -136,7 +136,7 @@ object RouteMatcher {
 
   enum Result {
     case Success(page: Page)
-    case Fail(errors: NonEmptyList[HError])
+    case Fail(errors: HError)
     case NotFound
   }
 

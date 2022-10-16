@@ -4,5 +4,5 @@ import harness.core.*
 import zio.*
 
 trait FileSystemCompanionPlatformSpecificImpl { self: FileSystemCompanionPlatformSpecific =>
-  override val liveLayer: Layer[HError, FileSystem] = ZLayer.succeed(FileSystem.Unimplemented)
+  override val liveLayer: HTaskLayer[ FileSystem] = ZLayer.succeed(FileSystem.Unimplemented)
 }

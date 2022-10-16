@@ -5,22 +5,23 @@ import cats.syntax.option.*
 import harness.sql.*
 import harness.sql.errors.*
 import harness.sql.typeclass.*
+import harness.zio.*
 import zio.*
 
 final class Query(sql: String, qim: QueryInputMapper) {
-  def apply(): RIO[JDBCConnection, Int] =
+  def apply(): HRIO[JDBCConnection, Int] =
     ZIO.scoped {
       Utils.preparedStatement(sql, None, qim).flatMap { ps =>
-        ZIO.attempt(ps.executeUpdate()).mapError(ErrorWithSql(sql, _))
+        ZIO.hAttempt(ps.executeUpdate()).mapError(ErrorWithSql(sql, _))
       }
     }
 }
 
 final class QueryI[I](val sql: String, encoder: RowEncoder[I], qim: QueryInputMapper) {
-  def apply(i: I): RIO[JDBCConnection, Int] =
+  def apply(i: I): HRIO[JDBCConnection, Int] =
     ZIO.scoped {
       Utils.preparedStatement(sql, (i, encoder).some, qim).flatMap { ps =>
-        ZIO.attempt(ps.executeUpdate()).mapError(ErrorWithSql(sql, _))
+        ZIO.hAttempt(ps.executeUpdate()).mapError(ErrorWithSql(sql, _))
       }
     }
   def cmap[I2](f: I2 => I): QueryI[I2] = QueryI(sql, encoder.cmap(f), qim)

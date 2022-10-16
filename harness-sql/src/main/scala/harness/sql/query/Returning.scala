@@ -1,5 +1,6 @@
 package harness.sql.query
 
+import harness.core.Zip
 import harness.sql.*
 import harness.sql.typeclass.*
 import shapeless3.deriving.Id
@@ -10,7 +11,7 @@ final case class Returning[T] private (
     private[sql] val qim: QueryInputMapper,
 ) {
 
-  def ~[T2](that: Returning[T2])(implicit z: ZipCodec[T, T2]): Returning[z.C] =
+  def ~[T2](that: Returning[T2])(implicit z: Zip[T, T2]): Returning[z.Out] =
     Returning(this.selects ::: that.selects, this.rowDecoder ~ that.rowDecoder, this.qim + that.qim)
 
 }

@@ -19,12 +19,12 @@ trait RouteMatcher[+O] private[server] { self =>
   final def map[O2](f: O => O2): RouteMatcher[O2] =
     self.routeInternal(_, _).map(f)
 
-  final def implement[R](f: O => SHRION[BuiltInRequestEnv & R, HttpResponse]): Route[R] =
+  final def implement[R](f: O => SHRIO[BuiltInRequestEnv & R, HttpResponse]): Route[R] =
     (method, path) =>
       self.routeInternal(method, path) match {
         case RouteMatcher.Result.Success(Nil, value) => f(value)
         case RouteMatcher.Result.Success(_, _)       => ZIO.succeed(HttpResponse.NotFound)
-        case RouteMatcher.Result.Fail(errors)        => ZIO.fail(errors)
+        case RouteMatcher.Result.Fail(error)         => ZIO.fail(error)
         case RouteMatcher.Result.NotFound            => ZIO.succeed(HttpResponse.NotFound)
       }
 
@@ -55,7 +55,7 @@ object RouteMatcher {
   }
   object Result {
     final case class Success[+O](remainingPath: List[String], value: O) extends Result[O]
-    final case class Fail(errors: NonEmptyList[HError]) extends Result[Nothing]
+    final case class Fail(error: HError) extends Result[Nothing]
     case object NotFound extends Result[Nothing]
   }
 

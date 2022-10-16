@@ -1,10 +1,12 @@
 package harness.sql
 
-import cats.data.EitherNel
+import cats.data.{EitherNel, NonEmptyList}
 import cats.syntax.option.*
+import harness.core.*
 import harness.sql.typeclass.*
 import java.time.*
 import java.util.UUID
+import scala.reflect.ClassTag
 import zio.json.JsonCodec
 
 final case class Col[T] private (
@@ -51,6 +53,9 @@ object Col {
 
   def json[T: JsonCodec](name: String): Col[T] = Col(name, "JSON", ColCodec.json[T], false, Nil)
   def jsonb[T: JsonCodec](name: String): Col[T] = Col(name, "JSONB", ColCodec.json[T], false, Nil)
+
+  def `enum`[E <: Enum[E], Enc](colName: String)(implicit ewe: Enum.WithEnc[E, Enc], gc: Col.GenCol[Enc], ct: ClassTag[E]): Col[E] =
+    gc.make(colName).iemap { v => ewe.decode(v).toRight(NonEmptyList.one(s"Invalid ${ct.runtimeClass.getSimpleName}: $v")) }(ewe.encode)
 
   trait GenCol[T] {
     def make(name: String): Col[T]

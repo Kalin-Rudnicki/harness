@@ -16,18 +16,19 @@ trait PageApp extends ZIOApp {
   @nowarn
   override implicit def environmentTag: EnvironmentTag[HarnessEnv] = EnvironmentTag[HarnessEnv]
 
-  override def bootstrap: ZLayer[Any, NonEmptyList[HError], HarnessEnv] = {
+  override def bootstrap: HTaskLayer[HarnessEnv] = {
     val loggerLayer: ULayer[Logger] = {
       val target: Logger.Target =
         new Logger.Target {
-          override def log(string: String): UIO[Unit] = ZIO.hAttempt("Unable to log to js console") { console.log(string) }.orDieH
+          override def log(string: String): UIO[Unit] = ZIO.hAttempt { console.log(string) }.orDie
         }
       ZLayer.succeed(Logger.default(sources = Logger.Source.const(target, None, None) :: Nil, defaultMinLogTolerance = logTolerance))
     }
 
     loggerLayer ++
       ZLayer.succeed(runMode) ++
-      FileSystem.liveLayer.toErrorNel
+      ZLayer.succeed(HError.UserMessage.IfHidden.default) ++
+      FileSystem.liveLayer
   }
 
   // TODO (KR) : Come up with a better system for this
@@ -54,15 +55,15 @@ trait PageApp extends ZIOApp {
   /**
     * Page to display when URL parsing results in an error. You can override this in your app.
     */
-  val errorPage: NonEmptyList[HError] => Page = { errors =>
+  val errorPage: (HError.UserMessage.IfHidden, HError) => Page = { (ifHidden, error) =>
     Page.builder
       .constState(())
       .constTitle("Bad URL")
       .body(
         PModifier(
           h1("Error parsing URL"),
-          PModifier.foreach(errors.toList) { e =>
-            h3(e.userMessage)
+          PModifier.foreach(error.toNel.toList) { e =>
+            h3(e.userMessage.show(ifHidden)) // TODO (KR) :
           },
         ),
       )
@@ -71,53 +72,46 @@ trait PageApp extends ZIOApp {
 
   val routeMatcher: RouteMatcher.Root
 
-  override def run: ZIO[HarnessEnv & Scope, Nothing, Any] =
+  override def run: URIO[HarnessEnv & Scope, Any] =
     (for {
       runtime <- bootstrap.toRuntime
       renderer <- Renderer.Initial
       urlToPage = { (url: Url) =>
         routeMatcher(url) match {
           case RouteMatcher.Result.Success(page) => page
-          case RouteMatcher.Result.Fail(errors)  => errorPage(errors)
+          case RouteMatcher.Result.Fail(error)   => errorPage(runtime.environment.get[HError.UserMessage.IfHidden], error)
           case RouteMatcher.Result.NotFound      => `404Page`(url)
         }
       }
       attemptToLoadPage =
         for {
-          url <- Url.fromWindowURL.toErrorNel
+          url <- Url.fromWindowURL
           page = urlToPage(url)
           _ <- page.replaceNoTrace(renderer, runtime, urlToPage)
         } yield ()
       _ <- attemptToLoadPage
       _ <-
-        ZIO
-          .hAttempt("Unable to set window.onpopstate") {
-            window.onpopstate = { _ =>
-              PageApp.runZIO(
-                runtime,
-                attemptToLoadPage,
-              )
-            }
+        ZIO.hAttempt {
+          window.onpopstate = { _ =>
+            PageApp.runZIO(
+              runtime,
+              attemptToLoadPage,
+            )
           }
-          .toErrorNel
-    } yield ()).dumpErrorsAndContinueNel
+        }
+    } yield ()).dumpErrorsAndContinue
 
 }
 object PageApp {
 
   private[client] def runZIO(
       runtime: Runtime[HarnessEnv],
-      effect: SHTaskN[Any],
+      effect: SHTask[Any],
   ): Unit =
     Unsafe.unsafe { implicit unsafe =>
       runtime.unsafe.runToFuture {
-        effect
-          .mapErrorCause {
-            case fail @ Cause.Fail(_, _)     => fail
-            case Cause.Die(throwable, trace) => Cause.fail(NonEmptyList.one(HError.InternalDefect("died", throwable)), trace)
-            case fail                        => Cause.fail(NonEmptyList.one(HError.InternalDefect(s"Failed with other cause: $fail")), fail.trace)
-          }
-          .dumpErrorsAndContinueNel(Logger.LogLevel.Error)
+        effect.collapseCause
+          .dumpErrorsAndContinue(Logger.LogLevel.Error)
       }
     }
 

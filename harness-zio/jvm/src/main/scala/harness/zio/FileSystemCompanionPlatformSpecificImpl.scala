@@ -7,12 +7,13 @@ import zio.*
 
 trait FileSystemCompanionPlatformSpecificImpl { self: FileSystemCompanionPlatformSpecific =>
 
-  def wrapJavaFileSystem(javaFileSystem: => JavaFileSystem): Layer[HError, FileSystem] =
-    ZLayer.fromZIO(ZIO.hAttempt("Unable to create filesystem")(WrappedJavaFileSystem(javaFileSystem)))
+  def wrapJavaFileSystem(javaFileSystem: => JavaFileSystem): HTaskLayer[FileSystem] =
+    ZLayer.fromZIO(ZIO.hAttempt(WrappedJavaFileSystem(javaFileSystem)))
 
-  def defaultJavaFileSystem: Layer[HError, FileSystem] =
+  def defaultJavaFileSystem: HTaskLayer[FileSystem] =
     wrapJavaFileSystem(JavaFileSystems.getDefault)
 
-  override val liveLayer: Layer[HError, FileSystem] = defaultJavaFileSystem
+  override val liveLayer: HTaskLayer[FileSystem] =
+    defaultJavaFileSystem
 
 }

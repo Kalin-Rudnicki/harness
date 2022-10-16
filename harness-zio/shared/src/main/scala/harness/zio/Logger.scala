@@ -91,18 +91,37 @@ object Logger { self =>
   object logHError {
 
     sealed class LogAtLevel(logLevel: LogLevel) {
-      def apply(error: => HError): URIO[Logger & RunMode, Unit] =
-        RunMode.get.flatMap { runMode =>
-          Logger.log(logLevel, runMode.formatError(error))
-        }
+      def apply(error: => HError): URIO[Logger & RunMode & HError.UserMessage.IfHidden, Unit] =
+        for {
+          runMode <- ZIO.service[RunMode]
+          ifHidden <- ZIO.service[HError.UserMessage.IfHidden]
+          _ <-
+            Logger.execute(
+              Logger.Event.AtLogLevel(
+                logLevel,
+                () =>
+                  Logger.Event.Compound(
+                    error.toNel.toList.map(e => Logger.Event.Output(Nil, e.formatMessage(runMode, ifHidden))),
+                  ),
+              ),
+            )
+        } yield ()
     }
 
-    def apply(logLevel: LogLevel, error: => HError): URIO[Logger & RunMode, Unit] = LogAtLevel(logLevel)(error)
+    def apply(logLevel: LogLevel, error: => HError): URIO[Logger & RunMode & HError.UserMessage.IfHidden, Unit] =
+      LogAtLevel(logLevel)(error)
 
-    def apply(error: => HError): URIO[Logger & RunMode, Unit] =
-      RunMode.get.flatMap { runMode =>
-        Logger.log(runMode.formatError(error))
-      }
+    def apply(error: => HError): URIO[Logger & RunMode & HError.UserMessage.IfHidden, Unit] =
+      for {
+        runMode <- ZIO.service[RunMode]
+        ifHidden <- ZIO.service[HError.UserMessage.IfHidden]
+        _ <-
+          Logger.execute(
+            Logger.Event.Compound(
+              error.toNel.toList.map(e => Logger.Event.Output(Nil, e.formatMessage(runMode, ifHidden))),
+            ),
+          )
+      } yield ()
 
     object never extends LogAtLevel(LogLevel.Never)
     object trace extends LogAtLevel(LogLevel.Trace)
@@ -131,7 +150,7 @@ object Logger { self =>
 
     def fromPrintStream(name: String, printStream: PrintStream): Target =
       new Target {
-        override def log(string: String): UIO[Unit] = ZIO.hAttempt(s"Unable to log to PrintStream: $name") { printStream.println(string) }.orDieH
+        override def log(string: String): UIO[Unit] = ZIO.hAttempt { printStream.println(string) }.orDie
       }
 
   }

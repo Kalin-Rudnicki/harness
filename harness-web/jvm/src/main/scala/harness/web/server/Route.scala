@@ -24,13 +24,13 @@ trait Route[-R] { self =>
   def apply(
       method: HttpMethod,
       path: List[String],
-  ): SHRION[BuiltInRequestEnv & R, HttpResponse]
+  ): SHRIO[BuiltInRequestEnv & R, HttpResponse]
 
 }
 object Route {
 
   def oneOf[R](routes: Route[R]*): Route[R] = { (method, path) =>
-    def rec(routes: List[Route[R]]): SHRION[BuiltInRequestEnv & R, HttpResponse] =
+    def rec(routes: List[Route[R]]): SHRIO[BuiltInRequestEnv & R, HttpResponse] =
       routes match {
         case head :: tail =>
           head(method, path).flatMap {
@@ -57,33 +57,33 @@ object Route {
     Route.oneOf(
       "api" /: Route.oneOf(apis*),
       (HttpMethod.GET / "page" / RouteMatcher.**).implement { _ =>
-        (for {
+        for {
           resDir <- Path(config.resDir)
           file <- resDir.child("index.html")
           response <- HttpResponse.fileOrNotFound(file)
-        } yield response).toErrorNel
+        } yield response
       },
       HttpMethod.GET /: "res" /: Route.oneOf(
         "favicon.ico".implement { _ =>
-          (for {
+          for {
             resDir <- Path(config.resDir)
             file <- resDir.child("favicon.ico")
             response <- HttpResponse.fileOrNotFound(file)
-          } yield response).toErrorNel
+          } yield response
         },
         ("js" / RouteMatcher.**).implement { routes =>
-          (for {
+          for {
             resDir <- Path(config.resDir)
             file <- resDir.child(("js" :: routes).mkString("/"))
             response <- HttpResponse.fileOrFail(file)
-          } yield response).toErrorNel
+          } yield response
         },
         ("css" / RouteMatcher.**).implement { routes =>
-          (for {
+          for {
             resDir <- Path(config.resDir)
             file <- resDir.child(("css" :: routes).mkString("/"))
             response <- HttpResponse.fileOrFail(file)
-          } yield response).toErrorNel
+          } yield response
         },
       ),
       HttpMethod.GET.implement { _ => ZIO.succeed(HttpResponse.redirect("/page")) },

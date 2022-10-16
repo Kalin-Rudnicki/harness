@@ -2,13 +2,11 @@ package harness.sql
 
 import harness.sql.query.QueryInputMapper
 import harness.sql.typeclass.*
+import harness.zio.*
 import java.sql.PreparedStatement
 import zio.*
 
 private[sql] object Utils {
-
-  def acquireClosable[C <: AutoCloseable](acq: => C): RIO[Scope, C] =
-    ZIO.acquireRelease(ZIO.attempt(acq))(c => ZIO.attempt(c.close()).orDie)
 
   def encodeInputs[I](input: Option[(I, RowEncoder[I])], queryInputMapper: QueryInputMapper): IArray[Object] = {
     val arr1: Array[Object] =
@@ -29,12 +27,12 @@ private[sql] object Utils {
     iArr2
   }
 
-  def preparedStatement[I](sql: String, input: Option[(I, RowEncoder[I])], qim: QueryInputMapper): RIO[JDBCConnection & Scope, PreparedStatement] =
+  def preparedStatement[I](sql: String, input: Option[(I, RowEncoder[I])], qim: QueryInputMapper): HRIO[JDBCConnection & Scope, PreparedStatement] =
     for {
       connection <- ZIO.service[JDBCConnection]
-      ps: PreparedStatement <- Utils.acquireClosable { connection.jdbcConnection.prepareStatement(sql) }
-      inputs <- ZIO.attempt { Utils.encodeInputs(input, qim) }
-      _ <- ZIO.attempt { inputs.zipWithIndex.foreach { (input, idx) => ps.setObject(idx + 1, input) } }
+      ps: PreparedStatement <- ZIO.acquireAutoClosable { ZIO.hAttempt { connection.jdbcConnection.prepareStatement(sql) } }
+      inputs <- ZIO.hAttempt { Utils.encodeInputs(input, qim) }
+      _ <- ZIO.hAttempt { inputs.zipWithIndex.foreach { (input, idx) => ps.setObject(idx + 1, input) } }
     } yield ps
 
 }

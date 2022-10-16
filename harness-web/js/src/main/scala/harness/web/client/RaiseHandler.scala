@@ -12,17 +12,17 @@ abstract class RaiseHandler[-A, -S] private (
     runtime: Runtime[HarnessEnv],
 ) { self =>
 
-  val handleRaise: Raise[A, S] => SHTaskN[Unit]
+  val handleRaise: Raise[A, S] => SHTask[Unit]
 
   // =====| Public API |=====
 
-  final def raiseManyZIO(raises: SHTaskN[List[Raise[A, S]]]*): Unit =
+  final def raiseManyZIO(raises: SHTask[List[Raise[A, S]]]*): Unit =
     PageApp.runZIO(
       runtime,
       ZIO.foreachDiscard(raises) { _.flatMap { ZIO.foreachDiscard(_)(self.handleRaise) } },
     )
 
-  inline final def raiseZIO(raises: SHTaskN[Raise[A, S]]*): Unit = self.raiseManyZIO(raises.map(_.map(_ :: Nil))*)
+  inline final def raiseZIO(raises: SHTask[Raise[A, S]]*): Unit = self.raiseManyZIO(raises.map(_.map(_ :: Nil))*)
   inline final def raise(raises: Raise[A, S]*): Unit = self.raiseManyZIO(raises.map { r => ZIO.succeed(r :: Nil) }*)
 
   // --- State ---
@@ -48,11 +48,11 @@ abstract class RaiseHandler[-A, -S] private (
     }
 
   @nowarn
-  final def mapRaise[NewA, S2 <: S](f: Raise[NewA, S2] => SHTaskN[List[Raise[A, S]]]): RaiseHandler[NewA, S2] =
+  final def mapRaise[NewA, S2 <: S](f: Raise[NewA, S2] => SHTask[List[Raise[A, S]]]): RaiseHandler[NewA, S2] =
     RaiseHandler[NewA, S2](runtime) { f(_).flatMap(ZIO.foreachDiscard(_)(handleRaise)) }
 
   @nowarn
-  final def mapAction[NewA](f: NewA => SHTaskN[List[Raise[A, S]]]): RaiseHandler[NewA, S] =
+  final def mapAction[NewA](f: NewA => SHTask[List[Raise[A, S]]]): RaiseHandler[NewA, S] =
     RaiseHandler[NewA, S](runtime) {
       case raise: Raise.Action[NewA]   => f(raise.action).flatMap(ZIO.foreachDiscard(_)(handleRaise))
       case raise: Raise.ModifyState[S] => handleRaise(raise)
@@ -62,9 +62,9 @@ abstract class RaiseHandler[-A, -S] private (
 }
 object RaiseHandler {
 
-  private def apply[A, S](runtime: Runtime[HarnessEnv])(_handleRaise: Raise[A, S] => SHTaskN[Unit]): RaiseHandler[A, S] =
+  private def apply[A, S](runtime: Runtime[HarnessEnv])(_handleRaise: Raise[A, S] => SHTask[Unit]): RaiseHandler[A, S] =
     new RaiseHandler[A, S](runtime) {
-      override val handleRaise: Raise[A, S] => SHTaskN[Unit] = _handleRaise
+      override val handleRaise: Raise[A, S] => SHTask[Unit] = _handleRaise
     }
 
   @nowarn
@@ -72,15 +72,15 @@ object RaiseHandler {
       renderer: rawVDOM.Renderer,
       stateRef: Ref.Synchronized[S],
       widget: PModifier[A, S, S, Any],
-      handleA: A => SHTaskN[List[Raise.StandardOrUpdate[S]]],
+      handleA: A => SHTask[List[Raise.StandardOrUpdate[S]]],
       titleF: Either[String, S => String],
       runtime: Runtime[HarnessEnv],
       urlToPage: Url => Page,
   ): RaiseHandler[A, S] =
     new RaiseHandler[A, S](runtime) { self =>
-      override val handleRaise: Raise[A, S] => SHTaskN[Unit] = { raise =>
+      override val handleRaise: Raise[A, S] => SHTask[Unit] = { raise =>
         @nowarn
-        def handleStandardOrUpdate(raise: Raise.StandardOrUpdate[S]): SHTaskN[Unit] =
+        def handleStandardOrUpdate(raise: Raise.StandardOrUpdate[S]): SHTask[Unit] =
           raise match {
             case raise: Raise.Standard =>
               raise match {
@@ -90,7 +90,7 @@ object RaiseHandler {
                     case Raise.History.Replace(url) => urlToPage(url).replace(renderer, runtime, urlToPage, url)
                     case Raise.History.Go(_)        =>
                       // TODO (KR) : This probably needs to have access to the RouteMatcher, or a way to store the page in the history somehow
-                      ZIO.failNel(HError.???("History.go"))
+                      ZIO.fail(HError.???("History.go"))
                   }
                 case Raise.DisplayMessage(message) =>
                   // TODO (KR) : Have a way to display these messages on the page, with styling
@@ -100,7 +100,7 @@ object RaiseHandler {
               stateRef.updateZIO { state =>
                 val newState = raise.modify(state)
                 val newVDom = widget.build(self, newState)
-                if (raise.reRender) renderer.render(titleF.fold(identity, _(newState)), newVDom).toErrorNel.as(newState)
+                if (raise.reRender) renderer.render(titleF.fold(identity, _(newState)), newVDom).as(newState)
                 else ZIO.succeed(newState)
               }
           }

@@ -133,12 +133,12 @@ object HttpRequest {
       body: Option[js.Any],
   ) {
 
-    private def build[Response](f: (HttpCode, String) => HTaskN[Response]): HTaskN[Response] = {
+    private def build[Response](f: (HttpCode, String) => HTask[Response]): HTask[Response] = {
       def encodeParam(p: (String, String)): String =
         s"${encodeURIComponent(p._1)}=${encodeURIComponent(p._2)}"
 
-      ZIO.asyncZIO[Any, NonEmptyList[HError], Response] { register =>
-        ZIO.hAttemptNel("Error getting http response") {
+      ZIO.asyncZIO[Any, HError, Response] { register =>
+        ZIO.hAttempt {
           val xhr = new XMLHttpRequest
           xhr.open(
             method = method.method,
@@ -158,42 +158,42 @@ object HttpRequest {
       }
     }
 
-    def codeAndString: HTaskN[(HttpCode, String)] =
+    def codeAndString: HTask[(HttpCode, String)] =
       build { (c, b) => ZIO.succeed((c, b)) }
 
-    def string200: HTaskN[String] =
+    def string200: HTask[String] =
       build {
         case (HttpCode.`200`, b) => ZIO.succeed(b)
         case (_, b) =>
           JsonDecoder[List[String]].decodeJson(b) match {
-            case Right(error0 :: errorN) => ZIO.fail(NonEmptyList(error0, errorN).map(HError.UserError(_, "Error result from Http Request")))
-            case _                       => ZIO.failNel(HError.UserError(b, "Error result from Http Request"))
+            case Right(error0 :: errorN) => ZIO.fail(HError(NonEmptyList(error0, errorN).map(HError.UserError(_, "Error result from Http Request"))))
+            case _                       => ZIO.fail(HError.UserError(b, "Error result from Http Request"))
           }
       }
 
-    def unit200: HTaskN[Unit] =
+    def unit200: HTask[Unit] =
       build {
         case (HttpCode.`200`, _) => ZIO.unit
         case (_, b) =>
           JsonDecoder[List[String]].decodeJson(b) match {
-            case Right(error0 :: errorN) => ZIO.fail(NonEmptyList(error0, errorN).map(HError.UserError(_, "Error result from Http Request")))
-            case _                       => ZIO.failNel(HError.UserError(b, "Error result from Http Request"))
+            case Right(error0 :: errorN) => ZIO.fail(HError(NonEmptyList(error0, errorN).map(HError.UserError(_, "Error result from Http Request"))))
+            case _                       => ZIO.fail(HError.UserError(b, "Error result from Http Request"))
           }
       }
 
-    def response[Response](implicit decoder: StringDecoder[Response]): HTaskN[Response] =
+    def response[Response](implicit decoder: StringDecoder[Response]): HTask[Response] =
       string200.flatMap {
         decoder.decodeAccumulating(_) match {
           case Right(value) => ZIO.succeed(value)
-          case Left(errors) => ZIO.fail(errors.map(HError.InternalDefect(_)))
+          case Left(errors) => ZIO.hFailUserErrors(errors)
         }
       }
 
-    def jsonResponse[Response](implicit decoder: JsonDecoder[Response]): HTaskN[Response] =
+    def jsonResponse[Response](implicit decoder: JsonDecoder[Response]): HTask[Response] =
       string200.flatMap {
         decoder.decodeJson(_) match {
           case Right(value) => ZIO.succeed(value)
-          case Left(error)  => ZIO.failNel(HError.InternalDefect(error))
+          case Left(error)  => ZIO.fail(HError.InternalDefect(error))
         }
       }
 

@@ -1,13 +1,20 @@
 package harness.core
 
+import cats.data.NonEmptyList
 import cats.syntax.option.*
+import cats.syntax.traverse.*
+import harness.core.RunMode.{Dev, Prod}
 import scala.annotation.targetName
 
 sealed abstract class HError(
-    final val userMessage: String,
+    final val userMessage: HError.UserMessage,
     final val internalMessage: String,
-    final val cause: Option[Throwable],
+    final val causes: List[Throwable],
 ) extends Throwable {
+
+  // TODO (KR) : Tweak these (`baseUserMessage`, `userMessage` = s"${baseUserMessage}\n${causes.flatMap(_.userMessage.toOption}" ...
+  //           : and the same for internalMessage
+  //           : turn current `fullInternalMessage` into a sort of `verboseInternalMessage`
 
   final lazy val fullInternalMessage: String =
     HError.throwableMessage(this, false)
@@ -15,103 +22,178 @@ sealed abstract class HError(
   final lazy val fullInternalMessageWithTrace: String =
     HError.throwableMessage(this, true)
 
-  override final def getMessage: String = userMessage
+  override final def getMessage: String = userMessage.show(HError.UserMessage.IfHidden.default)
 
   override final def toString: String = fullInternalMessage
+
+  final def toNel: NonEmptyList[HError.Single] = HError.unwrap(this)
+
+  final def formatMessage(runMode: RunMode, ifHidden: HError.UserMessage.IfHidden): String =
+    runMode match {
+      case Prod => userMessage.show(ifHidden)
+      case Dev  => fullInternalMessage // TODO (KR) :
+    }
 
 }
 object HError {
 
-  def apply(errorType: ErrorType): ErrorBuilder2[HError] =
-    errorType match {
-      case ErrorType.UserError      => HError.UserError
-      case ErrorType.InternalDefect => HError.InternalDefect
-      case ErrorType.SystemFailure  => HError.SystemFailure
+  def fromThrowable(throwable: Throwable): HError =
+    throwable match {
+      case hError: HError => hError
+      case _              => HError.Wrapped(throwable)
     }
 
-  // =====| Error Types |=====
+  def unwrap(err: HError): NonEmptyList[HError.Single] =
+    err match {
+      case HError.Multiple(children) => children
+      case err: HError.Single        => NonEmptyList.one(err)
+    }
 
-  enum ErrorType {
-    case UserError
-    case InternalDefect
-    case SystemFailure
+  def apply(err: NonEmptyList[HError]): HError =
+    err match {
+      case NonEmptyList(err, Nil) => err
+      case _                      => HError.Multiple(err.flatMap(HError.unwrap))
+    }
+  inline def apply(err0: HError, errN: HError*): HError =
+    HError(NonEmptyList(err0, errN.toList))
+
+  // =====|  |=====
+
+  trait UserMessage {
+
+    def show(ifHidden: UserMessage.IfHidden): String
+
+    final def toOption: Option[String] =
+      this match {
+        case UserMessage.Const(msg) => msg.some
+        case _                      => None
+      }
+
   }
+  object UserMessage {
+
+    final case class Const(msg: String) extends UserMessage {
+      override def show(ifHidden: IfHidden): String = msg
+    }
+    val hidden: UserMessage = _.hiddenMsg
+
+    def fromOption(msg: Option[String]): UserMessage =
+      msg match {
+        case Some(msg) => UserMessage.Const(msg)
+        case None      => UserMessage.hidden
+      }
+
+    final case class IfHidden(hiddenMsg: String)
+    object IfHidden {
+      val default: IfHidden = IfHidden("There was an internal system error")
+    }
+
+  }
+
+  // =====| Direct Children of HError |=====
+
+  abstract class Single(
+      userMessage: HError.UserMessage,
+      internalMessage: String,
+      causes: List[Throwable],
+  ) extends HError(userMessage, internalMessage, causes)
+
+  final case class Multiple private[HError] (children: NonEmptyList[HError.Single])
+      extends HError(
+        ifHidden => children.toList.map(e => e.userMessage.show(ifHidden).split("\n").mkString("- ", "  ", "")).mkString("\n"),
+        children.toList.map(e => e.internalMessage.split("\n").mkString("- ", "  ", "")).mkString("\n"),
+        children.toList.flatMap(_.causes),
+      )
+
+  // =====| HError.Single Descendants |=====
+
+  /**
+    * Only purpose is to lift a non-HError Throwable into an HError.
+    * If another HError uses this as a cause, the wrapping will be removed.
+    */
+  final case class Wrapped private[HError] (wrapped: Throwable)
+      extends HError.Single(
+        HError.UserMessage.hidden,
+        Option(wrapped.getMessage).getOrElse(wrapped.toString), // TODO (KR) :
+        wrapped :: Nil,
+      )
 
   /**
     * Used when the user of the program provides invalid input.
     */
-  final class UserError private (userMessage: String, internalMessage: String, cause: Option[Throwable])
-      extends HError(
-        userMessage,
-        s"The user provided invalid data:\n$internalMessage",
-        cause,
+  final class UserError private (userMessage: String, internalMessage: String, causes: List[Throwable])
+      extends HError.Single(
+        HError.UserMessage.Const(userMessage),
+        internalMessage,
+        causes,
       )
   object UserError extends ErrorBuilder3[UserError](new UserError(_, _, _))
+
+  /**
+    * Used when there is an error with the system.
+    * - IO
+    * - Database
+    * - Environment
+    */
+  final class SystemFailure private (internalMessage: String, causes: List[Throwable])
+      extends HError.Single(
+        HError.UserMessage.hidden,
+        internalMessage,
+        causes,
+      )
+  object SystemFailure extends ErrorBuilder2[SystemFailure](new SystemFailure(_, _))
 
   /**
     * Used when you want to start the error message with "WTF, why is this happening"
     * - Map#get(_).thisShouldAlwaysBeThere
     * - List#toNel.thisShouldAlwaysBeNonEmpty
     */
-  final class InternalDefect private (internalMessage: String, cause: Option[Throwable])
-      extends HError(
-        genericUserMessage,
+  final class InternalDefect private (internalMessage: String, causes: List[Throwable])
+      extends HError.Single(
+        HError.UserMessage.hidden,
         s"Internal Defect - unexpected failure:\n$internalMessage",
-        cause,
+        causes,
       )
   object InternalDefect extends ErrorBuilder2[InternalDefect](new InternalDefect(_, _))
 
   /**
-    * Used when there is an error with the system.
-    * - IO
-    * - Database
-    */
-  final class SystemFailure private (internalMessage: String, cause: Option[Throwable])
-      extends HError(
-        genericUserMessage,
-        internalMessage,
-        cause,
-      )
-  object SystemFailure extends ErrorBuilder2[SystemFailure](new SystemFailure(_, _))
-
-  /**
     * Analogous to the scala predef '???', except instead of throwing, it gives you a concrete error type.
     */
-  final class ??? private (functionalityVerb: String)
-      extends HError(
-        s"The ability to '$functionalityVerb' is not yet supported",
-        s"Encountered an unimplemented block of code: '$functionalityVerb'",
-        None,
+  final class ??? private (functionality: String)
+      extends HError.Single(
+        HError.UserMessage.Const(s"This feature is not yet supported: '$functionality'"),
+        s"Encountered an unimplemented block of code: '$functionality'",
+        Nil,
       )
   object ??? {
-    def apply(functionalityVerb: String): ??? = new ???(functionalityVerb)
+    def apply(functionality: String): ??? = new ???(functionality)
   }
 
   // =====| Helpers |=====
 
-  // TODO (KR) : Come up with a better name & message?
-  private val genericUserMessage: String = "There was a non-handleable error in the system"
-
   private def throwableMessage(throwable: Throwable, stackTrace: Boolean): String = {
-    val parts: (String, List[Option[(String, String)]]) =
+    val parts: (String, List[List[(String, String)]]) =
       throwable match {
         case hError: HError =>
           (
             s"HError[${hError.getClass.getSimpleName}]",
             List(
-              ("User Message", hError.userMessage).some,
-              Option.when(hError.internalMessage != hError.userMessage)(("Internal Message", hError.internalMessage)),
-              hError.cause.map { c => ("Cause", throwableMessage(c, stackTrace)) },
-              Option.when(stackTrace)(("Stack Trace", formatExceptionTrace(hError.getStackTrace))),
+              hError.userMessage match {
+                case UserMessage.Const(msg) if msg == hError.internalMessage => ("Message", msg) :: Nil
+                case UserMessage.Const(msg)                                  => ("User Message", msg) :: ("Internal Message", hError.internalMessage) :: Nil
+                case _                                                       => ("Internal Message", hError.internalMessage) :: Nil
+              },
+              hError.causes.zipWithIndex.map { (c, i) => (s"Cause[$i]", throwableMessage(c, stackTrace)) },
+              Option.when(stackTrace)(("Stack Trace", formatExceptionTrace(hError.getStackTrace))).toList,
             ),
           )
         case throwable =>
           (
             throwable.getClass.getSimpleName,
             List(
-              Option(throwable.getMessage).map(("Message", _)),
-              Option(throwable.getCause).map { c => ("Cause", throwableMessage(c, stackTrace)) },
-              Option.when(stackTrace)(("Stack Trace", formatExceptionTrace(throwable.getStackTrace))),
+              Option(throwable.getMessage).map(("Message", _)).toList,
+              Option(throwable.getCause).map { c => ("Cause", throwableMessage(c, stackTrace)) }.toList,
+              Option.when(stackTrace)(("Stack Trace", formatExceptionTrace(throwable.getStackTrace))).toList,
             ),
           )
       }
@@ -123,18 +205,23 @@ object HError {
 
   private def formatExceptionTrace(trace: Array[StackTraceElement]): String = trace.mkString("\n")
 
+  private def unwrapThrowable(throwable: Throwable): List[Throwable] =
+    throwable match {
+      case HError.Multiple(children) => children.toList.flatMap(unwrapThrowable)
+      case HError.Wrapped(throwable) => throwable :: Nil
+      case _                         => throwable :: Nil
+    }
+
   // =====| Builders |=====
 
-  sealed abstract class ErrorBuilder2[+E](build: (String, Option[Throwable]) => E) {
-    final def apply(message: String): E = build(message, None)
-    final def apply(message: String, cause: Throwable): E = build(message, cause.some)
-    final def apply(message: String, cause: Option[Throwable]): E = build(message, cause)
+  abstract class ErrorBuilder2[+E](build: (String, List[Throwable]) => E) {
+    final def apply(message: String, causes: Throwable*): E = build(message, causes.toList.flatMap(HError.unwrapThrowable))
+    final def apply(message: String, causes: Iterable[Throwable]): E = build(message, causes.toList.flatMap(HError.unwrapThrowable))
   }
 
-  sealed abstract class ErrorBuilder3[+E](build: (String, String, Option[Throwable]) => E) extends ErrorBuilder2[E]((msg, cause) => build(msg, msg, cause)) {
-    final def apply(userMessage: String, internalMessage: String): E = build(userMessage, internalMessage, None)
-    final def apply(userMessage: String, internalMessage: String, cause: Throwable): E = build(userMessage, internalMessage, cause.some)
-    final def apply(userMessage: String, internalMessage: String, cause: Option[Throwable]): E = build(userMessage, internalMessage, cause)
+  abstract class ErrorBuilder3[+E](build: (String, String, List[Throwable]) => E) extends ErrorBuilder2[E]((msg, causes) => build(msg, msg, causes)) {
+    final def apply(userMessage: String, internalMessage: String, causes: Throwable*): E = build(userMessage, internalMessage, causes.toList.flatMap(HError.unwrapThrowable))
+    final def apply(userMessage: String, internalMessage: String, causes: Iterable[Throwable]): E = build(userMessage, internalMessage, causes.toList.flatMap(HError.unwrapThrowable))
   }
 
 }

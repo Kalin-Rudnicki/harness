@@ -5,6 +5,7 @@ import cats.syntax.option.*
 import harness.sql
 import harness.sql.*
 import harness.sql.query.{given, *}
+import harness.zio.*
 import zio.*
 
 object PostgresMeta {
@@ -100,12 +101,12 @@ object PostgresMeta {
 
   // =====| effects |=====
 
-  private val tablesAndColumns: RIO[JDBCConnection, Map[InformationSchemaTables.Identity, Chunk[InformationSchemaColumns.Identity]]] =
+  private val tablesAndColumns: HRIO[JDBCConnection, Map[InformationSchemaTables.Identity, Chunk[InformationSchemaColumns.Identity]]] =
     queryTablesAndColumns().groupByLeft(_._1)(_._2).chunk.map(_.toMap)
 
   object schemaDiff {
 
-    def apply(tables: Tables): RIO[JDBCConnection, Unit] =
+    def apply(tables: Tables): HRIO[JDBCConnection, Unit] =
       for {
         dbTAC <- tablesAndColumns
         schemaTAC = tablesToMap(tables)

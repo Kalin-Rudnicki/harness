@@ -21,7 +21,7 @@ given [A]: Conversion[RouteMatcher.*[A], RouteMatcher[A]] = { arg => (_, path) =
     case head :: tail =>
       arg.decoder.decodeAccumulating(head) match {
         case Right(value) => RouteMatcher.Result.Success(tail, value)
-        case Left(errors) => RouteMatcher.Result.Fail(errors.map(HError.UserError(_)))
+        case Left(errors) => RouteMatcher.Result.Fail(HError(errors.map(HError.UserError(_))))
       }
     case _ => RouteMatcher.Result.NotFound
   }

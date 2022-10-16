@@ -29,13 +29,11 @@ object Url {
 
   val fromWindowURL: HTask[Url] =
     for {
-      pathname <- ZIO.hAttempt("Unable to get pathname from window")(window.location.pathname)
-      search <- ZIO.hAttempt("Unable to get search from window")(window.location.search)
+      pathname <- ZIO.hAttempt(window.location.pathname)
+      search <- ZIO.hAttempt(window.location.search)
 
       path = pathname.split("/").toList.filter(_.nonEmpty)
-      params <- ZIO.hAttempt("Unable to create URLSearchParams") {
-        new URLSearchParams(search).toList.map { t => (t._1, t._2) }.toMap
-      }
+      params <- ZIO.hAttempt { new URLSearchParams(search).toList.map { t => (t._1, t._2) }.toMap }
     } yield Url(path, params)
 
 }

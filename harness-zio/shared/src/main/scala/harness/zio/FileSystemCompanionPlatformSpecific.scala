@@ -1,8 +1,8 @@
 package harness.zio
 
-import zio.*
 import harness.core.*
+import zio.*
 
 trait FileSystemCompanionPlatformSpecific {
-  val liveLayer: Layer[HError, FileSystem]
+  val liveLayer: HTaskLayer[FileSystem]
 }

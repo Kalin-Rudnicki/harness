@@ -14,33 +14,33 @@ object Server {
 
   def start[ServerEnv, ReqEnv: EnvironmentTag](
       config: ServerConfig,
-      reqLayer: ZLayer[ServerEnv & Scope, NonEmptyList[HError], ReqEnv],
+      reqLayer: HRLayer[ServerEnv & Scope, ReqEnv],
   )(
       route: Route[ServerEnv & ReqEnv],
-  ): SHRION[ServerEnv, Unit] = {
+  ): SHRIO[ServerEnv, Unit] = {
     val port: Int = config.port.getOrElse(if (config.sslConfig.nonEmpty) 443 else 8080)
     for {
       _ <- Logger.log.info(s"Starting server on port $port")
-      inet <- ZIO.hAttemptNel("Error creating inet address")(InetSocketAddress(port))
+      inet <- ZIO.hAttempt(InetSocketAddress(port))
       server <- createHttpServer(config, inet)
       runtime <- ZIO.runtime[HarnessEnv & ServerEnv]
       handler = Handler(runtime, reqLayer, route)
-      _ <- ZIO.hAttemptNel("Error setting server context")(server.createContext("/", handler))
-      _ <- ZIO.hAttemptNel("Error setting executor")(server.setExecutor(null))
-      _ <- ZIO.hAttemptNel("Error starting server")(server.start())
+      _ <- ZIO.hAttempt(server.createContext("/", handler))
+      _ <- ZIO.hAttempt(server.setExecutor(null))
+      _ <- ZIO.hAttempt(server.start())
       _ <- ZIO.never // TODO (KR) : do this or "press any key to continue"?
     } yield ()
   }
 
-  private def createHttpServer(config: ServerConfig, inet: InetSocketAddress): SHTaskN[HttpServer] =
+  private def createHttpServer(config: ServerConfig, inet: InetSocketAddress): SHTask[HttpServer] =
     config.sslConfig match {
       case Some(sslConfig) =>
         for {
-          server <- ZIO.hAttemptNel("Error creating https-server")(HttpsServer.create(inet, 0))
-          _ <- ZIO.hAttemptNel("Error applying ssl config")(configureSSL(server, sslConfig))
+          server <- ZIO.hAttempt(HttpsServer.create(inet, 0))
+          _ <- ZIO.hAttempt(configureSSL(server, sslConfig))
         } yield server
       case None =>
-        ZIO.hAttemptNel("Error creating http-server")(HttpServer.create(inet, 0))
+        ZIO.hAttempt(HttpServer.create(inet, 0))
     }
 
   // TODO (KR) : Possibly zio-ify this

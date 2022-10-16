@@ -1,6 +1,6 @@
 package harness.sql.query
 
-import harness.sql.ZipCodec
+import harness.core.Zip
 import harness.sql.typeclass.RowEncoder
 
 final class Input[I, Q] private (
@@ -8,8 +8,8 @@ final class Input[I, Q] private (
     private[query] val buildQ: Int => Q,
 ) { self =>
 
-  def ~[I2, O2](other: Input[I2, O2])(implicit zI: ZipCodec[I, I2], zQ: ZipCodec[Q, O2]): Input[zI.C, zQ.C] =
-    new Input[zI.C, zQ.C](
+  def ~[I2, O2](other: Input[I2, O2])(implicit zI: Zip[I, I2], zQ: Zip[Q, O2]): Input[zI.Out, zQ.Out] =
+    new Input[zI.Out, zQ.Out](
       self.encoder ~ other.encoder,
       i => zQ.zip(self.buildQ(i), other.buildQ(i + self.encoder.width)),
     )

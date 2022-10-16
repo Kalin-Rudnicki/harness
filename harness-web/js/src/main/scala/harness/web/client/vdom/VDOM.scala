@@ -36,7 +36,7 @@ trait PModifier[+Action, -StateGet, +StateSet <: StateGet, +Value] { self =>
   // --- mapRaise ---
 
   final def mapRaiseSEV[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Action2](
-      f: (StateGet2, EitherNel[String, Value], Raise[Action, StateSet]) => SHTaskN[List[Raise[Action2, StateSet2]]],
+      f: (StateGet2, EitherNel[String, Value], Raise[Action, StateSet]) => SHTask[List[Raise[Action2, StateSet2]]],
   ): PModifier[Action2, StateGet2, StateSet2, Value] =
     new PModifier.Simple[Action2, StateGet2, StateSet2, Value] {
       override def build(rh: RaiseHandler[Action2, StateSet2], state: StateGet2): List[rawVDOM.VDom.Modifier] =
@@ -48,27 +48,27 @@ trait PModifier[+Action, -StateGet, +StateSet <: StateGet, +Value] { self =>
     }
 
   inline final def mapRaiseSV[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Action2](
-      f: (StateGet2, Value, Raise[Action, StateSet]) => SHTaskN[List[Raise[Action2, StateSet2]]],
+      f: (StateGet2, Value, Raise[Action, StateSet]) => SHTask[List[Raise[Action2, StateSet2]]],
   ): PModifier[Action2, StateGet2, StateSet2, Value] =
     self.mapRaiseSEV[StateGet2, StateSet2, Action2] {
       case (s, Right(v), r) => f(s, v, r)
-      case (_, Left(es), _) => ZIO.fail(es.map(HError.UserError(_)))
+      case (_, Left(es), _) => ZIO.hFailUserErrors(es)
     }
 
   inline final def mapRaiseEV[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Action2](
-      f: (EitherNel[String, Value], Raise[Action, StateSet]) => SHTaskN[List[Raise[Action2, StateSet2]]],
+      f: (EitherNel[String, Value], Raise[Action, StateSet]) => SHTask[List[Raise[Action2, StateSet2]]],
   ): PModifier[Action2, StateGet2, StateSet2, Value] =
     self.mapRaiseSEV[StateGet2, StateSet2, Action2]((_, v, r) => f(v, r))
 
   inline final def mapRaiseV[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Action2](
-      f: (Value, Raise[Action, StateSet]) => SHTaskN[List[Raise[Action2, StateSet2]]],
+      f: (Value, Raise[Action, StateSet]) => SHTask[List[Raise[Action2, StateSet2]]],
   ): PModifier[Action2, StateGet2, StateSet2, Value] =
     self.mapRaiseSV[StateGet2, StateSet2, Action2]((_, v, r) => f(v, r))
 
   // --- mapAction ---
 
   inline final def mapActionSEV[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Action2](
-      f: (StateGet2, EitherNel[String, Value], Action) => SHTaskN[List[Raise[Action2, StateSet2]]],
+      f: (StateGet2, EitherNel[String, Value], Action) => SHTask[List[Raise[Action2, StateSet2]]],
   ): PModifier[Action2, StateGet2, StateSet2, Value] =
     self.mapRaiseSEV[StateGet2, StateSet2, Action2] {
       case (s, v, a: Raise.Action[Action])                => f(s, v, a.action)
@@ -76,20 +76,20 @@ trait PModifier[+Action, -StateGet, +StateSet <: StateGet, +Value] { self =>
     }
 
   inline final def mapActionSV[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Action2](
-      f: (StateGet2, Value, Action) => SHTaskN[List[Raise[Action2, StateSet2]]],
+      f: (StateGet2, Value, Action) => SHTask[List[Raise[Action2, StateSet2]]],
   ): PModifier[Action2, StateGet2, StateSet2, Value] =
     self.mapActionSEV[StateGet2, StateSet2, Action2] {
       case (s, Right(v), a) => f(s, v, a)
-      case (_, Left(es), _) => ZIO.fail(es.map(HError.UserError(_)))
+      case (_, Left(es), _) => ZIO.hFailUserErrors(es)
     }
 
   inline final def mapActionEV[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Action2](
-      f: (EitherNel[String, Value], Action) => SHTaskN[List[Raise[Action2, StateSet2]]],
+      f: (EitherNel[String, Value], Action) => SHTask[List[Raise[Action2, StateSet2]]],
   ): PModifier[Action2, StateGet2, StateSet2, Value] =
     self.mapActionSEV[StateGet2, StateSet2, Action2]((_, v, a) => f(v, a))
 
   inline final def mapActionV[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Action2](
-      f: (Value, Action) => SHTaskN[List[Raise[Action2, StateSet2]]],
+      f: (Value, Action) => SHTask[List[Raise[Action2, StateSet2]]],
   ): PModifier[Action2, StateGet2, StateSet2, Value] =
     self.mapActionSV[StateGet2, StateSet2, Action2]((_, v, a) => f(v, a))
 

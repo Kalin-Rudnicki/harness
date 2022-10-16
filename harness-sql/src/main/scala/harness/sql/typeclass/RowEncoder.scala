@@ -1,5 +1,6 @@
 package harness.sql.typeclass
 
+import harness.core.Zip
 import harness.sql.*
 import java.sql.PreparedStatement
 import shapeless3.deriving.*
@@ -15,10 +16,10 @@ trait RowEncoder[T] { self =>
       override def encodeRow(t: T2, o: Int, arr: Array[Object]): Unit = self.encodeRow(f(t), o, arr)
     }
 
-  final def ~[T2](other: RowEncoder[T2])(implicit z: ZipCodec[T, T2]): RowEncoder[z.C] =
-    new RowEncoder[z.C] {
+  final def ~[T2](other: RowEncoder[T2])(implicit z: Zip[T, T2]): RowEncoder[z.Out] =
+    new RowEncoder[z.Out] {
       override lazy val width: Int = self.width + other.width
-      override def encodeRow(t: z.C, o: Int, arr: Array[Object]): Unit = {
+      override def encodeRow(t: z.Out, o: Int, arr: Array[Object]): Unit = {
         val (a, b) = z.unzip(t)
         self.encodeRow(a, o, arr)
         other.encodeRow(b, o + self.width, arr)
