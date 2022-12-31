@@ -33,6 +33,11 @@ final case class Col[T] private (
 
   override def toString: String = s"$colName[$colType]"
 
+  def ? : String =
+    if (colType == "JSONB") "? :: JSONB"
+    else if (colType == "JSON") "? :: JSON"
+    else "?"
+
 }
 object Col {
 

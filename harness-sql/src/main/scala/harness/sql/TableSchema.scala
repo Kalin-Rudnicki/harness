@@ -35,14 +35,7 @@ object TableSchema {
       colList = cols.toList,
       insertQuery = {
         val colsString = cols.map(_.colName).mkString(", ")
-        val qMarks =
-          cols
-            .map { c =>
-              if (c.colType == "JSONB") "? :: JSONB"
-              else if (c.colType == "JSON") "? :: JSON"
-              else "?"
-            }
-            .mkString(", ")
+        val qMarks = cols.map(_.?).mkString(", ")
         s"INSERT INTO $tableSchema.$tableName ($colsString) VALUES ($qMarks)" // RETURNING $colsString"
       },
     )
