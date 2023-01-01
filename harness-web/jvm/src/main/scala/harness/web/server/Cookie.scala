@@ -36,6 +36,11 @@ final case class Cookie private (
       _sameSite.map { ss => s"SameSite=$ss" },
     ).flatten.mkString("; ")
 
+  def isUnset: Boolean = _maxAge.contains(0) && _value.isEmpty
+
+  def name: String = _name
+  def value: String = _value
+
 }
 object Cookie {
 

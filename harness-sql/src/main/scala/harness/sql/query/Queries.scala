@@ -9,7 +9,7 @@ import harness.zio.*
 import zio.*
 
 final class Query(sql: String, qim: QueryInputMapper) {
-  def apply(): HRIO[JDBCConnection, Int] =
+  def apply(): HRIO[JDBCConnection & Logger, Int] =
     ZIO.scoped {
       Utils.preparedStatement(sql, None, qim).flatMap { ps =>
         ZIO.hAttempt(ps.executeUpdate()).mapError(ErrorWithSql(sql, _))
@@ -18,7 +18,7 @@ final class Query(sql: String, qim: QueryInputMapper) {
 }
 
 final class QueryI[I](val sql: String, encoder: RowEncoder[I], qim: QueryInputMapper) {
-  def apply(i: I): HRIO[JDBCConnection, Int] =
+  def apply(i: I): HRIO[JDBCConnection & Logger, Int] =
     ZIO.scoped {
       Utils.preparedStatement(sql, (i, encoder).some, qim).flatMap { ps =>
         ZIO.hAttempt(ps.executeUpdate()).mapError(ErrorWithSql(sql, _))

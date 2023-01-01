@@ -101,12 +101,12 @@ object PostgresMeta {
 
   // =====| effects |=====
 
-  private val tablesAndColumns: HRIO[JDBCConnection, Map[InformationSchemaTables.Identity, Chunk[InformationSchemaColumns.Identity]]] =
+  private val tablesAndColumns: HRIO[JDBCConnection & Logger, Map[InformationSchemaTables.Identity, Chunk[InformationSchemaColumns.Identity]]] =
     queryTablesAndColumns().groupByLeft(_._1)(_._2).chunk.map(_.toMap)
 
   object schemaDiff {
 
-    def apply(tables: Tables): HRIO[JDBCConnection, Unit] =
+    def apply(tables: Tables): HRIO[JDBCConnection & Logger, Unit] =
       for {
         dbTAC <- tablesAndColumns
         schemaTAC = tablesToMap(tables)
@@ -156,10 +156,10 @@ object PostgresMeta {
           }
       } yield ()
 
-    def withConnectionFactory(tables: Tables): RIO[ConnectionFactory, Unit] =
+    def withConnectionFactory(tables: Tables): RIO[ConnectionFactory & Logger, Unit] =
       ZIO.scoped { schemaDiff(tables).provideSomeLayer(JDBCConnection.connectionFactoryLayer) }
 
-    def withPool(tables: Tables): RIO[JDBCConnectionPool, Unit] =
+    def withPool(tables: Tables): RIO[JDBCConnectionPool & Logger, Unit] =
       ZIO.scoped { schemaDiff(tables).provideSomeLayer(JDBCConnection.poolLayer) }
 
   }

@@ -14,7 +14,7 @@ object Server {
 
   def start[ServerEnv, ReqEnv: EnvironmentTag](
       config: ServerConfig,
-      reqLayer: HRLayer[ServerEnv & Scope, ReqEnv],
+      reqLayer: SHRLayer[ServerEnv & Scope, ReqEnv],
   )(
       route: Route[ServerEnv & ReqEnv],
   ): SHRIO[ServerEnv, Unit] = {

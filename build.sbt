@@ -55,6 +55,7 @@ lazy val `harness-root` =
       `harness-web`.js,
       `harness-web`.jvm,
       `harness-web-app-template`,
+      `harness-web-test`,
     )
 
 lazy val `harness-test` =
@@ -145,6 +146,20 @@ lazy val `harness-web` =
     )
     .dependsOn(`harness-zio` % "test->test;compile->compile")
 
+lazy val `harness-web-test` =
+  project
+    .in(file("harness-web-test"))
+    .settings(
+      name := "harness-web-test",
+      publishSettings,
+      miscSettings,
+    )
+    .dependsOn(
+      `harness-test`.jvm,
+      `harness-web`.jvm,
+      `harness-sql`,
+    )
+
 // =====|  |=====
 
 lazy val `harness-web-app-template` =
@@ -194,7 +209,7 @@ lazy val `harness-web-app-template--api` =
         "org.mindrot" % "jbcrypt" % "0.4",
       ),
     )
-    .dependsOn(`harness-web-app-template--model`.jvm, `harness-web-app-template--db-model`)
+    .dependsOn(`harness-web-app-template--model`.jvm, `harness-web-app-template--db-model`, `harness-web-test` % Test)
 
 lazy val buildUI: InputKey[Unit] = inputKey("build UI")
 

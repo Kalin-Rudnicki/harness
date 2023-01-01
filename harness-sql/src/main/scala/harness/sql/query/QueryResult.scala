@@ -10,31 +10,31 @@ import java.sql.{Array, PreparedStatement, ResultSet}
 import zio.*
 import zio.stream.*
 
-final class QueryResult[O] private (sql: String, _stream: => HRStream[JDBCConnection & Scope, O]) {
+final class QueryResult[O] private (sql: String, _stream: => HRStream[JDBCConnection & Logger & Scope, O]) {
 
-  inline def single: HRIO[JDBCConnection, O] =
+  inline def single: HRIO[JDBCConnection & Logger, O] =
     chunk.flatMap {
       case Chunk(value) => ZIO.succeed(value)
       case chunk        => ZIO.fail(ErrorWithSql(sql, InvalidResultSetSize("1", chunk.length)))
     }
 
-  inline def option: HRIO[JDBCConnection, Option[O]] =
+  inline def option: HRIO[JDBCConnection & Logger, Option[O]] =
     chunk.flatMap {
       case Chunk(value) => ZIO.some(value)
       case Chunk()      => ZIO.none
       case chunk        => ZIO.fail(ErrorWithSql(sql, InvalidResultSetSize("0..1", chunk.length)))
     }
 
-  inline def list: HRIO[JDBCConnection, List[O]] = chunk.map(_.toList)
+  inline def list: HRIO[JDBCConnection & Logger, List[O]] = chunk.map(_.toList)
 
-  inline def chunk: HRIO[JDBCConnection, Chunk[O]] = ZIO.scoped { stream.runCollect }
+  inline def chunk: HRIO[JDBCConnection & Logger, Chunk[O]] = ZIO.scoped { stream.runCollect }
 
-  def stream: HRStream[JDBCConnection & Scope, O] = _stream
+  def stream: HRStream[JDBCConnection & Logger & Scope, O] = _stream
 
   // =====|  |=====
 
   // NOTE : Make sure results are ordered by `K`
-  def groupBy[K, V](kf: O => K)(vf: O => V): HRStream[JDBCConnection & Scope, (K, NonEmptyChunk[V])] =
+  def groupBy[K, V](kf: O => K)(vf: O => V): HRStream[JDBCConnection & Logger & Scope, (K, NonEmptyChunk[V])] =
     _stream.groupAdjacentBy(kf).map { (k, os) => (k, os.map(vf)) }
 
   // NOTE : Make sure results are ordered by `K`
@@ -70,7 +70,7 @@ object QueryResult {
   ): QueryResult[O] =
     QueryResult(
       sql, {
-        def resultSet: HRIO[JDBCConnection & Scope, ResultSet] =
+        def resultSet: HRIO[JDBCConnection & Logger & Scope, ResultSet] =
           for {
             ps <- Utils.preparedStatement(sql, input, qim)
             rs <- ZIO.acquireAutoClosable(ZIO.hAttempt(ps.executeQuery()))

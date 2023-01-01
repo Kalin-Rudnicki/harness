@@ -27,12 +27,13 @@ private[sql] object Utils {
     iArr2
   }
 
-  def preparedStatement[I](sql: String, input: Option[(I, RowEncoder[I])], qim: QueryInputMapper): HRIO[JDBCConnection & Scope, PreparedStatement] =
+  def preparedStatement[I](sql: String, input: Option[(I, RowEncoder[I])], qim: QueryInputMapper): HRIO[JDBCConnection & Logger & Scope, PreparedStatement] =
     for {
       connection <- ZIO.service[JDBCConnection]
       ps: PreparedStatement <- ZIO.acquireAutoClosable { ZIO.hAttempt { connection.jdbcConnection.prepareStatement(sql) } }
       inputs <- ZIO.hAttempt { Utils.encodeInputs(input, qim) }
       _ <- ZIO.hAttempt { inputs.zipWithIndex.foreach { (input, idx) => ps.setObject(idx + 1, input) } }
+      _ <- Logger.log.trace(s"SQL:\n  $sql\nInputs:${inputs.zipWithIndex.map { (input, idx) => s"\n  $$${idx + 1} : $input" }.mkString}")
     } yield ps
 
 }

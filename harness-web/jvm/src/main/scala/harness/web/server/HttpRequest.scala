@@ -11,7 +11,7 @@ import java.io.InputStream
 import java.net.URI
 import scala.jdk.CollectionConverters.*
 import zio.*
-import zio.json.JsonDecoder
+import zio.json.{JsonDecoder, JsonEncoder}
 
 final case class HttpRequest(
     method: HttpMethod,
@@ -125,6 +125,113 @@ object HttpRequest {
           case Left(error) => ZIO.fail(error)
         }
       }
+
+  }
+
+  // =====| Builder |=====
+
+  object builder {
+
+    def apply(
+        method: HttpMethod,
+    )(
+        path: String*,
+    ): Stage1 =
+      Stage1(
+        method,
+        path.toList,
+        Map.empty,
+        Map.empty,
+      )
+
+    inline def get(path: String*): Stage1 = HttpRequest.builder(HttpMethod.GET)(path*)
+    inline def post(path: String*): Stage1 = HttpRequest.builder(HttpMethod.POST)(path*)
+
+    final class Stage1 private[builder] (
+        method: HttpMethod,
+        path: List[String],
+        paramMap: Map[String, String],
+        headers: Map[String, String],
+    ) { self =>
+
+      // =====| params |=====
+
+      def params(params: (String, String)*): Stage1 =
+        Stage1(
+          method,
+          path,
+          paramMap ++ params.toMap,
+          headers,
+        )
+
+      inline def param[V](k: String, v: V)(implicit encoder: StringEncoder[V]): Stage1 =
+        self.params(k -> encoder.encode(v))
+
+      inline def optParam[V](k: String, v: Option[V])(implicit encoder: StringEncoder[V]): Stage1 =
+        v match {
+          case Some(v) => self.param(k, v)
+          case None    => self
+        }
+
+      // =====| headers |=====
+
+      def header[V](k: String, v: V)(implicit encoder: StringEncoder[V]): Stage1 =
+        Stage1(
+          method,
+          path,
+          paramMap,
+          headers + (k -> encoder.encode(v)),
+        )
+
+      def optHeader[V](k: String, v: Option[V])(implicit encoder: StringEncoder[V]): Stage1 =
+        v match {
+          case Some(v) => self.header(k, v)
+          case None    => self
+        }
+
+      def jsonHeader[V](k: String, v: V)(implicit encoder: JsonEncoder[V]): Stage1 =
+        Stage1(
+          method,
+          path,
+          paramMap,
+          headers + (k -> encoder.encodeJson(v, None).toString),
+        )
+
+      def optJsonHeader[V](k: String, v: Option[V])(implicit encoder: JsonEncoder[V]): Stage1 =
+        v match {
+          case Some(v) => self.jsonHeader(k, v)
+          case None    => self
+        }
+
+      // =====| body |=====
+
+      def noBody: HttpRequest =
+        HttpRequest(
+          method = method,
+          path = path,
+          queries = paramMap,
+          headers = headers.map { (k, v) => (k, v :: Nil) },
+          cookies = Map.empty,
+          rawInputStream = InputStream.nullInputStream,
+        )
+
+      def rawBody(body: String): HttpRequest =
+        HttpRequest(
+          method = method,
+          path = path,
+          queries = paramMap,
+          headers = (headers + ("Content-length" -> body.length.toString)).map { (k, v) => (k, v :: Nil) },
+          cookies = Map.empty,
+          rawInputStream = java.io.StringBufferInputStream(body),
+        )
+
+      def body[V](v: V)(implicit encoder: StringEncoder[V]): HttpRequest =
+        rawBody(encoder.encode(v))
+
+      def jsonBody[V](v: V)(implicit encoder: JsonEncoder[V]): HttpRequest =
+        rawBody(encoder.encodeJson(v, None).toString)
+
+    }
 
   }
 

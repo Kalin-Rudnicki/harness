@@ -11,7 +11,9 @@ final case class User[F[_]](
     lowerUsername: F[String],
     encryptedPassword: F[String],
     email: F[String],
-) extends Table.WithId[F, User.Id]
+) extends Table.WithId[F, User.Id] {
+  def show: String = s"'$username' ($id)"
+}
 object User extends Table.Companion.WithId[User] {
 
   override implicit lazy val tableSchema: TableSchema[User] =
