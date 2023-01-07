@@ -7,6 +7,7 @@ abstract class DefaultHarnessSpec extends ZIOSpecDefault {
 
   final type TestSpec = Spec[TestEnvironment with Scope, Any]
 
-  override def aspects: Chunk[TestAspectAtLeastR[TestEnvironment]] = Chunk(TestAspect.shrinks(0))
+  override def aspects: Chunk[TestAspectAtLeastR[TestEnvironment]] =
+    Chunk(TestAspect.samples(15), TestAspect.shrinks(0))
 
 }
