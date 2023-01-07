@@ -1,10 +1,22 @@
 package harness.web
 
+import cats.syntax.option.*
 import zio.json.*
 import zio.json.ast.Json
 import zio.json.internal.{RetractReader, Write}
 
-sealed trait Partial[+T]
+sealed trait Partial[+T] {
+  final def toOption: Option[T] =
+    this match {
+      case Partial.Specified(value) => value.some
+      case Partial.Unspecified      => None
+    }
+  final def specifiedOr[T2 >: T](or: => T2): T2 =
+    this match {
+      case Partial.Specified(value) => value
+      case Partial.Unspecified      => or
+    }
+}
 object Partial {
 
   // =====| Types |=====
