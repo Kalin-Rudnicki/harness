@@ -82,10 +82,9 @@ abstract class RouteSpec[
   def routeSpec: TestSpec
 
   override final def spec: Spec[Environment & Scope, Any] =
-    (routeSpec @@ runInTransaction).provideSomeLayer[Environment & Scope] {
-      CookieStorage.emptyLayer ++
-        (serverLayer >+> reqLayer)
-    }
+    (routeSpec @@ runInTransaction)
+      .provideSomeLayer[Environment & ServerEnv & Scope] { CookieStorage.emptyLayer ++ reqLayer }
+      .provideSomeLayerShared[Environment & Scope] { serverLayer }
 
   // =====|  |=====
 

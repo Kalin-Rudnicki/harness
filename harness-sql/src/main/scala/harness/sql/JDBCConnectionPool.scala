@@ -12,7 +12,7 @@ object JDBCConnectionPool {
       ZPool
         .make(cf.getJDBCConnection, min to max, duration)
         .map(new JDBCConnectionPool(_))
-        .withFinalizerExit { (_, _) => Logger.log.debug("Releasing ConnectionPool") }
+  // .withFinalizerExit { (_, _) => Logger.log.debug("Releasing ConnectionPool") }
 
   def layer(min: Int, max: Int, duration: Duration): HRLayer[ConnectionFactory & Logger & Scope, JDBCConnectionPool] =
     ZLayer.fromZIO { ZIO.service[ConnectionFactory].flatMap(JDBCConnectionPool(_, min, max, duration)) }

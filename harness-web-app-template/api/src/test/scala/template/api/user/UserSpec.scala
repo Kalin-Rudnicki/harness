@@ -11,6 +11,8 @@ import zio.test.Assertion.*
 
 object UserSpec extends CustomRouteSpec {
 
+  override lazy val logLevel: Logger.LogLevel = Logger.LogLevel.Debug
+
   override def routeSpec: TestSpec =
     suite("UserSpec")(
       test("can sign up") {
