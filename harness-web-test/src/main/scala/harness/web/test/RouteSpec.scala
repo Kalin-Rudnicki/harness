@@ -5,14 +5,23 @@ import harness.sql.JDBCConnection
 import harness.sql.query.*
 import harness.web.server.*
 import harness.zio.*
+import scala.util.NotGiven
 import zio.*
 import zio.json.JsonDecoder
 import zio.test.*
 
-abstract class RouteSpec[SE <: Transaction: EnvironmentTag, RE <: JDBCConnection: EnvironmentTag] extends ZIOSpec[HarnessEnv & Route[SE & RE] & TestEnvironment] {
+abstract class RouteSpec[
+    SE <: Transaction: EnvironmentTag,
+    RE <: JDBCConnection: EnvironmentTag,
+    RE_NC: EnvironmentTag,
+](implicit
+    ev1: (RE_NC & JDBCConnection) <:< RE,
+    ev2: NotGiven[RE_NC <:< JDBCConnection],
+) extends ZIOSpec[HarnessEnv & Route[SE & RE] & TestEnvironment] {
 
   final type ServerEnv = SE
   final type ReqEnv = RE
+  final type ReqEnv_NoConnection = RE_NC
   final type ProvidedEnv = Route[ServerEnv & ReqEnv] & CookieStorage
   final type HttpEnv = HarnessEnv & ProvidedEnv & ServerEnv & JDBCConnection
 
@@ -21,8 +30,11 @@ abstract class RouteSpec[SE <: Transaction: EnvironmentTag, RE <: JDBCConnection
   // This layer will be evaluated once when the server starts
   val serverLayer: SHRLayer[Scope, ServerEnv]
 
-  // This layer will be evaluated for each HTTP request that the server receives
+  // This layer will be evaluated for each test
   val reqLayer: SHRLayer[ServerEnv & Scope, ReqEnv]
+
+  // This layer will be evaluated for each HTTP request that the server receives
+  val reqLayerNoConnection: SHRLayer[ServerEnv & Scope, ReqEnv_NoConnection]
 
   val route: ServerConfig => Route[ServerEnv & ReqEnv]
   private final lazy val evalRoute: Route[ServerEnv & ReqEnv] =
@@ -85,8 +97,7 @@ abstract class RouteSpec[SE <: Transaction: EnvironmentTag, RE <: JDBCConnection
         request <- CookieStorage.applyCookies(request)
         con <- ZIO.service[JDBCConnection]
         layer =
-          reqLayer ++
-            ZLayer.succeed(con) ++
+          (reqLayerNoConnection ++ ZLayer.succeed(con)).asInstanceOf[SHRLayer[ServerEnv & Scope, ReqEnv]] ++
             ZLayer.succeed(request) ++
             ZLayer.succeed[Transaction](Transaction.UseSavepointForTransaction)
         response <- ZIO.scoped(route(request.method, request.path).provideSomeLayer(layer))

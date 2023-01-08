@@ -38,7 +38,7 @@ object User {
       }
     }
 
-  def signedInUserGen[SE <: Transaction, RE <: JDBCConnection](routeSpec: RouteSpec[SE, RE]): Gen[routeSpec.HttpEnv & Sized, D.user.User] =
+  def signedInUserGen[SE <: Transaction, RE <: JDBCConnection](routeSpec: RouteSpec[SE, RE, _]): Gen[routeSpec.HttpEnv & Sized, D.user.User] =
     for {
       signUp <- signUpGen
       _ <- Gen.fromZIO { routeSpec.httpRequest(HttpRequest.builder.post("api", "user", "sign-up").jsonBody(signUp)).orDie }
