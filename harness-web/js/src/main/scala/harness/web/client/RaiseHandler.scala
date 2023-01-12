@@ -19,7 +19,22 @@ abstract class RaiseHandler[-A, -S] private (
   final def raiseManyZIO(raises: SHTask[List[Raise[A, S]]]*): Unit =
     PageApp.runZIO(
       runtime,
-      ZIO.foreachDiscard(raises) { _.flatMap { ZIO.foreachDiscard(_)(self.handleRaise) } },
+      ZIO
+        .foreachDiscard(raises) { _.flatMap { ZIO.foreachDiscard(_)(self.handleRaise) } }
+        .foldZIO(
+          { error =>
+            ZIO.serviceWithZIO[RunMode] { runMode =>
+              ZIO.serviceWithZIO[HError.UserMessage.IfHidden] { ifHidden =>
+                ZIO.foreachDiscard {
+                  error.toNel.toList.map { err =>
+                    Raise.DisplayMessage(PageMessage.error(err.formatMessage(runMode, ifHidden)))
+                  }
+                }(handleRaise)
+              }
+            }
+          },
+          ZIO.succeed(_),
+        ),
     )
 
   inline final def raiseZIO(raises: SHTask[Raise[A, S]]*): Unit = self.raiseManyZIO(raises.map(_.map(_ :: Nil))*)
@@ -70,17 +85,25 @@ object RaiseHandler {
   @nowarn
   private[client] def root[A, S](
       renderer: rawVDOM.Renderer,
-      stateRef: Ref.Synchronized[S],
-      widget: PModifier[A, S, S, Any],
-      handleA: A => SHTask[List[Raise.StandardOrUpdate[S]]],
+      stateRef: Ref.Synchronized[PageState[S]],
+      widget: PModifier[A, PageState[S], PageState[S], Any],
+      handleA: A => SHTask[List[Raise.StandardOrUpdate[PageState[S]]]],
       titleF: Either[String, S => String],
       runtime: Runtime[HarnessEnv],
       urlToPage: Url => Page,
-  ): RaiseHandler[A, S] =
-    new RaiseHandler[A, S](runtime) { self =>
-      override val handleRaise: Raise[A, S] => SHTask[Unit] = { raise =>
+  ): RaiseHandler[A, PageState[S]] =
+    new RaiseHandler[A, PageState[S]](runtime) { self =>
+      override val handleRaise: Raise[A, PageState[S]] => SHTask[Unit] = { raise =>
+        def displayPageMessages(pageMessages: List[PageMessage]): SHTask[Unit] =
+          ZIO.foreachDiscard(pageMessages)(pm => Logger.log(pm.logLevel, pm.title)) *>
+            stateRef.updateZIO { state =>
+              val newState = PageState(state.pageMessages ::: pageMessages, state.state)
+              val newVDom = widget.build(self, newState)
+              renderer.render(titleF.fold(identity, _(newState.state)), newVDom).as(newState)
+            }
+
         @nowarn
-        def handleStandardOrUpdate(raise: Raise.StandardOrUpdate[S]): SHTask[Unit] =
+        def handleStandardOrUpdate(raise: Raise.StandardOrUpdate[PageState[S]]): SHTask[Unit] =
           raise match {
             case raise: Raise.Standard =>
               raise match {
@@ -92,22 +115,22 @@ object RaiseHandler {
                       // TODO (KR) : This probably needs to have access to the RouteMatcher, or a way to store the page in the history somehow
                       ZIO.fail(HError.???("History.go"))
                   }
-                case Raise.DisplayMessage(message) =>
-                  // TODO (KR) : Have a way to display these messages on the page, with styling
-                  Logger.log.info(message)
+                case Raise.DisplayMessage(pageMessage) =>
+                  displayPageMessages(pageMessage :: Nil)
               }
-            case raise: Raise.ModifyState[S] =>
+            case raise: Raise.ModifyState[PageState[S]] =>
               stateRef.updateZIO { state =>
                 val newState = raise.modify(state)
                 val newVDom = widget.build(self, newState)
-                if (raise.reRender) renderer.render(titleF.fold(identity, _(newState)), newVDom).as(newState)
+                if (raise.reRender) renderer.render(titleF.fold(identity, _(newState.state)), newVDom).as(newState)
                 else ZIO.succeed(newState)
               }
           }
 
+        // TODO (KR) : Make sure errors are converted to messages
         raise match {
-          case raise: Raise.StandardOrUpdate[S] => handleStandardOrUpdate(raise)
-          case raise: Raise.Action[A]           => handleA(raise.action).flatMap(ZIO.foreachDiscard(_)(handleStandardOrUpdate))
+          case raise: Raise.StandardOrUpdate[PageState[S]] => handleStandardOrUpdate(raise)
+          case raise: Raise.Action[A]                      => handleA(raise.action).flatMap(ZIO.foreachDiscard(_)(handleStandardOrUpdate))
         }
       }
 

@@ -35,7 +35,7 @@ object User {
         Transaction.inTransaction {
           for {
             body <- HttpRequest.jsonBody[D.user.Login]
-            user <- Q.User.byUsername(body.username).single
+            user <- Q.User.byUsername(body.username).option.someOrFail(HError.UserError(s"Invalid username: '${body.username}'"))
             _ <- ZIO.fail(HError.UserError("Invalid Password")).unless(BCrypt.checkpw(body.password, user.encryptedPassword))
             session = M.Session.newForUser(user)
             _ <- Q.Session.insert(session)

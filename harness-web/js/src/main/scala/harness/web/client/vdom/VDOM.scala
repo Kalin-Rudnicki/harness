@@ -104,6 +104,9 @@ trait PModifier[+Action, -StateGet, +StateSet <: StateGet, +Value] { self =>
   inline final def zoomOut[OuterState](inline f: OuterState => StateGet): SelfT[Action, OuterState, OuterState, Value] =
     self.imapState[OuterState, StateGet](GenLens[OuterState](f).asInstanceOf[Lens[OuterState, StateGet]])
 
+  inline final def zoomOutToPage[State >: StateSet <: StateGet]: SelfT[Action, PageState[State], PageState[State], Value] =
+    self.zoomOut[PageState[State]](_.state)
+
   // =====| Mapping Value |=====
 
   // --- as ---

@@ -5,7 +5,7 @@ import harness.web.client.*
 
 object Main extends PageApp {
 
-  override protected val runMode: RunMode = RunMode.Dev
+  override protected val runMode: RunMode = RunMode.Prod
 
   override val routeMatcher: RouteMatcher.Root =
     "page" /: RouteMatcher.root(

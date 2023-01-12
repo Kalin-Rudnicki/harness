@@ -73,12 +73,27 @@
 
 .page {
   @extend %bg-background;
-  padding: 2rem 5%;
   height: calc(100vh - 2rem);
+  padding: 0;
+  margin: 0;
 
-  h1 {
-    color: $color-secondary;
-    margin-left: 2rem;
-    margin-bottom: 1rem;
+  &__body {
+    padding: 2rem 5%;
+
+    h1 {
+      color: $color-secondary;
+      margin-left: 2rem;
+      margin-bottom: 1rem;
+    }
+  }
+}
+
+.page-messages {
+
+  &__message {
+    @extend %clickable;
+    padding: 2px 5px;
+    border: 1px solid black;
+    white-space: pre;
   }
 }

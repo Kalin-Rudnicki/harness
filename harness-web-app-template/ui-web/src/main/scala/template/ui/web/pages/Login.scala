@@ -23,9 +23,8 @@ object Login {
       .constTitle("Login")
       .body {
         PModifier(
-          Widgets.signedOutNavBar,
-          div(
-            CssClass.b("page"),
+          Widgets.signedOutNavBar.zoomOutToPage,
+          PageWidgets.pageBody(
             h1("Login"),
             (
               Widgets.stdInput[String]("Username:", "username").zoomOut[D.user.Login](_.username) <*>

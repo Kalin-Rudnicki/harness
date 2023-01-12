@@ -32,7 +32,7 @@ trait PageApp extends ZIOApp {
   }
 
   // TODO (KR) : Come up with a better system for this
-  protected val runMode: RunMode = RunMode.Dev
+  protected val runMode: RunMode = RunMode.Prod
   protected val logTolerance: Logger.LogLevel = Logger.LogLevel.Info
 
   // TODO (KR) : Make this prettier

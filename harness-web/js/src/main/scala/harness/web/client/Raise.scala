@@ -2,6 +2,8 @@ package harness.web.client
 
 import monocle.Lens
 
+import java.util.UUID
+
 sealed trait Raise[+A, +S]
 object Raise {
 
@@ -19,8 +21,7 @@ object Raise {
 
   sealed trait Standard extends Raise.StandardOrUpdate[Nothing]
 
-  // TODO (KR) : format message
-  final case class DisplayMessage(message: String) extends Raise.Standard
+  final case class DisplayMessage(message: PageMessage) extends Raise.Standard
 
   sealed trait History extends Raise.Standard
   object History {

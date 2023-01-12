@@ -10,11 +10,12 @@ sealed trait Page {
 
   type A
   type S
+  final type PS = PageState[S]
 
   val fetchState: SHTask[Either[Url, S]]
   val titleF: Either[String, S => String]
-  val widget: vdom.PModifier[A, S, S, Any]
-  val handleA: A => SHTask[List[Raise.StandardOrUpdate[S]]]
+  val widget: vdom.PModifier[A, PS, PS, Any]
+  val handleA: A => SHTask[List[Raise.StandardOrUpdate[PS]]]
 
   private final def renderAnd(
       renderer: rawVDOM.Renderer,
@@ -23,11 +24,12 @@ sealed trait Page {
   )(actionWithTitle: String => HTask[Unit]): SHTask[Unit] =
     fetchState.flatMap {
       case Right(state) =>
+        val pageState = PageState.init(state)
         for {
-          stateRef <- Ref.Synchronized.make(state)
+          stateRef <- Ref.Synchronized.make(pageState)
           title = titleF.fold(identity, _(state))
           raiseHandler = RaiseHandler.root[A, S](renderer, stateRef, widget, handleA, titleF, runtime, urlToPage)
-          newVDom = widget.build(raiseHandler, state)
+          newVDom = widget.build(raiseHandler, pageState)
           _ <- renderer.render(title, newVDom)
           _ <- actionWithTitle(title)
         } yield ()
@@ -72,23 +74,25 @@ object Page {
       fetchState: SHTask[Either[Url, State]],
       titleF: Either[String, State => String],
   ) {
-    def body[Action](widget: vdom.PModifier[Action, State, State, Any]): Builder4[Action, State] = Builder4(fetchState, titleF, widget)
+    inline def body[Action](widget: vdom.PModifier[Action, PageState[State], PageState[State], Any]): Builder4[Action, State] = pagefulBody(widget)
+    inline def pagelessBody[Action](widget: vdom.PModifier[Action, State, State, Any]): Builder4[Action, State] = this.body(widget.zoomOut[PageState[State]](_.state))
+    def pagefulBody[Action](widget: vdom.PModifier[Action, PageState[State], PageState[State], Any]): Builder4[Action, State] = Builder4(fetchState, titleF, widget)
   }
 
   final class Builder4[Action, State] private[Page] (
       fetchState: SHTask[Either[Url, State]],
       titleF: Either[String, State => String],
-      widget: vdom.PModifier[Action, State, State, Any],
+      widget: vdom.PModifier[Action, PageState[State], PageState[State], Any],
   ) { self =>
 
-    def handleA(_handleA: Action => SHTask[List[Raise.StandardOrUpdate[State]]]): Page =
+    def handleA(_handleA: Action => SHTask[List[Raise.StandardOrUpdate[PageState[State]]]]): Page =
       new Page {
         override type A = Action
         override type S = State
-        override val fetchState: SHTask[Either[Url, State]] = self.fetchState
-        override val titleF: Either[String, State => String] = self.titleF
-        override val widget: vdom.PModifier[Action, State, State, Any] = self.widget
-        override val handleA: Action => SHTask[List[Raise.StandardOrUpdate[State]]] = _handleA
+        override val fetchState: SHTask[Either[Url, S]] = self.fetchState
+        override val titleF: Either[String, S => String] = self.titleF
+        override val widget: vdom.PModifier[Action, PS, PS, Any] = self.widget
+        override val handleA: Action => SHTask[List[Raise.StandardOrUpdate[PS]]] = _handleA
       }
 
     def logA: Page =

@@ -5,6 +5,7 @@ import _root_.template.ui.web.helpers.*
 import cats.syntax.either.*
 import harness.web.client.*
 import harness.web.client.vdom.{given, *}
+import harness.web.client.widgets.*
 
 object Home {
 
@@ -23,9 +24,8 @@ object Home {
       .constTitle("Home")
       .body {
         PModifier(
-          Widgets.signedInNavBar.zoomOut[Env](_.user),
-          div(
-            CssClass.b("page"),
+          Widgets.signedInNavBar.zoomOut[Env](_.user).zoomOutToPage,
+          PageWidgets.pageBody(
             h1("Home"),
             PModifier.builder.withState[D.user.User] { u => p(s"Welcome, ${u.firstName}") }.zoomOut[Env](_.user),
           ),

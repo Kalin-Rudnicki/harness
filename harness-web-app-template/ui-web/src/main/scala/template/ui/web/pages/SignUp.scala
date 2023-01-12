@@ -48,9 +48,8 @@ object SignUp {
       .constTitle("Sign Up")
       .body {
         PModifier(
-          Widgets.signedOutNavBar,
-          div(
-            CssClass.b("page"),
+          Widgets.signedOutNavBar.zoomOutToPage,
+          PageWidgets.pageBody(
             h1("Sign Up"),
             (
               Widgets.stdInput[String]("First Name:", "first-name").zoomOut[Env](_.firstName) <*>
