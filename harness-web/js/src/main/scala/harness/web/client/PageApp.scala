@@ -26,6 +26,7 @@ trait PageApp extends ZIOApp {
     }
 
     loggerLayer ++
+      ZLayer.succeed(Telemetry.log()) ++
       ZLayer.succeed(runMode) ++
       ZLayer.succeed(HError.UserMessage.IfHidden.default) ++
       FileSystem.liveLayer

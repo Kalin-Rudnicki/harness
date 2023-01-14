@@ -54,7 +54,7 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
             .addContext("request-id" -> UUID.randomUUID()) {
               effect
                 .provideSomeLayer[HarnessEnv & ServerEnv & Scope](builtInReqLayer ++ reqLayer)
-                .hLogDuration("HTTP Request Handler", Logger.LogLevel.Detailed)
+                .trace("HTTP Request Handler", Logger.LogLevel.Detailed)
             }
             .dumpErrorsAndContinue
         }

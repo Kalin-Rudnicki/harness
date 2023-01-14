@@ -98,10 +98,9 @@ extension [R, A](zStream: RStream[R, A]) {
 // =====| Logging |=====
 
 extension [R, E, A](self: ZIO[R, E, A]) {
-  def hLogDuration(label: String, logLevel: Logger.LogLevel = Logger.LogLevel.Trace): ZIO[R & Logger, E, A] =
-    self.timed.flatMap { (duration, a) => Logger.log(logLevel, s"Duration[$label] : ${duration.toMillis} ms").as(a) } // TODO (KR) : prettier
-  def hLogDurationEither(label: String, logLevel: Logger.LogLevel = Logger.LogLevel.Trace): ZIO[R & Logger, E, A] =
-    self.either.timed.flatMap { (duration, a) => Logger.log(logLevel, s"Duration[$label] : ${duration.toMillis} ms") *> ZIO.fromEither(a) } // TODO (KR) : prettier
+  inline def trace(label: String, telemetryContext: (String, Any)*): ZIO[Telemetry & Logger & R, E, A] = self.trace(label, Logger.LogLevel.Trace, telemetryContext*)
+  def trace(label: String, logLevel: Logger.LogLevel, telemetryContext: (String, Any)*): ZIO[Telemetry & Logger & R, E, A] =
+    Telemetry.trace(self, label, logLevel, telemetryContext.map { (k, v) => (k, String.valueOf(v)) }.toMap)
 }
 
 extension [R, A](self: HRIO[R, A]) {

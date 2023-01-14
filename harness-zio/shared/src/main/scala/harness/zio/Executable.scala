@@ -177,6 +177,7 @@ object Executable {
         )
 
       ZLayer.succeed(logger) ++
+        ZLayer.succeed(Telemetry.log()) ++
         ZLayer.succeed(config.runMode) ++
         ZLayer.succeed(HError.UserMessage.IfHidden.default) ++
         FileSystem.liveLayer.orDie

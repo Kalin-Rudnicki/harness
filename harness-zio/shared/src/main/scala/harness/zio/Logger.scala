@@ -4,6 +4,7 @@ import cats.data.NonEmptyList
 import cats.syntax.option.*
 import harness.core.*
 import java.io.PrintStream
+import java.time.OffsetDateTime
 import scala.collection.mutable
 import zio.*
 import zio.json.*
@@ -22,24 +23,27 @@ final case class Logger(
         target: Logger.Target,
         logLevel: Option[Logger.LogLevel],
         event: Logger.Event,
+        now: OffsetDateTime,
     ): UIO[Any] =
       event match {
         case Logger.Event.Compound(events) =>
-          ZIO.foreachDiscard(events)(handle(sourceMinLogTolerance, sourceColorMode, target, logLevel, _))
+          ZIO.foreachDiscard(events)(handle(sourceMinLogTolerance, sourceColorMode, target, logLevel, _, now))
         case Logger.Event.Output(context, message) =>
-          val executedEvent = Logger.ExecutedEvent(logLevel, message, defaultContext ++ context, sourceColorMode)
+          val executedEvent = Logger.ExecutedEvent(logLevel, message, defaultContext ++ context, sourceColorMode, now)
           target.log(executedEvent)
         case e @ Logger.Event.AtLogLevel(logLevel, _) =>
-          ZIO.when(logLevel.logPriority >= sourceMinLogTolerance.logPriority) {
-            handle(sourceMinLogTolerance, sourceColorMode, target, logLevel.some, e.event)
+          ZIO.when(logLevel.logPriority >= sourceMinLogTolerance.tolerancePriority) {
+            handle(sourceMinLogTolerance, sourceColorMode, target, logLevel.some, e.event, now)
           }
       }
 
-    def execOnSource(source: Logger.Source): URIO[Scope, Any] =
-      source.target.flatMap(handle(source.minLogTolerance.getOrElse(defaultMinLogTolerance), source.colorMode.getOrElse(defaultColorMode), _, None, event))
+    def execOnSource(source: Logger.Source, now: OffsetDateTime): URIO[Scope, Any] =
+      source.target.flatMap(handle(source.minLogTolerance.getOrElse(defaultMinLogTolerance), source.colorMode.getOrElse(defaultColorMode), _, None, event, now))
 
     ZIO.scoped {
-      ZIO.foreachParDiscard(sources)(execOnSource)
+      Clock.currentDateTime.flatMap { now =>
+        ZIO.foreachParDiscard(sources)(execOnSource(_, now))
+      }
     }
   }
 
@@ -70,12 +74,12 @@ object Logger { self =>
 
     sealed class LogAtLevel(logLevel: LogLevel) {
       def apply(message: => Any, context: => (String, Any)*): URIO[Logger, Unit] =
-        Logger.execute(Event.AtLogLevel(logLevel, () => Event.Output(context.toList.map { (k, v) => (k, String.valueOf(v)) }, String.valueOf(message))))
+        Logger.execute(Event.AtLogLevel(logLevel, () => Event.Output(context.toList.map { (k, v) => (k, String.valueOf(v)) }.toMap, String.valueOf(message))))
     }
 
     def apply(logLevel: LogLevel, message: => Any, context: => (String, Any)*): URIO[Logger, Unit] = LogAtLevel(logLevel)(message, context*)
 
-    def apply(message: => Any, context: => (String, Any)*): URIO[Logger, Unit] = Logger.execute(Event.Output(context.toList.map { (k, v) => (k, String.valueOf(v)) }, String.valueOf(message)))
+    def apply(message: => Any, context: => (String, Any)*): URIO[Logger, Unit] = Logger.execute(Event.Output(context.toList.map { (k, v) => (k, String.valueOf(v)) }.toMap, String.valueOf(message)))
 
     object never extends LogAtLevel(LogLevel.Never)
     object trace extends LogAtLevel(LogLevel.Trace)
@@ -103,7 +107,7 @@ object Logger { self =>
                 logLevel,
                 () =>
                   Logger.Event.Compound(
-                    error.toNel.toList.map(e => Logger.Event.Output(Nil, e.formatMessage(runMode, ifHidden))),
+                    error.toNel.toList.map(e => Logger.Event.Output(Map.empty, e.formatMessage(runMode, ifHidden))),
                   ),
               ),
             )
@@ -120,7 +124,7 @@ object Logger { self =>
         _ <-
           Logger.execute(
             Logger.Event.Compound(
-              error.toNel.toList.map(e => Logger.Event.Output(Nil, e.formatMessage(runMode, ifHidden))),
+              error.toNel.toList.map(e => Logger.Event.Output(Map.empty, e.formatMessage(runMode, ifHidden))),
             ),
           )
       } yield ()
@@ -153,8 +157,10 @@ object Logger { self =>
       message: String,
       context: Map[String, String],
       colorMode: ColorMode,
+      dateTime: OffsetDateTime,
   ) {
 
+    // TODO (KR) : Option to show `dateTime` in log message
     def formatted: String = {
       val msg: String =
         if (message.contains('\n')) message.replaceAll("\n", LogLevel.newLineIndent)
@@ -166,7 +172,7 @@ object Logger { self =>
       s"[${logLevel.fold(LogLevel.emptyDisplayName)(_.colorizedDisplayName(colorMode))}]: $contextMsg$msg"
     }
 
-    def toEncoded: ExecutedEvent.Encoded = ExecutedEvent.Encoded(logLevel, message, context)
+    def toEncoded: ExecutedEvent.Encoded = ExecutedEvent.Encoded(logLevel, message, context, dateTime)
 
   }
   object ExecutedEvent {
@@ -175,6 +181,7 @@ object Logger { self =>
         logLevel: Option[LogLevel],
         message: String,
         context: Map[String, String],
+        dateTime: OffsetDateTime,
     )
     object Encoded {
 
@@ -423,7 +430,7 @@ object Logger { self =>
   object Event {
 
     final case class Compound(events: List[Event]) extends Event
-    final case class Output(context: List[(String, String)], message: String) extends Event
+    final case class Output(context: Map[String, String], message: String) extends Event
     final case class AtLogLevel(logLevel: LogLevel, private val _event: () => Event) extends Event {
       lazy val event: Event = _event()
     }

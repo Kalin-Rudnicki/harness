@@ -54,8 +54,8 @@ lazy val `harness-root` =
       `harness-sql`,
       `harness-web`.js,
       `harness-web`.jvm,
-      `harness-web-app-template`,
       `harness-web-test`,
+      `harness-web-app-template`,
     )
 
 lazy val `harness-test` =
