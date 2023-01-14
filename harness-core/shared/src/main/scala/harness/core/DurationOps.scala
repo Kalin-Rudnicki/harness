@@ -2,16 +2,10 @@ package harness.core
 
 extension (self: java.time.Duration) {
 
-  def prettyPrint: String =
-    List[(String, Long)](
-      "d" -> self.toDaysPart,
-      "h" -> self.toHoursPart,
-      "m" -> self.toMinutesPart,
-      "s" -> self.toSecondsPart,
-      "ms" -> self.toMillisPart,
-      "ns" -> (self.toNanosPart % 1000000),
-    ).filterNot(_._2 == 0)
-      .map { (l, n) => s"$n$l" }
-      .mkString(" ")
+  def prettyPrint: String = {
+    val millis = self.toMillis
+    if (millis < 1000) s"$millis.${((self.toNanos % 1000000) / 1000).toString.alignRight(3, '0')}ms"
+    else s"${(millis / 1000).toStringCommas}.${(millis % 1000).toString.alignRight(3, '0')}s"
+  }
 
 }

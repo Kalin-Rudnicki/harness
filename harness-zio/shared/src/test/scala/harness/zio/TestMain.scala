@@ -13,6 +13,7 @@ object TestMain extends ExecutableApp {
         _ <- Clock.sleep(Duration.fromSeconds(2)).trace("effect-2", Logger.LogLevel.Important, "effect-type" -> "query")
         _ <- Clock.sleep(Duration.fromNanos(2500000)).trace("effect-3")
         _ <- ZIO.fail("").trace("effect-4", Logger.LogLevel.Debug, "should-pass" -> false).either
+        _ <- Logger.log.info(java.time.Duration.ofHours(1).toNanos)
       } yield ()
     }
 
