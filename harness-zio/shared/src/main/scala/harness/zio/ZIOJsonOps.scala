@@ -1,7 +1,7 @@
 package harness.zio
 
 import harness.core.*
-import scala.reflect.ClassTag
+import scala.reflect.{ensureAccessible, ClassTag}
 import zio.json.*
 
 extension (self: JsonCodec.type) {
@@ -10,6 +10,12 @@ extension (self: JsonCodec.type) {
     ec.transformOrFail(
       e => ewe.decode(e).toRight(s"Invalid ${ct.runtimeClass.getSimpleName}: $e"),
       ewe.encode,
+    )
+
+  def fromHarnessStringEncoderAndDecoder[T](implicit encoder: StringEncoder[T], decoder: StringDecoder[T]): JsonCodec[T] =
+    JsonCodec.string.transformOrFail(
+      decoder.decode,
+      encoder.encode,
     )
 
 }

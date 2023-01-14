@@ -112,6 +112,7 @@ object Executable {
       minLogTolerance: Logger.LogLevel,
       colorMode: ColorMode,
       runMode: RunMode,
+      logJson: Boolean,
   )
   private object Config {
 
@@ -138,7 +139,13 @@ object Executable {
         .map {
           case true  => RunMode.Dev
           case false => RunMode.Prod
-        }
+        } &&
+      Parser
+        .flag(
+          LongName.unsafe("log-json"),
+          shortParam = Defaultable.None,
+          helpHint = List("Log messages in JSON format"),
+        )
     }.map(Config.apply)
 
   }
@@ -164,6 +171,7 @@ object Executable {
     finalizedResultToExecutableResult(Config.parser.finalized.parse(args)).map { config =>
       val logger: Logger =
         Logger.default(
+          sources = (if (config.logJson) Logger.Source.stdOutJson(None) else Logger.Source.stdOut(None, None)) :: Nil,
           defaultMinLogTolerance = config.minLogTolerance,
           defaultColorMode = config.colorMode,
         )

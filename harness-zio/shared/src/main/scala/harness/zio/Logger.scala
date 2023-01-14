@@ -6,11 +6,12 @@ import harness.core.*
 import java.io.PrintStream
 import scala.collection.mutable
 import zio.*
+import zio.json.*
 
 final case class Logger(
     sources: List[Logger.Source],
     defaultMinLogTolerance: Logger.LogLevel,
-    defaultContext: List[(String, Any)],
+    defaultContext: Map[String, String],
     defaultColorMode: ColorMode,
 ) { self =>
 
@@ -26,7 +27,8 @@ final case class Logger(
         case Logger.Event.Compound(events) =>
           ZIO.foreachDiscard(events)(handle(sourceMinLogTolerance, sourceColorMode, target, logLevel, _))
         case Logger.Event.Output(context, message) =>
-          target.log(Logger.formatMessage(logLevel, message, defaultContext ::: context, sourceColorMode))
+          val executedEvent = Logger.ExecutedEvent(logLevel, message, defaultContext ++ context, sourceColorMode)
+          target.log(executedEvent)
         case e @ Logger.Event.AtLogLevel(logLevel, _) =>
           ZIO.when(logLevel.logPriority >= sourceMinLogTolerance.logPriority) {
             handle(sourceMinLogTolerance, sourceColorMode, target, logLevel.some, e.event)
@@ -41,8 +43,8 @@ final case class Logger(
     }
   }
 
-  def addContext(context: List[(String, Any)]): Logger =
-    self.copy(defaultContext = defaultContext ::: context)
+  def addContext(context: Map[String, String]): Logger =
+    self.copy(defaultContext = defaultContext ++ context)
 
 }
 object Logger { self =>
@@ -56,7 +58,7 @@ object Logger { self =>
     Logger(
       sources = sources,
       defaultMinLogTolerance = defaultMinLogTolerance,
-      defaultContext = defaultContext,
+      defaultContext = defaultContext.map { (k, v) => (k, String.valueOf(v)) }.toMap,
       defaultColorMode = defaultColorMode,
     )
 
@@ -68,12 +70,12 @@ object Logger { self =>
 
     sealed class LogAtLevel(logLevel: LogLevel) {
       def apply(message: => Any, context: => (String, Any)*): URIO[Logger, Unit] =
-        Logger.execute(Event.AtLogLevel(logLevel, () => Event.Output(context.toList, message)))
+        Logger.execute(Event.AtLogLevel(logLevel, () => Event.Output(context.toList.map { (k, v) => (k, String.valueOf(v)) }, String.valueOf(message))))
     }
 
     def apply(logLevel: LogLevel, message: => Any, context: => (String, Any)*): URIO[Logger, Unit] = LogAtLevel(logLevel)(message, context*)
 
-    def apply(message: => Any, context: => (String, Any)*): URIO[Logger, Unit] = Logger.execute(Event.Output(context.toList, message))
+    def apply(message: => Any, context: => (String, Any)*): URIO[Logger, Unit] = Logger.execute(Event.Output(context.toList.map { (k, v) => (k, String.valueOf(v)) }, String.valueOf(message)))
 
     object never extends LogAtLevel(LogLevel.Never)
     object trace extends LogAtLevel(LogLevel.Trace)
@@ -136,21 +138,62 @@ object Logger { self =>
 
   }
 
+  val getContext: URIO[Logger, Map[String, String]] =
+    ZIO.serviceWith[Logger](_.defaultContext)
+
   def addContext[R, E, A](context: (String, Any)*)(effect: ZIO[R, E, A]): ZIO[R & Logger, E, A] =
-    ZIO.service[Logger].flatMap { logger =>
-      effect.provideSomeLayer(ZLayer.succeed(logger.addContext(context.toList)))
+    ZIO.serviceWithZIO[Logger] { logger =>
+      effect.provideSomeLayer(ZLayer.succeed(logger.addContext(context.toList.map { (k, v) => (k, String.valueOf(v)) }.toMap)))
     }
 
   // =====| Types |=====
 
+  final case class ExecutedEvent(
+      logLevel: Option[LogLevel],
+      message: String,
+      context: Map[String, String],
+      colorMode: ColorMode,
+  ) {
+
+    def formatted: String = {
+      val msg: String =
+        if (message.contains('\n')) message.replaceAll("\n", LogLevel.newLineIndent)
+        else message
+      // TODO (KR) : Colorization config
+      val contextMsg =
+        if (context.isEmpty) ""
+        else s"${context.map { (k, v) => s"${colorMode.fgColorize(Color.Named.Cyan, k)}=${colorMode.fgColorize(Color.Named.Magenta, v)}" }.mkString(" ; ")}${LogLevel.newLineIndent}"
+      s"[${logLevel.fold(LogLevel.emptyDisplayName)(_.colorizedDisplayName(colorMode))}]: $contextMsg$msg"
+    }
+
+    def toEncoded: ExecutedEvent.Encoded = ExecutedEvent.Encoded(logLevel, message, context)
+
+  }
+  object ExecutedEvent {
+
+    final case class Encoded(
+        logLevel: Option[LogLevel],
+        message: String,
+        context: Map[String, String],
+    )
+    object Encoded {
+
+      private implicit val logLevelJsonCodec: JsonCodec[LogLevel] = JsonCodec.fromHarnessStringEncoderAndDecoder
+
+      implicit val jsonCodec: JsonCodec[Encoded] = DeriveJsonCodec.gen
+
+    }
+
+  }
+
   trait Target {
-    def log(string: String): UIO[Unit]
+    def log(event: ExecutedEvent): UIO[Unit]
   }
   object Target {
 
-    def fromPrintStream(name: String, printStream: PrintStream): Target =
+    def fromPrintStream(name: String, printStream: PrintStream, eventToString: ExecutedEvent => String): Target =
       new Target {
-        override def log(string: String): UIO[Unit] = ZIO.hAttempt { printStream.println(string) }.orDie
+        override def log(event: ExecutedEvent): UIO[Unit] = ZIO.hAttempt { printStream.println(eventToString(event)) }.orDie
       }
 
   }
@@ -178,9 +221,18 @@ object Logger { self =>
         colorMode: Option[ColorMode],
     ): Source =
       Source.const(
-        Target.fromPrintStream("StdOut", scala.Console.out),
+        Target.fromPrintStream("StdOut", scala.Console.out, _.formatted),
         minLogTolerance,
         colorMode,
+      )
+
+    def stdOutJson(
+        minLogTolerance: Option[LogLevel],
+    ): Source =
+      Source.const(
+        Target.fromPrintStream("StdOut", scala.Console.out, _.toEncoded.toJson),
+        minLogTolerance,
+        ColorMode.Colorless.some,
       )
 
     def stringBuilder(
@@ -190,7 +242,7 @@ object Logger { self =>
     ): Source =
       Source.const(
         new Target {
-          override def log(string: String): UIO[Unit] = ZIO.succeed { sb.append(string); sb.append('\n') }
+          override def log(event: ExecutedEvent): UIO[Unit] = ZIO.succeed { sb.append(event.formatted); sb.append('\n') }
         },
         minLogTolerance,
         colorMode,
@@ -359,6 +411,9 @@ object Logger { self =>
     val nameMap: Map[String, LogLevel] =
       allLevels.map(l => (l.rawDisplayName.toUpperCase, l)).toMap
 
+    implicit val stringEncoder: StringEncoder[LogLevel] =
+      _.rawDisplayName
+
     implicit val stringDecoder: StringDecoder[LogLevel] =
       StringDecoder.fromOptionF("LogLevel", str => nameMap.get(str.toUpperCase))
 
@@ -368,30 +423,11 @@ object Logger { self =>
   object Event {
 
     final case class Compound(events: List[Event]) extends Event
-    final case class Output(context: List[(String, Any)], message: Any) extends Event
+    final case class Output(context: List[(String, String)], message: String) extends Event
     final case class AtLogLevel(logLevel: LogLevel, private val _event: () => Event) extends Event {
       lazy val event: Event = _event()
     }
 
-  }
-
-  // =====| Helpers |=====
-
-  def formatMessage(
-      logLevel: Option[LogLevel],
-      message: Any,
-      context: List[(String, Any)],
-      colorMode: ColorMode,
-  ): String = {
-    val tmpMsg: String = message.toString
-    val msg: String =
-      if (tmpMsg.contains('\n')) tmpMsg.replaceAll("\n", LogLevel.newLineIndent)
-      else tmpMsg
-    // TODO (KR) : Colorization config
-    val contextMsg =
-      if (context.isEmpty) ""
-      else s"${context.map { (k, v) => s"${colorMode.fgColorize(Color.Named.Cyan, k)}=${colorMode.fgColorize(Color.Named.Magenta, v)}" }.mkString(" ; ")}${LogLevel.newLineIndent}"
-    s"[${logLevel.fold(LogLevel.emptyDisplayName)(_.colorizedDisplayName(colorMode))}]: $contextMsg$msg"
   }
 
 }

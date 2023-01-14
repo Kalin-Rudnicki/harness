@@ -20,7 +20,7 @@ trait PageApp extends ZIOApp {
     val loggerLayer: ULayer[Logger] = {
       val target: Logger.Target =
         new Logger.Target {
-          override def log(string: String): UIO[Unit] = ZIO.hAttempt { console.log(string) }.orDie
+          override def log(event: Logger.ExecutedEvent): UIO[Unit] = ZIO.hAttempt { console.log(event.formatted) }.orDie
         }
       ZLayer.succeed(Logger.default(sources = Logger.Source.const(target, None, None) :: Nil, defaultMinLogTolerance = logTolerance))
     }

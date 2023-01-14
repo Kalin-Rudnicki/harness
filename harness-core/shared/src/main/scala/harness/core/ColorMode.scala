@@ -82,6 +82,9 @@ object ColorMode {
   val nameMap: Map[String, ColorMode] =
     all.map(cm => (cm.toString.toUpperCase, cm)).toMap
 
+  implicit val stringEncoder: StringEncoder[ColorMode] =
+    StringEncoder.usingToString
+
   implicit val stringDecoder: StringDecoder[ColorMode] =
     StringDecoder.fromOptionF("ColorMode", str => nameMap.get(str.toUpperCase))
 
