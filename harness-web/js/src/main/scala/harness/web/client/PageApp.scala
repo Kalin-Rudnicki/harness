@@ -85,11 +85,12 @@ trait PageApp extends ZIOApp {
         }
       }
       attemptToLoadPage =
-        for {
-          url <- Url.fromWindowURL
-          page = urlToPage(url)
-          _ <- page.replaceNoTrace(renderer, runtime, urlToPage)
-        } yield ()
+        Url.fromWindowURL.flatMap { url =>
+          ZIO
+            .succeed(urlToPage(url))
+            .flatMap(_.replaceNoTrace(renderer, runtime, urlToPage, url))
+            .trace("Load Page", Logger.LogLevel.Debug, "url" -> url.path.mkString("/", "/", ""), "stage" -> "attempt-to-load-page")
+        }
       _ <- attemptToLoadPage
       _ <-
         ZIO.hAttempt {
@@ -111,8 +112,7 @@ object PageApp {
   ): Unit =
     Unsafe.unsafe { implicit unsafe =>
       runtime.unsafe.runToFuture {
-        effect.collapseCause
-          .dumpErrorsAndContinue(Logger.LogLevel.Error)
+        effect.dumpErrorsAndContinue(Logger.LogLevel.Error)
       }
     }
 

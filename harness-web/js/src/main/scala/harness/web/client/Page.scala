@@ -21,8 +21,9 @@ sealed trait Page {
       renderer: rawVDOM.Renderer,
       runtime: Runtime[HarnessEnv],
       urlToPage: Url => Page,
+      url: Url,
   )(actionWithTitle: String => HTask[Unit]): SHTask[Unit] =
-    fetchState.flatMap {
+    fetchState.trace("Load Page", Logger.LogLevel.Debug, "url" -> url.path.mkString("/", "/", ""), "stage" -> "fetch-state").flatMap {
       case Right(state) =>
         val pageState = PageState.init(state)
         for {
@@ -38,17 +39,17 @@ sealed trait Page {
     }
 
   private[client] final def push(renderer: rawVDOM.Renderer, runtime: Runtime[HarnessEnv], urlToPage: Url => Page, url: Url): SHTask[Unit] =
-    renderAnd(renderer, runtime, urlToPage) { title =>
+    renderAnd(renderer, runtime, urlToPage, url) { title =>
       ZIO.hAttempt(window.history.pushState(null, title, url.toString))
     }
 
   private[client] final def replace(renderer: rawVDOM.Renderer, runtime: Runtime[HarnessEnv], urlToPage: Url => Page, url: Url): SHTask[Unit] =
-    renderAnd(renderer, runtime, urlToPage) { title =>
+    renderAnd(renderer, runtime, urlToPage, url) { title =>
       ZIO.hAttempt(window.history.replaceState(null, title, url.toString))
     }
 
-  private[client] final def replaceNoTrace(renderer: rawVDOM.Renderer, runtime: Runtime[HarnessEnv], urlToPage: Url => Page): SHTask[Unit] =
-    renderAnd(renderer, runtime, urlToPage) { _ => ZIO.unit }
+  private[client] final def replaceNoTrace(renderer: rawVDOM.Renderer, runtime: Runtime[HarnessEnv], urlToPage: Url => Page, url: Url): SHTask[Unit] =
+    renderAnd(renderer, runtime, urlToPage, url) { _ => ZIO.unit }
 
   override final def toString: String = s"Page(title = ${titleF.fold(s => s"'$s'", _ => "???")})"
 
