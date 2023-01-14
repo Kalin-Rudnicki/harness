@@ -52,9 +52,10 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
         ZIO.scoped {
           Logger
             .addContext("request-id" -> UUID.randomUUID()) {
-              effect.hLogDuration("HTTP Request Handler", Logger.LogLevel.Detailed)
+              effect
+                .provideSomeLayer[HarnessEnv & ServerEnv & Scope](builtInReqLayer ++ reqLayer)
+                .hLogDuration("HTTP Request Handler", Logger.LogLevel.Detailed)
             }
-            .provideSomeLayer[HarnessEnv & ServerEnv & Scope](builtInReqLayer ++ reqLayer)
             .dumpErrorsAndContinue
         }
       }
