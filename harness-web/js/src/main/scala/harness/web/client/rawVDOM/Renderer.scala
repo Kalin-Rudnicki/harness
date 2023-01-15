@@ -10,20 +10,22 @@ import zio.*
 
 final class Renderer private (ref: Ref.Synchronized[Option[VDom.State]]) {
 
-  def render(title: String, newVDoms: List[Modifier]): HTask[Unit] =
-    ref.updateZIO { oldVDomState =>
-      val runSetTitle = ZIO.hAttempt(window.document.title = title)
-      val newVDomState = VDom.State.fromModifiers(newVDoms.flatMap(_.toBasics))
-      val runRender =
-        ZIO.hAttempt {
-          oldVDomState match {
-            case Some(oldVDomState) => Renderer.diffStates(document.body, newVDomState, oldVDomState)
-            case None               => Renderer.setBody(newVDoms)
+  def render(title: String, newVDoms: List[Modifier]): SHTask[Unit] =
+    ref
+      .updateZIO { oldVDomState =>
+        val runSetTitle = ZIO.hAttempt(window.document.title = title)
+        val newVDomState = VDom.State.fromModifiers(newVDoms.flatMap(_.toBasics))
+        val runRender =
+          ZIO.hAttempt {
+            oldVDomState match {
+              case Some(oldVDomState) => Renderer.diffStates(document.body, newVDomState, oldVDomState)
+              case None               => Renderer.setBody(newVDoms)
+            }
           }
-        }
 
-      runSetTitle *> runRender *> ZIO.some(newVDomState)
-    }
+        runSetTitle *> runRender *> ZIO.some(newVDomState)
+      }
+      .trace("Renderer.render", "title" -> title)
 
 }
 object Renderer {
