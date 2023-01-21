@@ -114,7 +114,7 @@ object StringDecoder {
 
   implicit val localTime: StringDecoder[LocalTime] = { str =>
     import temporal.*
-
+    
     val hourMinute = s"$numsOneTwo:$numsTwo".r
     val hourMinuteAM = s"$numsOneTwo:$numsTwo$someSpacing(?:AM|am)".r
     val hourMinutePM = s"$numsOneTwo:$numsTwo$someSpacing(?:PM|pm)".r

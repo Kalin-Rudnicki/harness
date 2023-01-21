@@ -7,7 +7,7 @@ import harness.core.*
 import harness.sql.typeclass.*
 import java.time.*
 import java.time.format.DateTimeFormatter
-import java.util.UUID
+import java.util.{TimeZone, UUID}
 import scala.reflect.ClassTag
 import scala.util.Try
 import zio.json.JsonCodec
@@ -80,6 +80,13 @@ object Col {
     Col.string(name).imapTry(OffsetTime.parse(_, dtf))(dtf.format)
   def offsetDateTime(name: String, dtf: DateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME): Col[OffsetDateTime] =
     Col.string(name).imapTry(OffsetDateTime.parse(_, dtf))(dtf.format)
+
+  def zoneOffset(name: String): Col[ZoneOffset] =
+    Col.string(name).imapTry(ZoneOffset.of)(_.getId)
+  def zoneId(name: String): Col[ZoneId] =
+    Col.string(name).imapTry(ZoneId.of)(_.getId)
+  def timeZone(name: String): Col[TimeZone] =
+    Col.zoneId(name).imapTry(TimeZone.getTimeZone)(_.toZoneId)
 
   // =====|  |=====
 

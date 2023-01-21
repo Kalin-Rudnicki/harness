@@ -36,6 +36,23 @@ object Color {
     override def fgMod: String = s"38;2;$r;$g;$b"
     override def bgMod: String = s"48;2;$r;$g;$b"
   }
+  object RGB {
+
+    implicit val stringEncoder: StringEncoder[Color.RGB] =
+      color => List(color.r, color.g, color.b).map(Integer.toString(_, 16).alignRight(2, '0')).mkString("#", "", "")
+
+    implicit val stringDecoder: StringDecoder[Color.RGB] = {
+      val reg = "#([0-9A-Fa-f]{6})".r
+      StringDecoder.fromTryF(
+        "Color.RGB",
+        {
+          case reg(s) => Color(Integer.parseInt(s, 16))
+          case _      => throw new RuntimeException("Invalid color format")
+        },
+      )
+    }
+
+  }
 
   case object Default extends Color.Simple {
     override def fgMod: String = "39"

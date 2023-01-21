@@ -1,5 +1,6 @@
 package harness.core
 
+import java.time.*
 import java.util.UUID
 
 trait StringEncoder[-T] {
@@ -34,6 +35,12 @@ object StringEncoder {
   implicit val bigDecimal: StringEncoder[BigDecimal] = usingToString
 
   implicit val uuid: StringEncoder[UUID] = usingToString
+
+  implicit val localDate: StringEncoder[LocalDate] = usingToString
+
+  implicit val localTime: StringEncoder[LocalTime] = usingToString
+
+  implicit val localDateTime: StringEncoder[LocalDateTime] = usingToString
 
   def list[T](sep: String)(implicit tEncoder: StringEncoder[T]): StringEncoder[List[T]] =
     ts => ts.map(tEncoder.encode).mkString(sep)

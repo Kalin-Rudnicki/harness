@@ -2,6 +2,7 @@ package harness.zio
 
 import cats.data.NonEmptyList
 import cats.syntax.either.*
+import harness.core.*
 import zio.json.*
 
 object ZIOJsonInstances {
@@ -16,5 +17,11 @@ object ZIOJsonInstances {
         },
         _.toList,
       )
+
+  implicit def fieldDecoderFromStringDecoder[T](implicit sd: StringDecoder[T]): JsonFieldDecoder[T] =
+    JsonFieldDecoder.string.mapOrFail(sd.decode)
+
+  implicit def fieldEncoderFromStringEncoder[T](implicit se: StringEncoder[T]): JsonFieldEncoder[T] =
+    JsonFieldEncoder.string.contramap(se.encode)
 
 }

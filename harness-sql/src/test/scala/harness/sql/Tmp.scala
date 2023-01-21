@@ -9,7 +9,7 @@ import harness.sql.query.{given, *}
 import harness.sql.typeclass.*
 import harness.zio.*
 import java.time.{Clock as _, *}
-import java.util.UUID
+import java.util.{TimeZone, UUID}
 import shapeless3.deriving.*
 import zio.*
 

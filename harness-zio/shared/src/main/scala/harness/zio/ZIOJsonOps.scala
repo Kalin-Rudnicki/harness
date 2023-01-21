@@ -1,8 +1,24 @@
 package harness.zio
 
+import cats.data.NonEmptyList
+import cats.syntax.either.*
 import harness.core.*
 import scala.reflect.{ensureAccessible, ClassTag}
 import zio.json.*
+
+extension (self: JsonEncoder.type) {
+
+  def fromHarnessStringEncoder[T](implicit encoder: StringEncoder[T]): JsonEncoder[T] =
+    JsonEncoder.string.contramap(encoder.encode)
+
+}
+
+extension (self: JsonDecoder.type) {
+
+  def fromHarnessStringDecoder[T](implicit decoder: StringDecoder[T]): JsonDecoder[T] =
+    JsonDecoder.string.mapOrFail(decoder.decode)
+
+}
 
 extension (self: JsonCodec.type) {
 
@@ -13,9 +29,6 @@ extension (self: JsonCodec.type) {
     )
 
   def fromHarnessStringEncoderAndDecoder[T](implicit encoder: StringEncoder[T], decoder: StringDecoder[T]): JsonCodec[T] =
-    JsonCodec.string.transformOrFail(
-      decoder.decode,
-      encoder.encode,
-    )
+    JsonCodec(JsonEncoder.fromHarnessStringEncoder[T], JsonDecoder.fromHarnessStringDecoder[T])
 
 }
