@@ -9,11 +9,11 @@ sealed trait Color {
 
 object Color {
 
-  def apply(r: Int, g: Int, b: Int): Color =
+  def apply(r: Int, g: Int, b: Int): Color.RGB =
     RGB(r, g, b)
 
-  def apply(hex: Int): Color =
-    RGB((hex >> 4) & 0xff, (hex >> 2) & 0xff, hex & 0xff)
+  def apply(hex: Int): Color.RGB =
+    RGB((hex >> 16) & 0xff, (hex >> 8) & 0xff, hex & 0xff)
 
   sealed trait Simple extends Color
 
