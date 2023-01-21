@@ -4,7 +4,7 @@ import shapeless3.deriving.*
 
 final case class AppliedCol[T](tableVarName: String, col: Col[T]) {
 
-  def ref: ColRef = ColRef(tableVarName, col.colName)
+  def ref: ColRef = ColRef(tableVarName, col.colName, col.getType)
 
   override def toString: String = s"$tableVarName.$col"
 

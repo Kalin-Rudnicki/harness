@@ -8,7 +8,7 @@ import harness.sql.autoSchema.*
 import harness.sql.query.{given, *}
 import harness.sql.typeclass.*
 import harness.zio.*
-import java.time.*
+import java.time.{Clock as _, *}
 import java.util.UUID
 import shapeless3.deriving.*
 import zio.*
@@ -34,7 +34,7 @@ object Tmp extends ExecutableApp {
           firstName = Col.string("first_name"),
           lastName = Col.string("last_name"),
           instrument = Col.string("instrument"),
-          birthday = Col.date("birthday"),
+          birthday = Col.localDate("birthday"),
           favoriteNumber = Col.int("favorite_number").imap(_ - 10)(_ + 10).optional,
         ),
       )
@@ -53,7 +53,7 @@ object Tmp extends ExecutableApp {
         Band[Col](
           id = Id.pkCol,
           name = Col.string("name"),
-          formationDate = Col.date("formation_date"),
+          formationDate = Col.localDate("formation_date"),
         ),
       )
 
@@ -74,6 +74,32 @@ object Tmp extends ExecutableApp {
           musicianId = Musician.Id.fkCol("musician_id"),
           bandId = Band.Id.fkCol("band_id"),
           active = Col.boolean("active"),
+        ),
+      )
+
+  }
+
+  final case class Note[F[_]](
+      id: F[Note.Id],
+      text: F[String],
+      localDate: F[LocalDate],
+      localTime: F[LocalTime],
+      offsetTime: F[OffsetTime],
+      localDateTime: F[LocalDateTime],
+      offsetDateTime: F[OffsetDateTime],
+  ) extends Table.WithId[F, Note.Id]
+  object Note extends Table.Companion.WithId[Note] {
+
+    override implicit lazy val tableSchema: TableSchema[Note] =
+      TableSchema.derived[Note]("note")(
+        new Note.Cols(
+          id = Note.Id.pkCol,
+          text = Col.string("text"),
+          localDate = Col.localDate("local_date"),
+          localTime = Col.localTime("local_time"),
+          offsetTime = Col.offsetTime("offset_time"),
+          localDateTime = Col.localDateTime("local_date_time"),
+          offsetDateTime = Col.offsetDateTime("offset_date_time"),
         ),
       )
 
@@ -152,6 +178,8 @@ object Tmp extends ExecutableApp {
 
   object MusicianInBandQueries extends TableQueries[MusicianInBand.Id, MusicianInBand]
 
+  object NoteQueries extends TableQueries[Note.Id, Note]
+
   // =====|  |=====
 
   object Sample {
@@ -217,80 +245,40 @@ object Tmp extends ExecutableApp {
       .withParser(Parser.unit)
       .withLayer {
         ZLayer.succeed(ConnectionFactory("jdbc:postgresql:postgres", "kalin", "psql-pass")) >+>
-          JDBCConnection.connectionFactoryLayer.mapError(HError.SystemFailure("Unable to get db connection", _))
+          JDBCConnection.connectionFactoryLayer
       }
       .withEffect {
         for {
           _ <- Logger.log.info("Starting...")
 
-          _ <- PostgresMeta.schemaDiff(Tables(Musician.tableSchema, Band.tableSchema, MusicianInBand.tableSchema)).mapError(HError.SystemFailure("postgres-meta", _))
+          _ <- PostgresMeta.schemaDiff(Tables(Musician.tableSchema, Band.tableSchema, MusicianInBand.tableSchema, Note.tableSchema))
+          text <- Random.nextIntBetween('A'.toInt, 'Z'.toInt).replicateZIO(10).map(_.map(_.toChar).mkString)
+          localDateTime <- Clock.localDateTime
+          offsetDateTime <- Clock.currentDateTime.map(_.withOffsetSameLocal(ZoneOffset.ofHours(2)))
 
-          // m1 = Sample.kalin
-          // m2 = Sample.janine
-          // m3 = Sample.bob
-          // m4 = Sample.joy
-          // _ <- MusicianQueries.insert(m1).mapError(HError.SystemFailure("insert m1", _))
-          // _ <- MusicianQueries.insert(m2).mapError(HError.SystemFailure("insert m2", _))
-          // _ <- MusicianQueries.insert(m3).mapError(HError.SystemFailure("insert m3", _))
-          // _ <- MusicianQueries.insert(m4).mapError(HError.SystemFailure("insert m4", _))
-
-          // b1 = Sample.theBest
-          // b2 = Sample.anotherBand
-          // _ <- BandQueries.insert(b1).mapError(HError.SystemFailure("insert b1", _))
-          // _ <- BandQueries.insert(b2).mapError(HError.SystemFailure("insert b2", _))
-
-          // mib1 = new MusicianInBand.Identity(id = MusicianInBand.Id.gen, musicianId = m1.id, bandId = b1.id, active = true)
-          // mib2 = new MusicianInBand.Identity(id = MusicianInBand.Id.gen, musicianId = m2.id, bandId = b1.id, active = true)
-          // mib3 = new MusicianInBand.Identity(id = MusicianInBand.Id.gen, musicianId = m1.id, bandId = b2.id, active = true)
-          // mib4 = new MusicianInBand.Identity(id = MusicianInBand.Id.gen, musicianId = m4.id, bandId = b2.id, active = true)
-          // _ <- MusicianInBandQueries.insert(mib1).mapError(HError.SystemFailure("insert mib1", _))
-          // _ <- MusicianInBandQueries.insert(mib2).mapError(HError.SystemFailure("insert mib2", _))
-          // _ <- MusicianInBandQueries.insert(mib3).mapError(HError.SystemFailure("insert mib3", _))
-          // _ <- MusicianInBandQueries.insert(mib4).mapError(HError.SystemFailure("insert mib4", _))
-
-          // kalin <- musicianByNames(("Kalin", "Rudnicki")).single.mapError(HError.InternalDefect("...", _))
-          // janine <- musicianByNames(("Janine", "Rudnicki")).single.mapError(HError.InternalDefect("...", _))
-          // joy <- musicianByNames(("Joy", "Rudnicki")).single.mapError(HError.InternalDefect("...", _))
-          // bob <- musicianByNames(("Bob", "Rudnicki")).single.mapError(HError.InternalDefect("...", _))
-
-          // theBest <- bandByName("The Best").single.mapError(HError.InternalDefect("...", _))
-          // anotherBand <- bandByName("Another Band").single.mapError(HError.InternalDefect("...", _))
-
-          // musicians <- MusicianQueries.selectAll().chunk.mapError(HError.InternalDefect("...", _))
-          // _ <- Logger.log.info("")
-          // _ <- ZIO.foreachDiscard(musicians)(Logger.log.info(_))
-          // _ <- Logger.log.info("")
-          // bands <- BandQueries.selectAll().chunk.mapError(HError.InternalDefect("...", _))
-          // _ <- Logger.log.info(bands)
-          // musicianInBands <- MusicianInBandQueries.selectAll().chunk.mapError(HError.InternalDefect("...", _))
-          // _ <- Logger.log.info(musicianInBands)
-
-          // pairs1 <- musicianAndBandNames().groupByLeft(_._1)(_._2).chunk.mapError(HError.InternalDefect("...", _))
-          // _ <- Logger.log.info("")
-          // _ <- ZIO.foreachDiscard(pairs1)(Logger.log.info(_))
-
-          // _ <- Logger.log.info("")
-          // m <- Musician.delete(UUID.fromString("845e6c5b-c202-4882-854f-887c53124f7b")).single.mapError(HError.InternalDefect("...", _))
-          // _ <- Logger.log.info(m)
-
-          // musicians <- MusicianQueries.selectAll().chunk.mapError(HError.InternalDefect("...", _))
-          // _ <- Logger.log.info("")
-          // _ <- ZIO.foreachDiscard(musicians)(Logger.log.info(_))
-          // _ <- Logger.log.info("")
-          // _ <- ZIO.scoped(MusicianQueries.musicianAndBandNames2.apply().stream.foreach(Logger.log.info(_)).mapError(HError.InternalDefect("...", _)))
-          // _ <- Logger.log.info("")
-
-          _ <- Logger.log.info("A")
-          _ <- Logger.log.info("B", "context" -> "c")
-          _ <- Logger.addContext("default-context" -> "dc") {
-            Logger.log.info("C") *>
-              Logger.log.info("D", "context" -> "c") *>
-              Logger.log.info("E\nF", "context" -> "c2", "more-context" -> 5)
+          note1 = new Note.Identity(Note.Id.gen, text, localDateTime.toLocalDate, localDateTime.toLocalTime, offsetDateTime.toOffsetTime, localDateTime, offsetDateTime)
+          _ <- Logger.log.info(note1)
+          _ <- NoteQueries.insert(note1)
+          note2 <- NoteQueries.selectById(note1.id).single
+          _ <- Logger.log.info(note2)
+          elems = List[(String, Note.Identity => Any)](
+            ("date", _.localDate),
+            ("localTime", _.localTime),
+            ("offsetTime", _.offsetTime),
+            ("offsetTime.toEpochSecond", _.offsetTime.toEpochSecond(localDateTime.toLocalDate)),
+            ("localDateTime", _.localDateTime),
+            ("offsetDateTime", _.offsetDateTime),
+            ("offsetDateTime.toEpochSecond", _.offsetDateTime.toEpochSecond),
+          )
+          _ <- Logger.log.info {
+            elems
+              .map { (n, f) =>
+                val v1 = f(note1)
+                val v2 = f(note2)
+                s"$n (${v1 == v2}):\n  ->  $v1\n  ->  $v2"
+              }
+              .mkString("\n")
           }
-          _ <- Logger.addContext("stage" -> "log-levels-and-colors") {
-            ZIO.foreach(Logger.LogLevel.allLevels)(ll => Logger.log(ll, ll.name))
-          }
-
         } yield ()
       }
 

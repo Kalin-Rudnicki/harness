@@ -1,6 +1,7 @@
 package harness.sql.typeclass
 
 import harness.sql.*
+import java.sql.*
 import java.sql.{PreparedStatement, Types}
 import java.time.*
 import java.util.UUID
@@ -21,8 +22,10 @@ trait ColEncoder[T] { self =>
 }
 object ColEncoder {
 
-  val string: ColEncoder[String] = t => t
-  val uuid: ColEncoder[UUID] = t => t
+  private def ident[T <: Object]: ColEncoder[T] = identity(_)
+
+  val string: ColEncoder[String] = ident
+  val uuid: ColEncoder[UUID] = ident
   val boolean: ColEncoder[Boolean] = java.lang.Boolean.valueOf(_)
 
   val short: ColEncoder[Short] = java.lang.Short.valueOf(_)
@@ -32,9 +35,9 @@ object ColEncoder {
   val float: ColEncoder[Float] = java.lang.Float.valueOf(_)
   val double: ColEncoder[Double] = java.lang.Double.valueOf(_)
 
-  val date: ColEncoder[LocalDate] = java.sql.Date.valueOf(_)
-  val time: ColEncoder[LocalTime] = java.sql.Time.valueOf(_)
-  val dateTime: ColEncoder[LocalDateTime] = java.sql.Timestamp.valueOf(_)
+  val localDate: ColEncoder[LocalDate] = ident
+  val localTime: ColEncoder[LocalTime] = ident
+  val localDateTime: ColEncoder[LocalDateTime] = ident
 
   def json[T](implicit codec: JsonEncoder[T]): ColEncoder[T] =
     t => codec.encodeJson(t, None).toString

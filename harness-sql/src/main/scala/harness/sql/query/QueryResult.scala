@@ -76,11 +76,17 @@ object QueryResult {
             rs <- ZIO.acquireAutoClosable(ZIO.hAttempt(ps.executeQuery()))
           } yield rs
 
+        inline def getObj(resultSet: ResultSet, k: Option[Class[_]], i: Int): Object =
+          k match {
+            case Some(k) => resultSet.getObject(i + 1, k)
+            case None    => resultSet.getObject(i + 1)
+          }
+
         def result(resultSet: ResultSet): HTask[O] =
           for {
             ncs <- ZIO.hAttempt(resultSet.getMetaData.getColumnCount)
             outputs <-
-              if (ncs == decoder.width) ZIO.hAttempt(IArray.range(0, decoder.width).map(i => resultSet.getObject(i + 1)))
+              if (ncs == decoder.width) ZIO.hAttempt { decoder.classes.zipWithIndex.map(getObj(resultSet, _, _)) }
               else ZIO.fail(InvalidResultSetWidth(decoder.width, ncs))
             res <-
               decoder.decodeRow(0, outputs) match {

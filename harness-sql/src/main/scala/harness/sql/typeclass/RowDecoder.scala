@@ -12,22 +12,26 @@ import shapeless3.deriving.*
 trait RowDecoder[T] { self =>
 
   lazy val width: Int
+  lazy val classes: IArray[Option[Class[_]]]
   def decodeRow(o: Int, arr: IArray[Object]): EitherNel[String, T]
 
   final def map[T2](f: T => T2): RowDecoder[T2] =
     new RowDecoder[T2] {
       override lazy val width: Int = self.width
+      override lazy val classes: IArray[Option[Class[_]]] = self.classes
       override def decodeRow(o: Int, arr: IArray[Object]): EitherNel[String, T2] = self.decodeRow(o, arr).map(f)
     }
   final def emap[T2](f: T => EitherNel[String, T2]): RowDecoder[T2] =
     new RowDecoder[T2] {
       override lazy val width: Int = self.width
+      override lazy val classes: IArray[Option[Class[_]]] = self.classes
       override def decodeRow(o: Int, arr: IArray[Object]): EitherNel[String, T2] = self.decodeRow(o, arr).flatMap(f)
     }
 
   final def ~[T2](other: RowDecoder[T2])(implicit z: Zip[T, T2]): RowDecoder[z.Out] =
     new RowDecoder[z.Out] {
       override lazy val width: Int = self.width + other.width
+      override lazy val classes: IArray[Option[Class[_]]] = self.classes ++ other.classes
       override def decodeRow(o: Int, arr: IArray[Object]): EitherNel[String, z.Out] =
         for {
           a <- self.decodeRow(o, arr)
@@ -38,6 +42,7 @@ trait RowDecoder[T] { self =>
   final def optional: RowDecoder[Option[T]] =
     new RowDecoder[Option[T]] {
       override lazy val width: Int = self.width
+      override lazy val classes: IArray[Option[Class[_]]] = self.classes
       override def decodeRow(o: Int, arr: IArray[Object]): EitherNel[String, Option[T]] =
         if (o.until(o + width).forall(arr(_) == null)) None.asRight
         else self.decodeRow(o, arr).map(_.some)
@@ -50,6 +55,7 @@ object RowDecoder {
     new RowDecoder[T] {
       override lazy val width: Int = 1
       override def decodeRow(o: Int, arr: IArray[Object]): EitherNel[String, T] = cd.decodeColumn(arr(o))
+      override lazy val classes: IArray[Option[Class[_]]] = IArray(cd.klass)
     }
 
   def forTable[T[_[_]] <: Table](t: T[ColDecoder])(using inst: => K11.ProductGeneric[T]): RowDecoder[T[Id]] =
@@ -74,6 +80,7 @@ object RowDecoder {
 
         loop(0)
       }
+      override lazy val classes: IArray[Option[Class[_]]] = decoders.map(_.klass)
     }
 
 }

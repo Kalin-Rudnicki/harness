@@ -124,6 +124,7 @@ lazy val `harness-sql` =
         "org.typelevel" %% "shapeless3-deriving" % "3.0.1",
         "org.postgresql" % "postgresql" % "42.5.0",
       ),
+      Test / fork := true,
     )
     .dependsOn(`harness-zio`.jvm)
 

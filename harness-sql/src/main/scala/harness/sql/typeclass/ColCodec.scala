@@ -28,9 +28,9 @@ object ColCodec {
   val float: ColCodec[Float] = ColCodec(ColEncoder.float, ColDecoder.float)
   val double: ColCodec[Double] = ColCodec(ColEncoder.double, ColDecoder.double)
 
-  val date: ColCodec[LocalDate] = ColCodec(ColEncoder.date, ColDecoder.date)
-  val time: ColCodec[LocalTime] = ColCodec(ColEncoder.time, ColDecoder.time)
-  val dateTime: ColCodec[LocalDateTime] = ColCodec(ColEncoder.dateTime, ColDecoder.dateTime)
+  val localDate: ColCodec[LocalDate] = ColCodec(ColEncoder.localDate, ColDecoder.localDate)
+  val localTime: ColCodec[LocalTime] = ColCodec(ColEncoder.localTime, ColDecoder.localTime)
+  val localDateTime: ColCodec[LocalDateTime] = ColCodec(ColEncoder.localDateTime, ColDecoder.localDateTime)
 
   def json[T](implicit codec: JsonCodec[T]): ColCodec[T] = ColCodec(ColEncoder.json[T], ColDecoder.json[T])
 
