@@ -76,10 +76,10 @@ object Executable {
       case Indexed(Arg.Value(subCommand), _) :: tail =>
         map.get(subCommand) match {
           case Some(executable) => executable.execute(tail)
-          case None             => ZIO.fail(HError.UserError(s"Invalid sub-command '$subCommand', options: ${opts.mkString("[", ", ", "]")}"))
+          case None             => ZIO.fail(HError.UserError(s"Invalid sub-command '$subCommand', options: ${opts.map(_._1).mkString("[", ", ", "]")}"))
         }
       case _ =>
-        ZIO.fail(HError.UserError(s"Missing sub-command, options: ${opts.mkString("[", ", ", "]")}"))
+        ZIO.fail(HError.UserError(s"Missing sub-command, options: ${opts.map(_._1).mkString("[", ", ", "]")}"))
     }
   }
 
