@@ -240,6 +240,21 @@ object Tmp extends ExecutableApp {
 
   }
 
+  private val randomNote: UIO[Note.Identity] =
+    for {
+      string <- Random.nextIntBetween('A'.toInt, 'Z'.toInt).map(_.toChar).replicateZIO(50).map(_.mkString)
+      long <- Random.nextLongBetween(0, 1000000)
+      offsetDateTime = OffsetDateTime.ofInstant(Instant.ofEpochSecond(long), ZoneId.systemDefault)
+    } yield new Note.Identity(
+      id = Note.Id.gen,
+      text = string,
+      localDate = offsetDateTime.toLocalDate,
+      localTime = offsetDateTime.toLocalTime,
+      offsetTime = offsetDateTime.toOffsetTime,
+      localDateTime = offsetDateTime.toLocalDateTime,
+      offsetDateTime = offsetDateTime,
+    )
+
   override val executable: Executable =
     Executable
       .withParser(Parser.unit)
@@ -250,35 +265,18 @@ object Tmp extends ExecutableApp {
       .withEffect {
         for {
           _ <- Logger.log.info("Starting...")
-
           _ <- PostgresMeta.schemaDiff(Tables(Musician.tableSchema, Band.tableSchema, MusicianInBand.tableSchema, Note.tableSchema))
-          text <- Random.nextIntBetween('A'.toInt, 'Z'.toInt).replicateZIO(10).map(_.map(_.toChar).mkString)
-          localDateTime <- Clock.localDateTime
-          offsetDateTime <- Clock.currentDateTime.map(_.withOffsetSameLocal(ZoneOffset.ofHours(2)))
 
-          note1 = new Note.Identity(Note.Id.gen, text, localDateTime.toLocalDate, localDateTime.toLocalTime, offsetDateTime.toOffsetTime, localDateTime, offsetDateTime)
-          _ <- Logger.log.info(note1)
-          _ <- NoteQueries.insert(note1)
-          note2 <- NoteQueries.selectById(note1.id).single
-          _ <- Logger.log.info(note2)
-          elems = List[(String, Note.Identity => Any)](
-            ("date", _.localDate),
-            ("localTime", _.localTime),
-            ("offsetTime", _.offsetTime),
-            ("offsetTime.toEpochSecond", _.offsetTime.toEpochSecond(localDateTime.toLocalDate)),
-            ("localDateTime", _.localDateTime),
-            ("offsetDateTime", _.offsetDateTime),
-            ("offsetDateTime.toEpochSecond", _.offsetDateTime.toEpochSecond),
-          )
-          _ <- Logger.log.info {
-            elems
-              .map { (n, f) =>
-                val v1 = f(note1)
-                val v2 = f(note2)
-                s"$n (${v1 == v2}):\n  ->  $v1\n  ->  $v2"
-              }
-              .mkString("\n")
-          }
+          numIters = 125000
+          _ <- Logger.log.info(s"Generating sample sizes of ${numIters.toStringCommas}")
+
+          batch1 <- randomNote.replicateZIO(numIters).map(Chunk.fromIterable)
+          batch2 <- randomNote.replicateZIO(numIters).map(Chunk.fromIterable)
+
+          _ <- Logger.log.info("Starting raw-inserts")
+          _ <- ZIO.foreachDiscard(batch1)(NoteQueries.insert(_)).trace("raw-inserts", Logger.LogLevel.Info)
+          _ <- Logger.log.info("Starting batch-inserts")
+          _ <- NoteQueries.insert.batched(batch2).trace("batch-inserts", Logger.LogLevel.Info)
         } yield ()
       }
 

@@ -24,6 +24,12 @@ final class QueryI[I](val sql: String, encoder: RowEncoder[I], qim: QueryInputMa
         ZIO.hAttempt(ps.executeUpdate()).mapError(ErrorWithSql(sql, _))
       }
     }
+  def batched(is: Chunk[I]): HRIO[JDBCConnection & Logger, Chunk[Int]] =
+    ZIO.scoped {
+      Utils.batchPreparedStatement(sql, encoder, is, qim).flatMap { ps =>
+        ZIO.hAttempt { ps.executeBatch() }.mapBoth(ErrorWithSql(sql, _), Chunk.fromArray)
+      }
+    }
   def cmap[I2](f: I2 => I): QueryI[I2] = QueryI(sql, encoder.cmap(f), qim)
 }
 
