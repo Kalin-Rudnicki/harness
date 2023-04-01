@@ -18,7 +18,7 @@ object PostgresMeta {
       .iemap {
         case "YES" => true.asRight
         case "NO"  => false.asRight
-        case v     => s"Invalid valie '$v'".leftNel
+        case v     => s"Invalid value '$v'".leftNel
       } {
         case true  => "YES"
         case false => "NO"
