@@ -53,8 +53,8 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
                         else HttpCode.`500`
                     }
                   _ <- ZIO.foreachDiscard(errors.toList) { e =>
-                    Logger.log.error(e.fullInternalMessage, "error-type" -> e.getClass.toString) *>
-                      Logger.log.debug(e.fullInternalMessageWithTrace, "error-type" -> e.getClass.toString)
+                    Logger.log.error(e.fullInternalMessage, "error-type" -> e.getClass.getName) *>
+                      Logger.log.debug(e.fullInternalMessageWithTrace, "error-type" -> e.getClass.getName)
                   }
                 } yield HttpResponse(errors.toList.map(_.userMessage.show(ifHidden)).toJson, responseCode)
             }
