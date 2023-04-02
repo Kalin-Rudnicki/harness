@@ -45,8 +45,15 @@ object HttpResponse {
     def apply(response: HttpResponse): IO[EarlyReturn, Nothing] =
       ZIO.fail(EarlyReturn(response))
 
-    def fromHttpCode(httpCode: HttpCode): IO[EarlyReturn, Nothing] =
-      HttpResponse.earlyReturn(HttpResponse.fromHttpCode(httpCode))
+    object fromHttpCode {
+
+      def apply(httpCode: HttpCode): IO[EarlyReturn, Nothing] =
+        HttpResponse.earlyReturn(HttpResponse.fromHttpCode(httpCode))
+
+      def json(httpCode: HttpCode): IO[EarlyReturn, Nothing] =
+        HttpResponse.earlyReturn(HttpResponse.fromHttpCode.json(httpCode))
+
+    }
 
   }
 
@@ -104,6 +111,9 @@ object HttpResponse {
 
     def apply(httpCode: HttpCode): HttpResponse.Found =
       HttpResponse(httpCode.name, httpCode)
+
+    def json(httpCode: HttpCode): HttpResponse.Found =
+      HttpResponse.encodeJson(httpCode.name :: Nil, httpCode)
 
     // =====| By Name |=====
 
