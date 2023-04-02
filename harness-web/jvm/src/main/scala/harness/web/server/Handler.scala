@@ -29,7 +29,7 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
           responseBody <- ZIO.fromAutoCloseable { ZIO.succeed(exchange.getResponseBody) }
           ifHidden <- ZIO.service[HError.UserMessage.IfHidden]
 
-          _ <- Logger.log.info(s"received ${req.method.method} request @ '${req.pathString}'", "date" -> now.toLocalDate, "time" -> now.toOffsetTime)
+          _ <- Logger.log.info(s"received ${req.method.method} request @ '${req.pathString}'", "remote-address" -> req.remoteAddress, "date" -> now.toLocalDate, "time" -> now.toOffsetTime)
 
           responseOrError <- route(req.method, req.path).either
           foundResponse <-

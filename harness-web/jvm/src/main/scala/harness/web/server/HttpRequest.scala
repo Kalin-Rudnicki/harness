@@ -8,7 +8,7 @@ import harness.core.*
 import harness.web.*
 import harness.zio.*
 import java.io.InputStream
-import java.net.URI
+import java.net.{InetSocketAddress, URI}
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
 import zio.*
@@ -22,6 +22,7 @@ final case class HttpRequest(
     headers: Map[String, List[String]],
     cookies: Map[String, String],
     rawInputStream: InputStream,
+    remoteAddress: InetSocketAddress,
 ) {
   val pathString: String = path.mkString("/", "/", "")
 }
@@ -33,6 +34,8 @@ object HttpRequest {
 
   val path: URIO[HttpRequest, List[String]] = HttpRequest.service.map(_.path)
   val pathString: URIO[HttpRequest, String] = HttpRequest.service.map(_.pathString)
+
+  val remoteAddress: URIO[HttpRequest, InetSocketAddress] = HttpRequest.service.map(_.remoteAddress)
 
   object query extends Lookup("query-param", req => name => req.queries.get(name).asRight) {
 
@@ -139,6 +142,7 @@ object HttpRequest {
       headers = headerMap,
       cookies = getMap(headerMap.get("Cookie").flatMap(_.headOption), ";", _.trim),
       rawInputStream = exchange.getRequestBody,
+      remoteAddress = exchange.getRemoteAddress,
     )
   }
 
@@ -261,6 +265,7 @@ object HttpRequest {
           headers = headers.map { (k, v) => (k, v :: Nil) },
           cookies = Map.empty,
           rawInputStream = InputStream.nullInputStream,
+          remoteAddress = InetSocketAddress("localhost", 0),
         )
 
       def rawBody(body: String): HttpRequest =
@@ -272,6 +277,7 @@ object HttpRequest {
           headers = (headers + ("Content-length" -> body.length.toString)).map { (k, v) => (k, v :: Nil) },
           cookies = Map.empty,
           rawInputStream = java.io.StringBufferInputStream(body),
+          remoteAddress = InetSocketAddress("localhost", 0),
         )
 
       def body[V](v: V)(implicit encoder: StringEncoder[V]): HttpRequest =
