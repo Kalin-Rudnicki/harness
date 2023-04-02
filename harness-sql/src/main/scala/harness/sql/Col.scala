@@ -81,6 +81,9 @@ object Col {
   def offsetDateTime(name: String, dtf: DateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME): Col[OffsetDateTime] =
     Col.string(name).imapTry(OffsetDateTime.parse(_, dtf))(dtf.format)
 
+  def zonedDateTime(name: String, dtf: DateTimeFormatter = DateTimeFormatter.ISO_ZONED_DATE_TIME): Col[ZonedDateTime] =
+    Col.string(name).imapTry(ZonedDateTime.parse(_, dtf))(dtf.format)
+
   def zoneOffset(name: String): Col[ZoneOffset] =
     Col.string(name).imapTry(ZoneOffset.of)(_.getId)
   def zoneId(name: String): Col[ZoneId] =
