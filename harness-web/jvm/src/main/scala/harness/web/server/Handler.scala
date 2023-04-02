@@ -1,6 +1,8 @@
 package harness.web.server
 
 import cats.data.NonEmptyList
+import cats.syntax.either.*
+import cats.syntax.option.*
 import com.sun.net.httpserver.*
 import harness.core.*
 import harness.web.*
@@ -32,27 +34,29 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
           _ <- Logger.log.info(s"received ${req.method.method} request @ '${req.pathString}'", "remote-address" -> req.remoteAddress, "date" -> now.toLocalDate, "time" -> now.toOffsetTime)
 
           responseOrError <- route(req.method, req.path).either
+          responseOrError <- responseOrError match {
+            case Left(earlyReturn: EarlyReturn) => Logger.log.debug("Received early return value").as(earlyReturn.response.asRight)
+            case other                          => ZIO.succeed(other)
+          }
           foundResponse <-
             responseOrError match {
               case Right(found: HttpResponse.Found) => ZIO.succeed(found)
-              case Right(HttpResponse.NotFound)     => ZIO.succeed(HttpResponse("Not Found", HttpCode.`404`))
+              case Right(HttpResponse.NotFound)     => ZIO.succeed(HttpResponse.fromHttpCode.`404`)
               case Left(error) =>
-                val (specifiedResponseCode, errors) = Handler.getHttpCodeAndErrors(error)
-                val responseCode =
-                  specifiedResponseCode match {
-                    case Some(responseCode) => responseCode
-                    case None =>
-                      if (errors.forall(_.isInstanceOf[HError.UserError])) HttpCode.`400`
-                      else HttpCode.`500`
+                for {
+                  (specifiedResponseCode, errors) <- Handler.getHttpCodeAndErrors(error)
+                  responseCode =
+                    specifiedResponseCode match {
+                      case Some(responseCode) => responseCode
+                      case None =>
+                        if (errors.forall(_.isInstanceOf[HError.UserError])) HttpCode.`400`
+                        else HttpCode.`500`
+                    }
+                  _ <- ZIO.foreachDiscard(errors.toList) { e =>
+                    Logger.log.error(e.fullInternalMessage, "error-type" -> e.getClass.toString) *>
+                      Logger.log.debug(e.fullInternalMessageWithTrace, "error-type" -> e.getClass.toString)
                   }
-                val resp = HttpResponse(errors.toList.map(_.userMessage.show(ifHidden)).toJson, responseCode)
-                val logErrors =
-                  ZIO.foreachDiscard(errors.toList) { e =>
-                    Logger.log.error(e.fullInternalMessage) *>
-                      Logger.log.debug(e.fullInternalMessageWithTrace)
-                  }
-
-                logErrors.as(resp)
+                } yield HttpResponse(errors.toList.map(_.userMessage.show(ifHidden)).toJson, responseCode)
             }
 
           _ <-
@@ -86,12 +90,13 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
 }
 object Handler {
 
-  private def getHttpCodeAndErrors(error: HError): (Option[HttpCode], NonEmptyList[HError.Single]) = {
+  private def getHttpCodeAndErrors(error: HError): URIO[Logger, (Option[HttpCode], NonEmptyList[HError.Single])] = {
     def rec(error: HError): (List[HttpCode], NonEmptyList[HError.Single]) =
       error match {
         case ErrorWithHTTPCode(httpCode, child) =>
           val (childCodes, childErrors) = rec(child)
           (httpCode :: childCodes, childErrors)
+        case error: HError.???    => (HttpCode.NotImplemented :: Nil, NonEmptyList.one(error))
         case error: HError.Single => (Nil, NonEmptyList.one(error))
         case HError.Multiple(children) =>
           val mapped = children.map(rec)
@@ -99,7 +104,13 @@ object Handler {
       }
 
     val (codes, errors) = rec(error)
-    (codes.distinct.maxByOption(_.code), errors)
+    codes.distinct match {
+      case Nil         => ZIO.succeed((None, errors))
+      case code :: Nil => ZIO.succeed((code.some, errors))
+      case codes =>
+        val maxCode = codes.max
+        Logger.log.warning(s"Found multiple codes ${codes.sorted.map(c => s"'$c'").mkString("[", ", ", "]")}, selecting max ($maxCode)").as((maxCode.some, errors))
+    }
   }
 
 }
