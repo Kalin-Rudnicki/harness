@@ -66,6 +66,7 @@ extension (self: ZIO.type) {
 
   def hFailUserError(string: String): HTask[Nothing] = ZIO.fail(HError.UserError(string))
   def hFailUserErrors(strings: NonEmptyList[String]): HTask[Nothing] = ZIO.fail(HError(strings.map(HError.UserError(_))))
+  def hFailUserErrors(string0: String, stringN: String*): HTask[Nothing] = hFailUserErrors(NonEmptyList(string0, stringN.toList))
 
 }
 

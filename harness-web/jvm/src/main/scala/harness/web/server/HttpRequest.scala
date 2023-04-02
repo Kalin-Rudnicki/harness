@@ -9,38 +9,84 @@ import harness.web.*
 import harness.zio.*
 import java.io.InputStream
 import java.net.URI
+import java.util.UUID
 import scala.jdk.CollectionConverters.*
 import zio.*
 import zio.json.{JsonDecoder, JsonEncoder}
 
 final case class HttpRequest(
+    requestId: UUID,
     method: HttpMethod,
     path: List[String],
     queries: Map[String, String],
     headers: Map[String, List[String]],
     cookies: Map[String, String],
     rawInputStream: InputStream,
-)
+) {
+  val pathString: String = path.mkString("/", "/", "")
+}
 object HttpRequest {
 
   // =====| Public API |=====
 
-  object query extends Lookup("query-param", req => name => req.queries.get(name).asRight)
+  inline def service: URIO[HttpRequest, HttpRequest] = ZIO.service[HttpRequest]
+
+  val path: URIO[HttpRequest, List[String]] = HttpRequest.service.map(_.path)
+  val pathString: URIO[HttpRequest, String] = HttpRequest.service.map(_.pathString)
+
+  object query extends Lookup("query-param", req => name => req.queries.get(name).asRight) {
+
+    def logAll(logLevel: Logger.LogLevel): URIO[HttpRequest & Logger, Unit] =
+      HttpRequest.service.flatMap { req =>
+        Logger.log(
+          logLevel,
+          req.queries.toList.map { (header, value) => s"\n[$header]: $value" }.mkString("--- HTTP Request Query Params ---", "", ""),
+        )
+      }
+
+  }
+
   object header
       extends Lookup(
         "header",
         { req => name =>
           req.headers.get(name).traverse {
             case v :: Nil => v.asRight
-            case _        => HError.UserError(s"Malformed header '$name'").asLeft
+            case _        => HError.UserError(s"Headers with more than 1 value not supported ($name)").asLeft
           }
         },
-      )
-  object cookie extends Lookup("cookie", req => name => req.cookies.get(name).asRight)
+      ) {
+
+    def logAll(logLevel: Logger.LogLevel): URIO[HttpRequest & Logger, Unit] =
+      HttpRequest.service.flatMap { req =>
+        Logger.log(
+          logLevel,
+          req.headers.toList
+            .map {
+              case (header, value :: Nil) => s"\n[$header]: $value"
+              case (header, values)       => s"\n[$header]:${values.map(v => s"\n  - $v").mkString}"
+            }
+            .mkString("--- HTTP Request Headers ---", "", ""),
+        )
+      }
+
+  }
+
+  object cookie extends Lookup("cookie", req => name => req.cookies.get(name).asRight) {
+
+    def logAll(logLevel: Logger.LogLevel): URIO[HttpRequest & Logger, Unit] =
+      HttpRequest.service.flatMap { req =>
+        Logger.log(
+          logLevel,
+          req.cookies.toList.map { (header, value) => s"\n[$header]: $value" }.mkString("--- HTTP Request Cookies ---", "", ""),
+        )
+      }
+
+  }
 
   def body[T: StringDecoder]: HRIO[HttpRequest, T] =
     for {
-      req <- ZIO.service[HttpRequest]
+      req <- HttpRequest.service
       contentLength <- HttpRequest.header.find[Long]("Content-length")
       body <-
         contentLength match {
@@ -61,12 +107,12 @@ object HttpRequest {
   def jsonBody[T: JsonDecoder]: HRIO[HttpRequest, T] =
     HttpRequest.body[T](using { str => JsonDecoder[T].decodeJson(str).leftMap(NonEmptyList.one) })
 
-  def rawBody: HRIO[HttpRequest, InputStream] =
-    ZIO.service[HttpRequest].map(_.rawInputStream)
+  val rawBody: URIO[HttpRequest, InputStream] =
+    HttpRequest.service.map(_.rawInputStream)
 
   // =====| Helpers |=====
 
-  private[server] def read(exchange: HttpExchange): HttpRequest = {
+  private[server] def read(exchange: HttpExchange, requestId: UUID): HttpRequest = {
     val uri = exchange.getRequestURI
     val headerMap = exchange.getRequestHeaders.asScala.toMap.map { (k, v) => (k, v.asScala.toList) }
 
@@ -86,6 +132,7 @@ object HttpRequest {
       }
 
     HttpRequest(
+      requestId = requestId,
       method = HttpMethod(exchange.getRequestMethod),
       path = uri.getPath.split("/").toList.filter(_.nonEmpty),
       queries = getMap(Option(uri.getQuery), "&", identity),
@@ -101,7 +148,7 @@ object HttpRequest {
       get[T](name)
 
     def get[T](name: String)(implicit decoder: StringDecoder[T]): HRIO[HttpRequest, T] =
-      ZIO.service[HttpRequest].flatMap {
+      HttpRequest.service.flatMap {
         lookup(_)(name) match {
           case Right(Some(value)) =>
             decoder.decodeAccumulating(value) match {
@@ -114,7 +161,7 @@ object HttpRequest {
       }
 
     def find[T](name: String)(implicit decoder: StringDecoder[T]): HRIO[HttpRequest, Option[T]] =
-      ZIO.service[HttpRequest].flatMap {
+      HttpRequest.service.flatMap {
         lookup(_)(name) match {
           case Right(Some(value)) =>
             decoder.decodeAccumulating(value) match {
@@ -207,6 +254,7 @@ object HttpRequest {
 
       def noBody: HttpRequest =
         HttpRequest(
+          requestId = UUID.randomUUID,
           method = method,
           path = path,
           queries = paramMap,
@@ -217,6 +265,7 @@ object HttpRequest {
 
       def rawBody(body: String): HttpRequest =
         HttpRequest(
+          requestId = UUID.randomUUID,
           method = method,
           path = path,
           queries = paramMap,

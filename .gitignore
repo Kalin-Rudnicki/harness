@@ -12,3 +12,4 @@ project/project/project/metals.sbt
 
 harness-web-app-template/res/js
 harness-web-app-template/res/css
+.sass-cache
