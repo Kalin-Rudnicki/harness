@@ -7,7 +7,7 @@ import template.api.db.model as M
 object Session extends TableQueries[M.Session.Id, M.Session] {
 
   val fromSessionToken: QueryIO[String, M.Session.Identity] =
-    Prepare.selectIO { Input[String] } { token =>
+    Prepare.selectIO(s"Session - fromSessionToken") { Input[String] } { token =>
       Select
         .from[M.Session]("s")
         .where { s => s.token === token }

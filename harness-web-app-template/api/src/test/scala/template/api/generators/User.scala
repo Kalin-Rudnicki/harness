@@ -29,7 +29,7 @@ object User {
       email = s"${firstName.toLowerCase}.${lastName.toLowerCase}@${domain.toLowerCase}.com",
     )
 
-  val insertedUserGen: Gen[JDBCConnection & Logger & Sized, D.user.User] =
+  val insertedUserGen: Gen[JDBCConnection & Logger & Telemetry & Sized, D.user.User] =
     signUpGen.flatMap { signUp =>
       Gen.fromZIO {
         val encryptedPassword = BCrypt.hashpw(signUp.password, BCrypt.gensalt)

@@ -89,7 +89,7 @@ object PostgresMeta {
 
   private val queryTablesAndColumns: QueryO[(InformationSchemaTables.Identity, Option[InformationSchemaColumns.Identity])] =
     Prepare
-      .selectO {
+      .selectO("queryTablesAndColumns") {
         Select
           .from[InformationSchemaTables]("ist")
           .leftJoin[InformationSchemaColumns]("isc")
@@ -101,12 +101,12 @@ object PostgresMeta {
 
   // =====| effects |=====
 
-  private val tablesAndColumns: HRIO[JDBCConnection & Logger, Map[InformationSchemaTables.Identity, Chunk[InformationSchemaColumns.Identity]]] =
+  private val tablesAndColumns: HRIO[JDBCConnection & Logger & Telemetry, Map[InformationSchemaTables.Identity, Chunk[InformationSchemaColumns.Identity]]] =
     queryTablesAndColumns().groupByLeft(_._1)(_._2).chunk.map(_.toMap)
 
   object schemaDiff {
 
-    def apply(tables: Tables): HRIO[JDBCConnection & Logger, Unit] =
+    def apply(tables: Tables): HRIO[JDBCConnection & Logger & Telemetry, Unit] =
       for {
         dbTAC <- tablesAndColumns
         schemaTAC = tablesToMap(tables)
@@ -132,7 +132,7 @@ object PostgresMeta {
 
               ZIO.when(alterations.nonEmpty) {
                 val alterSql: String = s"ALTER TABLE ${t.tableSchema}.${t.tableName} ${alterations.mkString(", ")}"
-                val query: Query = new Query(alterSql, QueryInputMapper.id)
+                val query: Query = new Query("ALTER TABLE", alterSql, QueryInputMapper.id)
 
                 query().unit
               }
@@ -143,12 +143,12 @@ object PostgresMeta {
                     s"${col.columnName} ${col.dataType}${if (col.isNullable) "" else " NOT"} NULL${constraints.mkString(" ", " ", "")}"
                   }
                   .mkString(s"CREATE TABLE ${t.tableSchema}.${t.tableName} (", ", ", ")")
-              val query: Query = new Query(createSql, QueryInputMapper.id)
+              val query: Query = new Query("CREATE TABLE", createSql, QueryInputMapper.id)
 
               query().unit
             case (t, Some(_), None) =>
               val deleteSql: String = s"DROP TABLE ${t.tableSchema}.${t.tableName}"
-              val query: Query = new Query(deleteSql, QueryInputMapper.id)
+              val query: Query = new Query("DROP TABLE", deleteSql, QueryInputMapper.id)
 
               query().unit
             case (_, None, None) =>
@@ -156,10 +156,10 @@ object PostgresMeta {
           }
       } yield ()
 
-    def withConnectionFactory(tables: Tables): RIO[ConnectionFactory & Logger, Unit] =
+    def withConnectionFactory(tables: Tables): RIO[ConnectionFactory & Logger & Telemetry, Unit] =
       ZIO.scoped { schemaDiff(tables).provideSomeLayer(JDBCConnection.connectionFactoryLayer) }
 
-    def withPool(tables: Tables): RIO[JDBCConnectionPool & Logger, Unit] =
+    def withPool(tables: Tables): RIO[JDBCConnectionPool & Logger & Telemetry, Unit] =
       ZIO.scoped { schemaDiff(tables).provideSomeLayer(JDBCConnection.poolLayer) }
 
   }

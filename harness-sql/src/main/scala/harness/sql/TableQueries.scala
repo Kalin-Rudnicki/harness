@@ -6,17 +6,17 @@ import shapeless3.deriving.Id as Identity
 abstract class TableQueries[Id, T[F[_]] <: Table.WithId[F, Id]](implicit ti: TableSchema[T]) {
 
   final val insert: QueryI[T[Identity]] =
-    Prepare.insertO {
+    Prepare.insertO(s"${ti.referenceName} - insert") {
       Insert.into[T]
     }
 
   final val selectAll: QueryO[T[Identity]] =
-    Prepare.selectO {
+    Prepare.selectO(s"${ti.referenceName} - selectAll") {
       Select.from[T](ti.referenceName.head.toString).returning { t => t }
     }
 
   final val selectById: QueryIO[Id, T[Identity]] =
-    Prepare.selectIO { Input[Id] } { pk =>
+    Prepare.selectIO(s"${ti.referenceName} - selectById") { Input[Id] } { pk =>
       Select
         .from[T](ti.referenceName.head.toString)
         .where { t => t.id === pk }
@@ -26,7 +26,7 @@ abstract class TableQueries[Id, T[F[_]] <: Table.WithId[F, Id]](implicit ti: Tab
   // TODO (KR) : update
 
   final val deleteById: QueryIO[Id, T[Identity]] =
-    Prepare.deleteIO { Input[Id] } { pk =>
+    Prepare.deleteIO(s"${ti.referenceName} - deleteById") { Input[Id] } { pk =>
       Delete
         .from[T](ti.referenceName.head.toString)
         .where { t => t.id === pk }

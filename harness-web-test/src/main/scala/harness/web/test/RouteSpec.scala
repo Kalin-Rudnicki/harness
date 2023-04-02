@@ -51,10 +51,10 @@ abstract class RouteSpec[
       ZLayer.succeed(evalRoute) ++
       testEnvironment
 
-  final val runInTransaction: TestAspectAtLeastR[JDBCConnection & Logger] =
-    new TestAspectAtLeastR[JDBCConnection & Logger] {
+  final val runInTransaction: TestAspectAtLeastR[JDBCConnection & Logger & Telemetry] =
+    new TestAspectAtLeastR[JDBCConnection & Logger & Telemetry] {
 
-      private def modifySpec[R <: JDBCConnection & Logger, E](rPath: List[String], spec: Spec[R, E]): Spec[R, E] =
+      private def modifySpec[R <: JDBCConnection & Logger & Telemetry, E](rPath: List[String], spec: Spec[R, E]): Spec[R, E] =
         Spec {
           spec.caseValue match {
             case Spec.ExecCase(exec, spec)     => Spec.ExecCase(exec, modifySpec(rPath, spec))
@@ -74,7 +74,7 @@ abstract class RouteSpec[
           }
         }
 
-      override def some[R <: JDBCConnection & Logger, E](spec: Spec[R, E])(implicit trace: Trace): Spec[R, E] =
+      override def some[R <: JDBCConnection & Logger & Telemetry, E](spec: Spec[R, E])(implicit trace: Trace): Spec[R, E] =
         modifySpec(Nil, spec)
 
     }

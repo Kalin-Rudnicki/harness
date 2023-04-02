@@ -8,40 +8,46 @@ import harness.sql.typeclass.*
 import harness.zio.*
 import zio.*
 
-final class Query(sql: String, qim: QueryInputMapper) {
-  def apply(): HRIO[JDBCConnection & Logger, Int] =
-    ZIO.scoped {
-      Utils.preparedStatement(sql, None, qim).flatMap { ps =>
-        ZIO.hAttempt(ps.executeUpdate()).mapError(ErrorWithSql(sql, _))
+final class Query(queryName: String, sql: String, qim: QueryInputMapper) {
+  def apply(): HRIO[JDBCConnection & Logger & Telemetry, Int] =
+    ZIO
+      .scoped {
+        Utils.preparedStatement(sql, None, qim).flatMap { ps =>
+          ZIO.hAttempt(ps.executeUpdate()).mapError(ErrorWithSql(sql, _))
+        }
       }
-    }
+      .trace("Executed SQL query", "query-name" -> queryName)
 }
 
-final class QueryI[I](val sql: String, encoder: RowEncoder[I], qim: QueryInputMapper) {
-  def apply(i: I): HRIO[JDBCConnection & Logger, Int] =
-    ZIO.scoped {
-      Utils.preparedStatement(sql, (i, encoder).some, qim).flatMap { ps =>
-        ZIO.hAttempt(ps.executeUpdate()).mapError(ErrorWithSql(sql, _))
+final class QueryI[I](queryName: String, val sql: String, encoder: RowEncoder[I], qim: QueryInputMapper) {
+  def apply(i: I): HRIO[JDBCConnection & Logger & Telemetry, Int] =
+    ZIO
+      .scoped {
+        Utils.preparedStatement(sql, (i, encoder).some, qim).flatMap { ps =>
+          ZIO.hAttempt(ps.executeUpdate()).mapError(ErrorWithSql(sql, _))
+        }
       }
-    }
-  def batched(is: Chunk[I]): HRIO[JDBCConnection & Logger, Chunk[Int]] =
-    ZIO.scoped {
-      Utils.batchPreparedStatement(sql, encoder, is, qim).flatMap { ps =>
-        ZIO.hAttempt { ps.executeBatch() }.mapBoth(ErrorWithSql(sql, _), Chunk.fromArray)
+      .trace("Executed SQL query", "query-name" -> queryName)
+  def batched(is: Chunk[I]): HRIO[JDBCConnection & Logger & Telemetry, Chunk[Int]] =
+    ZIO
+      .scoped {
+        Utils.batchPreparedStatement(sql, encoder, is, qim).flatMap { ps =>
+          ZIO.hAttempt { ps.executeBatch() }.mapBoth(ErrorWithSql(sql, _), Chunk.fromArray)
+        }
       }
-    }
-  def cmap[I2](f: I2 => I): QueryI[I2] = QueryI(sql, encoder.cmap(f), qim)
+      .trace("Executed SQL query", "query-name" -> queryName)
+  def cmap[I2](f: I2 => I): QueryI[I2] = QueryI(queryName, sql, encoder.cmap(f), qim)
 }
 
-final class QueryO[O](val sql: String, qim: QueryInputMapper, decoder: RowDecoder[O]) {
-  def apply(): QueryResult[O] = QueryResult.stream(sql, None, qim, decoder)
-  def map[O2](f: O => O2): QueryO[O2] = QueryO(sql, qim, decoder.map(f))
-  def emap[O2](f: O => EitherNel[String, O2]): QueryO[O2] = QueryO(sql, qim, decoder.emap(f))
+final class QueryO[O](queryName: String, val sql: String, qim: QueryInputMapper, decoder: RowDecoder[O]) {
+  def apply(): QueryResult[O] = QueryResult.stream(queryName, sql, None, qim, decoder)
+  def map[O2](f: O => O2): QueryO[O2] = QueryO(queryName, sql, qim, decoder.map(f))
+  def emap[O2](f: O => EitherNel[String, O2]): QueryO[O2] = QueryO(queryName, sql, qim, decoder.emap(f))
 }
 
-final class QueryIO[I, O](val sql: String, encoder: RowEncoder[I], qim: QueryInputMapper, decoder: RowDecoder[O]) {
-  def apply(i: I): QueryResult[O] = QueryResult.stream(sql, (i, encoder).some, qim, decoder)
-  def cmap[I2](f: I2 => I): QueryIO[I2, O] = QueryIO(sql, encoder.cmap(f), qim, decoder)
-  def map[O2](f: O => O2): QueryIO[I, O2] = QueryIO(sql, encoder, qim, decoder.map(f))
-  def emap[O2](f: O => EitherNel[String, O2]): QueryIO[I, O2] = QueryIO(sql, encoder, qim, decoder.emap(f))
+final class QueryIO[I, O](queryName: String, val sql: String, encoder: RowEncoder[I], qim: QueryInputMapper, decoder: RowDecoder[O]) {
+  def apply(i: I): QueryResult[O] = QueryResult.stream(queryName, sql, (i, encoder).some, qim, decoder)
+  def cmap[I2](f: I2 => I): QueryIO[I2, O] = QueryIO(queryName, sql, encoder.cmap(f), qim, decoder)
+  def map[O2](f: O => O2): QueryIO[I, O2] = QueryIO(queryName, sql, encoder, qim, decoder.map(f))
+  def emap[O2](f: O => EitherNel[String, O2]): QueryIO[I, O2] = QueryIO(queryName, sql, encoder, qim, decoder.emap(f))
 }

@@ -2,9 +2,9 @@ package harness.sql.errors
 
 import harness.core.*
 
-final case class InvalidResultSetSize(expected: String, actual: Int)
+final case class InvalidResultSetSize(queryName: String, _userMessage: HError.UserMessage, expected: String, actual: Int)
     extends HError.Single(
-      HError.UserMessage.hidden,
-      s"Invalid ResultSet size: Expected [$expected], but got ($actual)",
+      _userMessage,
+      s"Invalid ResultSet size for query '$queryName': Expected [$expected], but got ($actual)",
       Nil,
     )

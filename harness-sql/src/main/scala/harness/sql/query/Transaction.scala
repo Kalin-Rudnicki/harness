@@ -5,16 +5,16 @@ import harness.zio.*
 import zio.*
 
 trait Transaction {
-  def inTransaction[R <: JDBCConnection & Logger, A](effect: HRIO[R, A]): HRIO[R, A]
-  def inSavepoint[R <: JDBCConnection & Logger, A](effect: HRIO[R, A]): HRIO[R, A]
+  def inTransaction[R <: JDBCConnection & Logger & Telemetry, A](effect: HRIO[R, A]): HRIO[R, A]
+  def inSavepoint[R <: JDBCConnection & Logger & Telemetry, A](effect: HRIO[R, A]): HRIO[R, A]
 }
 object Transaction {
 
-  def inTransaction[R <: JDBCConnection & Logger, A](effect: HRIO[R, A]): HRIO[Transaction & R, A] =
+  def inTransaction[R <: JDBCConnection & Logger & Telemetry, A](effect: HRIO[R, A]): HRIO[Transaction & R, A] =
     ZIO.serviceWithZIO[Transaction](_.inTransaction(effect))
 
   // NOTE : This should only be run inside a transaction
-  def inSavepoint[R <: JDBCConnection & Logger, A](effect: HRIO[R, A]): HRIO[Transaction & R, A] =
+  def inSavepoint[R <: JDBCConnection & Logger & Telemetry, A](effect: HRIO[R, A]): HRIO[Transaction & R, A] =
     ZIO.serviceWithZIO[Transaction](_.inSavepoint(effect))
 
   // =====|  |=====
@@ -29,17 +29,17 @@ object Transaction {
 
   object raw {
 
-    val begin: Query = Query("BEGIN", QueryInputMapper.empty)
+    val begin: Query = Query("BEGIN", "BEGIN", QueryInputMapper.empty)
 
-    val commit: Query = Query("COMMIT", QueryInputMapper.empty)
+    val commit: Query = Query("COMMIT", "COMMIT", QueryInputMapper.empty)
 
-    val rollback: Query = Query("ROLLBACK", QueryInputMapper.empty)
+    val rollback: Query = Query("ROLLBACK", "ROLLBACK", QueryInputMapper.empty)
 
-    def savepoint(savepoint: Savepoint): Query = Query(s"SAVEPOINT $savepoint", QueryInputMapper.empty)
+    def savepoint(savepoint: Savepoint): Query = Query("SAVEPOINT", s"SAVEPOINT $savepoint", QueryInputMapper.empty)
 
-    def releaseSavepoint(savepoint: Savepoint): Query = Query(s"RELEASE SAVEPOINT $savepoint", QueryInputMapper.empty)
+    def releaseSavepoint(savepoint: Savepoint): Query = Query("RELEASE SAVEPOINT", s"RELEASE SAVEPOINT $savepoint", QueryInputMapper.empty)
 
-    def rollbackSavepoint(savepoint: Savepoint): Query = Query(s"ROLLBACK TO SAVEPOINT $savepoint", QueryInputMapper.empty)
+    def rollbackSavepoint(savepoint: Savepoint): Query = Query("ROLLBACK TO SAVEPOINT", s"ROLLBACK TO SAVEPOINT $savepoint", QueryInputMapper.empty)
 
   }
 
@@ -47,7 +47,7 @@ object Transaction {
 
   object Live extends Transaction {
 
-    private def genericTransaction[R <: JDBCConnection & Logger, A](begin: Query, rollback: Query, commit: Query)(effect: HRIO[R, A]): HRIO[R, A] =
+    private def genericTransaction[R <: JDBCConnection & Logger & Telemetry, A](begin: Query, rollback: Query, commit: Query)(effect: HRIO[R, A]): HRIO[R, A] =
       (
         begin() *>
           effect.interruptible.foldCauseZIO(
@@ -61,14 +61,14 @@ object Transaction {
           )
       ).uninterruptible
 
-    override def inTransaction[R <: JDBCConnection & Logger, A](effect: HRIO[R, A]): HRIO[R, A] =
+    override def inTransaction[R <: JDBCConnection & Logger & Telemetry, A](effect: HRIO[R, A]): HRIO[R, A] =
       genericTransaction(
         begin = Transaction.raw.begin,
         rollback = Transaction.raw.rollback,
         commit = Transaction.raw.commit,
       )(effect)
 
-    override def inSavepoint[R <: JDBCConnection & Logger, A](effect: HRIO[R, A]): HRIO[R, A] =
+    override def inSavepoint[R <: JDBCConnection & Logger & Telemetry, A](effect: HRIO[R, A]): HRIO[R, A] =
       Savepoint.gen.flatMap { savepoint =>
         genericTransaction(
           begin = Transaction.raw.savepoint(savepoint),
@@ -80,13 +80,13 @@ object Transaction {
   }
 
   object UseSavepointForTransaction extends Transaction {
-    override def inTransaction[R <: JDBCConnection & Logger, A](effect: HRIO[R, A]): HRIO[R, A] = Live.inSavepoint(effect)
-    override def inSavepoint[R <: JDBCConnection & Logger, A](effect: HRIO[R, A]): HRIO[R, A] = Live.inSavepoint(effect)
+    override def inTransaction[R <: JDBCConnection & Logger & Telemetry, A](effect: HRIO[R, A]): HRIO[R, A] = Live.inSavepoint(effect)
+    override def inSavepoint[R <: JDBCConnection & Logger & Telemetry, A](effect: HRIO[R, A]): HRIO[R, A] = Live.inSavepoint(effect)
   }
 
   object Transactionless extends Transaction {
-    override def inTransaction[R <: JDBCConnection & Logger, A](effect: HRIO[R, A]): HRIO[R, A] = effect
-    override def inSavepoint[R <: JDBCConnection & Logger, A](effect: HRIO[R, A]): HRIO[R, A] = effect
+    override def inTransaction[R <: JDBCConnection & Logger & Telemetry, A](effect: HRIO[R, A]): HRIO[R, A] = effect
+    override def inSavepoint[R <: JDBCConnection & Logger & Telemetry, A](effect: HRIO[R, A]): HRIO[R, A] = effect
   }
 
 }

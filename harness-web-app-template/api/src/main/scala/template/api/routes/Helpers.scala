@@ -13,7 +13,7 @@ private[routes] object Helpers {
   // TODO (KR) : name this on a project specific basis
   val SessionToken: String = "Template-Session-Token"
 
-  val userFromSessionOptional: HRIO[JDBCConnection & Logger & HttpRequest, Option[M.User.Identity]] =
+  val userFromSessionOptional: HRIO[JDBCConnection & Logger & Telemetry & HttpRequest, Option[M.User.Identity]] =
     HttpRequest.cookie.find[String](Helpers.SessionToken).flatMap {
       case Some(tok) =>
         Q.User.fromSessionToken(tok).option.flatMap {
@@ -25,7 +25,7 @@ private[routes] object Helpers {
       case None => ZIO.none
     }
 
-  val userFromSession: HRIO[JDBCConnection & Logger & HttpRequest, M.User.Identity] =
+  val userFromSession: HRIO[JDBCConnection & Logger & Telemetry & HttpRequest, M.User.Identity] =
     userFromSessionOptional.someOrElseZIO {
       ZIO.fail(HError.UserError(s"Unauthorized: Specify cookie '$SessionToken'").withHTTPCode(HttpCode.`401`))
     }

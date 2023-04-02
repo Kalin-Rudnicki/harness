@@ -110,7 +110,7 @@ object Tmp extends ExecutableApp {
   object MusicianQueries extends TableQueries[Musician.Id, Musician] {
 
     val byNames: QueryIO[(String, String), Musician.Identity] =
-      Prepare.selectIO(Input[String] ~ Input[String]) { (first, last) =>
+      Prepare.selectIO("Musician - byNames")(Input[String] ~ Input[String]) { (first, last) =>
         Select
           .from[Musician]("m")
           .where { m => m.lastName === last && m.firstName === first }
@@ -118,7 +118,7 @@ object Tmp extends ExecutableApp {
       }
 
     val setFavoriteNumber: QueryIO[(Musician.Id, Option[Int]), Musician.Identity] =
-      Prepare.updateIO(Input[Musician.Id] ~ Input[Option[Int]]) { (id, fn) =>
+      Prepare.updateIO("Musician - setFavoriteNumber")(Input[Musician.Id] ~ Input[Option[Int]]) { (id, fn) =>
         Update[Musician]("m")
           .where { m => m.id === id }
           .set { m => m.favoriteNumber := fn }
@@ -126,7 +126,7 @@ object Tmp extends ExecutableApp {
       }
 
     val withFavNumGreaterThan: QueryIO[Int, Musician.Identity] =
-      Prepare.selectIO(Input[Int]) { num =>
+      Prepare.selectIO("Musician - withFavNumGreaterThan")(Input[Int]) { num =>
         Select
           .from[Musician]("m")
           .where { m => m.favoriteNumber > num }
@@ -134,7 +134,7 @@ object Tmp extends ExecutableApp {
       }
 
     val musicianAndBandNames: QueryO[(Musician.Identity, Option[String])] =
-      Prepare.selectO {
+      Prepare.selectO("Musician - musicianAndBandNames") {
         Select
           .from[Musician]("m")
           .leftJoin[MusicianInBand]("mib")
@@ -147,7 +147,7 @@ object Tmp extends ExecutableApp {
       }
 
     val musicianAndBandNames2: QueryO[(Musician.Identity, Chunk[(String, Boolean)])] =
-      Prepare.selectO {
+      Prepare.selectO("Musician - musicianAndBandNames2") {
         Select
           .from[Musician]("m")
           .returning { m =>
@@ -167,7 +167,7 @@ object Tmp extends ExecutableApp {
   object BandQueries extends TableQueries[Band.Id, Band] {
 
     val byName: QueryIO[String, Band.Identity] =
-      Prepare.selectIO(Input[String]) { name =>
+      Prepare.selectIO("Band - byName")(Input[String]) { name =>
         Select
           .from[Band]("b")
           .where { b => b.name === name }

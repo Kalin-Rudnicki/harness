@@ -4,7 +4,7 @@ import harness.core.*
 
 final case class ErrorWithSql(sql: String, cause: HError)
     extends HError.Single(
-      HError.UserMessage.hidden,
+      cause.userMessage,
       s"${cause.internalMessage}\nsql: $sql",
       Nil,
     )

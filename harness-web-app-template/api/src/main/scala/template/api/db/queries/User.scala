@@ -7,7 +7,7 @@ import template.api.db.model as M
 object User extends TableQueries[M.User.Id, M.User] {
 
   val fromSessionToken: QueryIO[String, M.User.Identity] =
-    Prepare.selectIO { Input[String] } { token =>
+    Prepare.selectIO("User - fromSessionToken") { Input[String] } { token =>
       Select
         .from[M.Session]("s")
         .join[M.User]("u")
@@ -18,7 +18,7 @@ object User extends TableQueries[M.User.Id, M.User] {
 
   val byUsername: QueryIO[String, M.User.Identity] =
     Prepare
-      .selectIO { Input[String] } { username =>
+      .selectIO("User - byUsername") { Input[String] } { username =>
         Select
           .from[M.User]("u")
           .where { u => u.lowerUsername === username }
