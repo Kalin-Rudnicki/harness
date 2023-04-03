@@ -40,95 +40,71 @@ trait QueryBoolOps[A, B] private {
 }
 object QueryBoolOps {
 
-  final case class Empty[A, B] private (a: A => ColRef, b: B => ColRef)
-  object Empty {
+  final case class CodeElement[EvT, ObjT, CompareT] private (getObj: (EvT, IArray[Object]) => ObjT)
+  object CodeElement {
 
-    implicit def col_col[A]: QueryBoolOps.Empty[AppliedCol[A], AppliedCol[A]] = Empty(_.ref, _.ref)
-    implicit def col_optCol[A]: QueryBoolOps.Empty[AppliedCol[A], AppliedCol.Opt[A]] = Empty(_.ref, _.wrapped.ref)
-    implicit def optCol_col[A]: QueryBoolOps.Empty[AppliedCol.Opt[A], AppliedCol[A]] = Empty(_.wrapped.ref, _.ref)
-    implicit def optCol_optCol[A]: QueryBoolOps.Empty[AppliedCol.Opt[A], AppliedCol.Opt[A]] = Empty(_.wrapped.ref, _.wrapped.ref)
+    implicit def queryInput[T](implicit notOpt: NotGiven[OptionEv[T]]): CodeElement[QueryInput[T], T, T] = CodeElement { (obj, in) => in(obj.idx).asInstanceOf[T] }
+    implicit def optQueryInput[T](implicit notOpt: NotGiven[OptionEv[T]]): CodeElement[QueryInput[Option[T]], Option[T], T] = CodeElement { (obj, in) => in(obj.idx).asInstanceOf[Option[T]] }
 
-    implicit def oColA[A, B](implicit e: Empty[AppliedCol[A], B], ev: NotGiven[OptionEv[A]]): Empty[AppliedCol[Option[A]], B] = Empty(_.ref, e.b)
-    implicit def oOptColA[A, B](implicit e: Empty[AppliedCol.Opt[A], B], ev: NotGiven[OptionEv[A]]): Empty[AppliedCol.Opt[Option[A]], B] = Empty(_.wrapped.ref, e.b)
-    implicit def oColB[A, B](implicit e: Empty[A, AppliedCol[B]], ev: NotGiven[OptionEv[B]]): Empty[A, AppliedCol[Option[B]]] = Empty(e.a, _.ref)
-    implicit def oOptColB[A, B](implicit e: Empty[A, AppliedCol.Opt[B]], ev: NotGiven[OptionEv[B]]): Empty[A, AppliedCol.Opt[Option[B]]] = Empty(e.a, _.wrapped.ref)
+    implicit def const[T](implicit notOpt: NotGiven[OptionEv[T]]): CodeElement[Constant[T], T, T] = CodeElement { (obj, _) => obj.value }
+    implicit def optConst[T](implicit notOpt: NotGiven[OptionEv[T]]): CodeElement[Constant[Option[T]], Option[T], T] = CodeElement { (obj, _) => obj.value }
 
   }
 
-  implicit def col_id[A]: QueryBoolOps[AppliedCol[A], QueryInput[A]] =
-    (a, b, o) =>
-      QueryBool(
-        s"${a.ref} $o ?",
-        true,
-        false,
-        QueryInputMapper(_ => 1, (in, out, off) => out(off) = a.col.colCodec.encoder.encodeColumn(in(b.idx).asInstanceOf)),
-      )
-  implicit def oCol_id[A]: QueryBoolOps[AppliedCol[Option[A]], QueryInput[A]] =
-    (a, b, o) =>
-      QueryBool(
-        s"${a.ref} $o ?",
-        true,
-        false,
-        QueryInputMapper(_ => 1, (in, out, off) => out(off) = a.col.colCodec.encoder.encodeColumn(in(b.idx).some.asInstanceOf)),
-      )
+  final case class QueryElement[EvT, ObjT, CompareT] private (getCol: EvT => AppliedCol[ObjT])
+  object QueryElement {
 
-  implicit def col_const[A]: QueryBoolOps[AppliedCol[A], Constant[A]] =
-    (a, b, o) =>
-      QueryBool(
-        s"${a.ref} $o ?",
-        true,
-        false,
-        QueryInputMapper(_ => 1, (_, out, off) => out(off) = a.col.colCodec.encoder.encodeColumn(b.value)),
-      )
-  implicit def oCol_const[A]: QueryBoolOps[AppliedCol[Option[A]], Constant[A]] =
-    (a, b, o) =>
-      QueryBool(
-        s"${a.ref} $o ?",
-        true,
-        false,
-        QueryInputMapper(_ => 1, (_, out, off) => out(off) = a.col.colCodec.encoder.encodeColumn(b.value.some)),
-      )
+    implicit def appliedCol[T](implicit notOpt: NotGiven[OptionEv[T]]): QueryElement[AppliedCol[T], T, T] = QueryElement(identity)
+    implicit def optAppliedCol[T](implicit notOpt: NotGiven[OptionEv[T]]): QueryElement[AppliedCol[Option[T]], Option[T], T] = QueryElement(identity)
 
-  implicit def optCol_id[A]: QueryBoolOps[AppliedCol.Opt[A], QueryInput[A]] =
-    (a, b, o) =>
-      QueryBool(
-        s"${a.wrapped.ref} $o ?",
-        true,
-        false,
-        QueryInputMapper(_ => 1, (in, out, off) => out(off) = a.wrapped.col.colCodec.encoder.encodeColumn(in(b.idx).asInstanceOf)),
-      )
-  implicit def oOptCol_id[A]: QueryBoolOps[AppliedCol.Opt[Option[A]], QueryInput[A]] =
-    (a, b, o) =>
-      QueryBool(
-        s"${a.wrapped.ref} $o ?",
-        true,
-        false,
-        QueryInputMapper(_ => 1, (in, out, off) => out(off) = a.wrapped.col.colCodec.encoder.encodeColumn(in(b.idx).some.asInstanceOf)),
-      )
+    implicit def appliedColOpt[T](implicit notOpt: NotGiven[OptionEv[T]]): QueryElement[AppliedCol.Opt[T], T, T] = QueryElement(_.wrapped)
+    implicit def optAppliedColOpt[T](implicit notOpt: NotGiven[OptionEv[T]]): QueryElement[AppliedCol.Opt[Option[T]], Option[T], T] = QueryElement(_.wrapped)
 
-  implicit def optCol_const[A]: QueryBoolOps[AppliedCol.Opt[A], Constant[A]] =
-    (a, b, o) =>
-      QueryBool(
-        s"${a.wrapped.ref} $o ?",
-        true,
-        false,
-        QueryInputMapper(_ => 1, (_, out, off) => out(off) = a.wrapped.col.colCodec.encoder.encodeColumn(b.value)),
-      )
-  implicit def oOptCol_const[A]: QueryBoolOps[AppliedCol.Opt[Option[A]], Constant[A]] =
-    (a, b, o) =>
-      QueryBool(
-        s"${a.wrapped.ref} $o ?",
-        true,
-        false,
-        QueryInputMapper(_ => 1, (_, out, off) => out(off) = a.wrapped.col.colCodec.encoder.encodeColumn(b.value.some)),
-      )
+  }
 
-  implicit def fromEmpty[A, B](implicit e: QueryBoolOps.Empty[A, B]): QueryBoolOps[A, B] = { (a, b, op) =>
+  final case class MapInput[In, Out] private (f: In => Out)
+  object MapInput {
+
+    implicit def id[T]: MapInput[T, T] = MapInput(identity)
+    implicit def opt[T]: MapInput[T, Option[T]] = MapInput(_.some)
+
+  }
+
+  implicit def queryElement_queryElement[CompareT, AObjT, BObjT, A, B](implicit
+      aEv: QueryElement[A, AObjT, CompareT],
+      bEv: QueryElement[B, BObjT, CompareT],
+  ): QueryBoolOps[A, B] = { (a, b, o) =>
     QueryBool(
-      s"${e.a(a)} $op ${e.b(b)}",
+      s"${aEv.getCol(a).ref.toStringNoType} $o ${bEv.getCol(b).ref.toStringNoType}",
       true,
       false,
       QueryInputMapper.empty,
+    )
+  }
+
+  implicit def queryElement_codeElement[AObjT, BObjT, CompareT, A, B](implicit
+      aEv: QueryElement[A, AObjT, CompareT],
+      bEv: CodeElement[B, BObjT, CompareT],
+      convert: MapInput[BObjT, AObjT],
+  ): QueryBoolOps[A, B] = { (a, b, o) =>
+    QueryBool(
+      s"${aEv.getCol(a).ref.toStringNoType} $o ${aEv.getCol(a).col.`(?)`}",
+      true,
+      false,
+      QueryInputMapper(_ => 1, (in, out, off) => out(off) = aEv.getCol(a).col.colCodec.encoder.encodeColumn(convert.f(bEv.getObj(b, in)))),
+    )
+  }
+
+  implicit def codeElement_queryElement[AObjT, BObjT, CompareT, A, B](implicit
+      aEv: CodeElement[A, AObjT, CompareT],
+      bEv: QueryElement[B, BObjT, CompareT],
+      convert: MapInput[AObjT, BObjT],
+  ): QueryBoolOps[A, B] = { (a, b, o) =>
+    QueryBool(
+      s"${bEv.getCol(b).ref.toStringNoType} $o ${bEv.getCol(b).col.`(?)`}",
+      true,
+      false,
+      QueryInputMapper(_ => 1, (in, out, off) => out(off) = bEv.getCol(b).col.colCodec.encoder.encodeColumn(convert.f(aEv.getObj(a, in)))),
     )
   }
 

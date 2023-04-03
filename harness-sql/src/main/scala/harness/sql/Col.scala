@@ -42,6 +42,7 @@ final case class Col[T] private (
   override def toString: String = s"$colName[$colType]"
 
   def ? : String = setType.fold("?")(t => s"? :: $t")
+  def `(?)` : String = setType.fold("?")(t => s"(? :: $t)")
 
 }
 object Col {
