@@ -78,7 +78,7 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
             .addContext("request-id" -> requestId) {
               effect
                 .provideSomeLayer[HarnessEnv & ServerEnv & Scope](builtInReqLayer ++ reqLayer)
-                .trace("HTTP Request Handler", "path" -> exchange.getRequestURI.getPath)
+                .trace("HTTP Request Handler", Logger.LogLevel.Detailed, "path" -> exchange.getRequestURI.getPath)
             }
             .dumpErrorsAndContinue
         }
