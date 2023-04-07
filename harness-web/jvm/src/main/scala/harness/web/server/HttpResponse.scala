@@ -70,7 +70,7 @@ object HttpResponse {
     HttpResponse(StringEncoder[T].encode(value), code)
 
   def encodeJson[T: JsonEncoder](value: T, code: HttpCode = HttpCode.`200`): HttpResponse.Found =
-    HttpResponse(JsonEncoder[T].encodeJson(value, None).toString, code)
+    HttpResponse(JsonEncoder[T].encodeJson(value, None).toString, code).header("content-type", "application/json")
 
   def redirect(location: String, code: HttpCode = HttpCode.`301`): HttpResponse.Found =
     Found(
