@@ -178,7 +178,22 @@ object Tmp extends ExecutableApp {
 
   object MusicianInBandQueries extends TableQueries[MusicianInBand.Id, MusicianInBand]
 
-  object NoteQueries extends TableQueries[Note.Id, Note]
+  object NoteQueries extends TableQueries[Note.Id, Note] {
+
+    val updateNoteText: QueryI[Note.Identity] =
+      AutoQuery.update[Note](
+        Note[Const[Boolean]](
+          id = false,
+          text = true,
+          localDate = true,
+          localTime = false,
+          offsetTime = false,
+          localDateTime = false,
+          offsetDateTime = false,
+        ),
+      )
+
+  }
 
   // =====|  |=====
 
@@ -255,6 +270,21 @@ object Tmp extends ExecutableApp {
       offsetDateTime = offsetDateTime,
     )
 
+  private def batchTimings(numIters: Int): HRIO[JDBCConnection & Logger & Telemetry, Unit] =
+    for {
+      _ <- Logger.log.info(s"Generating sample sizes of ${numIters.toStringCommas}")
+
+      batch1 <- randomNote.replicateZIO(numIters).map(Chunk.fromIterable)
+      batch2 <- randomNote.replicateZIO(numIters).map(Chunk.fromIterable)
+
+      _ <- Logger.log.info("Starting raw-inserts")
+      _ <- ZIO.foreachDiscard(batch1)(NoteQueries.insert(_).single).trace("raw-inserts", Logger.LogLevel.Info)
+      _ <- ZIO.foreachDiscard(batch1)(n => NoteQueries.deleteById(n.id).single).trace("raw-deletes", Logger.LogLevel.Info)
+      _ <- Logger.log.info("Starting batch-inserts")
+      _ <- NoteQueries.insert.batched(batch2).unit.trace("batch-inserts", Logger.LogLevel.Info)
+      _ <- NoteQueries.deleteById.batched(batch2.map(_.id)).expectSize(batch2.length).trace("batch-deletes", Logger.LogLevel.Info)
+    } yield ()
+
   override val executable: Executable =
     Executable
       .withParser(Parser.unit)
@@ -267,18 +297,13 @@ object Tmp extends ExecutableApp {
           _ <- Logger.log.info("Starting...")
           _ <- PostgresMeta.schemaDiff(Tables(Musician.tableSchema, Band.tableSchema, MusicianInBand.tableSchema, Note.tableSchema))
 
-          numIters = 12500
-          _ <- Logger.log.info(s"Generating sample sizes of ${numIters.toStringCommas}")
+          // _ <- batchTimings(1000)
 
-          batch1 <- randomNote.replicateZIO(numIters).map(Chunk.fromIterable)
-          batch2 <- randomNote.replicateZIO(numIters).map(Chunk.fromIterable)
-
-          _ <- Logger.log.info("Starting raw-inserts")
-          _ <- ZIO.foreachDiscard(batch1)(NoteQueries.insert(_).single).trace("raw-inserts", Logger.LogLevel.Info)
-          _ <- ZIO.foreachDiscard(batch1)(n => NoteQueries.deleteById(n.id).single).trace("raw-deletes", Logger.LogLevel.Info)
-          _ <- Logger.log.info("Starting batch-inserts")
-          _ <- NoteQueries.insert.batched(batch2).unit.trace("batch-inserts", Logger.LogLevel.Info)
-          _ <- NoteQueries.deleteById.batched(batch2.map(_.id)).expectSize(batch2.length).trace("batch-deletes", Logger.LogLevel.Info)
+          initialNote <- randomNote
+          _ <- NoteQueries.insert(initialNote).single
+          _ <- NoteQueries.updateNoteText(initialNote.copy(text = s"updated - ${initialNote.text}", localDate = initialNote.localDate.plusDays(1))).single
+          updatedNote <- NoteQueries.selectById(initialNote.id).single
+          _ <- Logger.log.info(s"$initialNote\n$updatedNote")
         } yield ()
       }
 

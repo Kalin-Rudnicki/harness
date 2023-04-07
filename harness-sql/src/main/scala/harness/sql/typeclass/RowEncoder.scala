@@ -53,4 +53,21 @@ object RowEncoder {
       }
     }
 
+  def forTable[T[_[_]] <: Table](encoders: T[ColEncoder], filter: T[Const[Boolean]])(using inst: => K11.ProductGeneric[T]): RowEncoder[T[Id]] =
+    new RowEncoder[T[Id]] {
+      lazy val encodersTuple: IArray[ColEncoder[Any]] = inst.toRepr(encoders).toIArray.map(_.asInstanceOf[ColEncoder[Any]])
+      lazy val filterTuple: IArray[Boolean] = inst.toRepr(filter).toIArray.map(_.asInstanceOf[Boolean])
+      lazy val zippedTuple: IArray[(ColEncoder[Any], Boolean)] = encodersTuple.zip(filterTuple)
+      override lazy val width: Int = filterTuple.filter(identity).length
+
+      override def encodeRow(t: T[Id], o: Int, arr: Array[Object]): Unit = {
+        val rowTuple: IArray[Any] = inst.toRepr(t).toIArray.map(_.asInstanceOf[Any])
+        rowTuple
+          .zip(zippedTuple)
+          .collect { case (t, (e, true)) => (t, e) }
+          .zipWithIndex
+          .foreach { case ((t, e), i) => arr(o + i) = e.encodeColumn(t) }
+      }
+    }
+
 }

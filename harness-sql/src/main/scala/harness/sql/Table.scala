@@ -7,6 +7,7 @@ abstract class Table
 object Table {
 
   abstract class WithId[F[_], Id] extends Table {
+    final type IdT = Id
     val id: F[Id]
   }
 

@@ -1,6 +1,5 @@
 package harness.sql.query
 
-import cats.data.NonEmptyList
 import cats.syntax.option.*
 import harness.sql.*
 
@@ -24,13 +23,15 @@ object Fragment {
 
   type Arg = String | Fragment | ColRef | QueryBool | QuerySet | AppliedCol[_] | AppliedCol.Opt[_] | Returning[_]
 
+  def empty: Fragment = Fragment("", QueryInputMapper.empty)
+
   def fromString(sql: String): Fragment =
     Fragment(sql, QueryInputMapper.empty)
 
-  def joinAll(frags: NonEmptyList[Fragment], joinString: String = ""): Fragment =
+  def joinAll(frags: Iterable[Fragment], joinString: String = ""): Fragment =
     Fragment(
       frags.toList.map(_.sql).mkString(joinString),
-      frags.map(_.qim).reduceLeft(_ + _),
+      frags.map(_.qim).foldLeft(QueryInputMapper.empty) { _ + _ },
     )
 
 }
@@ -61,13 +62,8 @@ extension (sc: StringContext) {
         val (sqlStr, qim) = toTuple(arg)
         Fragment(s"$str1$sqlStr$str2", qim.getOrElse(QueryInputMapper.empty))
       case (partsList, argsList) =>
-        val NonEmptyList(pqH, pqT) = NonEmptyList.fromListUnsafe(partsList.reverse)
-        Fragment.joinAll(
-          NonEmptyList(
-            Fragment.fromString(pqH),
-            pqT.zip(argsList.reverse).map(join),
-          ).reverse,
-        )
+        val plr = partsList.reverse
+        Fragment.joinAll(Fragment.fromString(plr.head) :: plr.tail.zip(argsList.reverse).map(join).reverse)
     }
   }
 }
