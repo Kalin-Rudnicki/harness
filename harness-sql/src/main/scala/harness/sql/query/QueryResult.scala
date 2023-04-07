@@ -10,24 +10,24 @@ import java.sql.{Array, PreparedStatement, ResultSet}
 import zio.*
 import zio.stream.*
 
-final class QueryResult[O] private (queryName: String, sql: String, _stream: => HRStream[JDBCConnection & Logger & Scope, O]) {
+final class QueryResult[O] private (queryName: String, fragment: Fragment, _stream: => HRStream[JDBCConnection & Logger & Scope, O]) {
 
-  inline def single: HRIO[JDBCConnection & Logger & Telemetry, O] =
+  def single: HRIO[JDBCConnection & Logger & Telemetry, O] =
     chunk.flatMap {
       case Chunk(value) => ZIO.succeed(value)
-      case chunk        => ZIO.fail(ErrorWithSql(sql, InvalidResultSetSize(queryName, HError.UserMessage.hidden, "1", chunk.length)))
+      case chunk        => ZIO.fail(ErrorWithSql(fragment.sql, InvalidResultSetSize(queryName, HError.UserMessage.hidden, "1", chunk.length)))
     }
-  inline def single(missingMessage: String): HRIO[JDBCConnection & Logger & Telemetry, O] =
+  def single(missingMessage: String): HRIO[JDBCConnection & Logger & Telemetry, O] =
     chunk.flatMap {
       case Chunk(value) => ZIO.succeed(value)
-      case chunk        => ZIO.fail(ErrorWithSql(sql, InvalidResultSetSize(queryName, HError.UserMessage.Const(missingMessage), "1", chunk.length)))
+      case chunk        => ZIO.fail(ErrorWithSql(fragment.sql, InvalidResultSetSize(queryName, HError.UserMessage.Const(missingMessage), "1", chunk.length)))
     }
 
-  inline def option: HRIO[JDBCConnection & Logger & Telemetry, Option[O]] =
+  def option: HRIO[JDBCConnection & Logger & Telemetry, Option[O]] =
     chunk.flatMap {
       case Chunk(value) => ZIO.some(value)
       case Chunk()      => ZIO.none
-      case chunk        => ZIO.fail(ErrorWithSql(sql, InvalidResultSetSize(queryName, HError.UserMessage.hidden, "0..1", chunk.length)))
+      case chunk        => ZIO.fail(ErrorWithSql(fragment.sql, InvalidResultSetSize(queryName, HError.UserMessage.hidden, "0..1", chunk.length)))
     }
 
   inline def list: HRIO[JDBCConnection & Logger & Telemetry, List[O]] = chunk.map(_.toList)
@@ -46,7 +46,7 @@ final class QueryResult[O] private (queryName: String, sql: String, _stream: => 
   def groupByLeft[K, V](kf: O => K)(vf: O => Option[V]): QueryResult[(K, Chunk[V])] =
     QueryResult(
       queryName,
-      sql,
+      fragment,
       _stream.groupAdjacentBy(kf).map { case (k, os) => (k, os.map(vf)) }.mapZIO { case (k, chunk) =>
         if (chunk.length == 1 && chunk(0).isEmpty) ZIO.succeed(k, Chunk.empty)
         else if (chunk.forall(_.nonEmpty)) ZIO.succeed((k, chunk.map(_.get)))
@@ -58,7 +58,7 @@ final class QueryResult[O] private (queryName: String, sql: String, _stream: => 
   def groupByLeftOpt[K, V](kf: O => K)(vf: O => Option[V]): QueryResult[(K, Option[NonEmptyChunk[V]])] =
     QueryResult(
       queryName,
-      sql,
+      fragment,
       _stream.groupAdjacentBy(kf).map { case (k, os) => (k, os.map(vf)) }.mapZIO { case (k, chunk) =>
         if (chunk.length == 1 && chunk(0).isEmpty) ZIO.succeed(k, None)
         else if (chunk.forall(_.nonEmpty)) ZIO.succeed((k, chunk.map(_.get).some))
@@ -71,17 +71,16 @@ object QueryResult {
 
   private[query] def stream[I, O](
       queryName: String,
-      sql: String,
+      fragment: Fragment,
       input: Option[(I, RowEncoder[I])],
-      qim: QueryInputMapper,
       decoder: RowDecoder[O],
   ): QueryResult[O] =
     QueryResult(
       queryName,
-      sql, {
+      fragment, {
         def resultSet: HRIO[JDBCConnection & Logger & Scope, ResultSet] =
           for {
-            ps <- Utils.preparedStatement(sql, input, qim)
+            ps <- Utils.preparedStatement(fragment, input)
             rs <- ZIO.acquireAutoClosable(ZIO.hAttempt(ps.executeQuery()))
           } yield rs
 
@@ -114,7 +113,7 @@ object QueryResult {
               }
             }
           }
-          .mapError(ErrorWithSql(sql, _))
+          .mapError(ErrorWithSql(fragment.sql, _))
       },
     )
 

@@ -18,4 +18,10 @@ final case class QueryInputMapper(
 object QueryInputMapper {
   val empty: QueryInputMapper = QueryInputMapper(_ => 0, (_, _, _) => ())
   val id: QueryInputMapper = QueryInputMapper(_.length, (in, out, off) => in.copyToArray(out, off, in.length))
+
+  def single[A](getObj: IArray[Object] => Object)(objSize: A => Int): QueryInputMapper =
+    QueryInputMapper(in => objSize(getObj(in).asInstanceOf[A]), (in, out, off) => out(off) = getObj(in))
+  def single(getObj: IArray[Object] => Object): QueryInputMapper =
+    QueryInputMapper(_ => 1, (in, out, off) => out(off) = getObj(in))
+
 }

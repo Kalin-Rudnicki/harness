@@ -65,8 +65,8 @@ abstract class RouteSpec[
               Spec.TestCase(
                 Logger.addContext("test-path" -> rPath.reverse.map(n => s"\"$n\"").mkString("[", "/", "]")) {
                   ZIO
-                    .acquireReleaseWith { Transaction.raw.begin().orDie.unit }
-                    .apply { _ => Transaction.raw.rollback().orDie.unit }
+                    .acquireReleaseWith { Transaction.raw.begin().unit.orDie }
+                    .apply { _ => Transaction.raw.rollback().unit.orDie }
                     .apply { _ => test }
                 },
                 annotations,

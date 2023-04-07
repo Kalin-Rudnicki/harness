@@ -29,17 +29,17 @@ object Transaction {
 
   object raw {
 
-    val begin: Query = Query("BEGIN", "BEGIN", QueryInputMapper.empty)
+    val begin: Query = Query("BEGIN", fr"BEGIN")
 
-    val commit: Query = Query("COMMIT", "COMMIT", QueryInputMapper.empty)
+    val commit: Query = Query("COMMIT", fr"COMMIT")
 
-    val rollback: Query = Query("ROLLBACK", "ROLLBACK", QueryInputMapper.empty)
+    val rollback: Query = Query("ROLLBACK", fr"ROLLBACK")
 
-    def savepoint(savepoint: Savepoint): Query = Query("SAVEPOINT", s"SAVEPOINT $savepoint", QueryInputMapper.empty)
+    def savepoint(savepoint: Savepoint): Query = Query("SAVEPOINT", fr"SAVEPOINT ${savepoint.toString}")
 
-    def releaseSavepoint(savepoint: Savepoint): Query = Query("RELEASE SAVEPOINT", s"RELEASE SAVEPOINT $savepoint", QueryInputMapper.empty)
+    def releaseSavepoint(savepoint: Savepoint): Query = Query("RELEASE SAVEPOINT", fr"RELEASE SAVEPOINT ${savepoint.toString}")
 
-    def rollbackSavepoint(savepoint: Savepoint): Query = Query("ROLLBACK TO SAVEPOINT", s"ROLLBACK TO SAVEPOINT $savepoint", QueryInputMapper.empty)
+    def rollbackSavepoint(savepoint: Savepoint): Query = Query("ROLLBACK TO SAVEPOINT", fr"ROLLBACK TO SAVEPOINT ${savepoint.toString}")
 
   }
 
@@ -49,15 +49,15 @@ object Transaction {
 
     private def genericTransaction[R <: JDBCConnection & Logger & Telemetry, A](begin: Query, rollback: Query, commit: Query)(effect: HRIO[R, A]): HRIO[R, A] =
       (
-        begin() *>
+        begin().unit *>
           effect.interruptible.foldCauseZIO(
             e =>
-              rollback()
+              rollback().unit
                 .foldCauseZIO(
                   e2 => ZIO.failCause(Cause.Then(e, e2)),
                   _ => ZIO.failCause(e),
                 ),
-            a => commit().as(a),
+            a => commit().unit.as(a),
           )
       ).uninterruptible
 

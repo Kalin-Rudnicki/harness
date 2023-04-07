@@ -36,7 +36,7 @@ object Returning {
     t => Returning(List(t.wrapped.ref.toString), RowDecoder.fromColDecoder(t.wrapped.col.colCodec.decoder.optional), QueryInputMapper.empty)
 
   given convertReturningJson[T]: Conversion[Select.Query[T] with Select.JsonReturn, Returning[T]] =
-    t => Returning(List(s"(${t.query})"), t.decoder, t.queryInputMapper)
+    t => Returning(List(s"(${t.fragment.sql})"), t.decoder, t.fragment.qim)
 
 }
 

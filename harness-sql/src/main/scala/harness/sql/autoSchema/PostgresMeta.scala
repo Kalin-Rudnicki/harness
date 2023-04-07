@@ -132,26 +132,17 @@ object PostgresMeta {
                 }
 
               ZIO.when(alterations.nonEmpty) {
-                val alterSql: String = s"ALTER TABLE ${t.tableSchema}.${t.tableName} ${alterations.mkString(", ")}"
-                val query: Query = new Query("ALTER TABLE", alterSql, QueryInputMapper.id)
-
-                query().unit
+                Query("ALTER TABLE", fr"ALTER TABLE ${t.tableSchema}.${t.tableName} ${alterations.mkString(", ")}")().unit
               }
             case (t, None, Some(schema)) =>
-              val createSql: String =
-                schema
-                  .map { case (constraints, col) =>
-                    s"${col.columnName} ${col.dataType}${if (col.isNullable) "" else " NOT"} NULL${constraints.mkString(" ", " ", "")}"
-                  }
-                  .mkString(s"CREATE TABLE ${t.tableSchema}.${t.tableName} (", ", ", ")")
-              val query: Query = new Query("CREATE TABLE", createSql, QueryInputMapper.id)
+              val cols =
+                schema.map { case (constraints, col) =>
+                  s"${col.columnName} ${col.dataType}${if (col.isNullable) "" else " NOT"} NULL${constraints.mkString(" ", " ", "")}"
+                }
 
-              query().unit
+              Query("CREATE TABLE", fr"CREATE TABLE ${t.tableSchema}.${t.tableName} (${cols.mkString(", ")})")().unit
             case (t, Some(_), None) =>
-              val deleteSql: String = s"DROP TABLE ${t.tableSchema}.${t.tableName}${if (cascadeDropTable) " CASCADE" else ""}"
-              val query: Query = new Query("DROP TABLE", deleteSql, QueryInputMapper.id)
-
-              query().unit
+              Query("DROP TABLE", fr"DROP TABLE ${t.tableSchema}.${t.tableName}${if (cascadeDropTable) " CASCADE" else ""}")().unit
             case (_, None, None) =>
               ZIO.unit
           }

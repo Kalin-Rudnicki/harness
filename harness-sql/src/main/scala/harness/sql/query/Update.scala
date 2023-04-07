@@ -9,69 +9,59 @@ object Update {
   def apply[T[_[_]] <: Table](name: String)(implicit ti: TableSchema[T]): Q1[T[AppliedCol]] =
     Q1(
       ti.functorK.mapK(ti.colInfo)(AppliedCol.withVarName(name)),
-      s"${ti.referenceName} $name",
+      fr"${ti.referenceName} $name",
     )
 
   final class Q1[T] private[Update] (
       t: T,
-      tableName: String,
+      tableName: Fragment,
   ) {
 
     // TODO (KR) : Support joins
 
     // TODO (KR) : Add 'set' without 'where'
 
-    def where(f: T => QueryBool): Q2[T] = {
-      val qb = f(t)
+    def where(f: T => QueryBool): Q2[T] =
       Q2(
         t,
         tableName,
-        qb.wrapped,
-        qb.queryInputMapper,
+        f(t).fragment,
       )
-    }
 
   }
 
   final class Q2[T] private[Update] (
       t: T,
-      tableName: String,
-      whereClause: String,
-      queryInputMapper: QueryInputMapper,
+      tableName: Fragment,
+      whereClause: Fragment,
   ) {
 
-    def set(f: T => QuerySet): Update.Query[T] = {
-      val qs = f(t)
+    def set(f: T => QuerySet): Update.Query[T] =
       Update.Query(
         t,
-        s"UPDATE $tableName SET ${qs.wrapped} WHERE $whereClause",
-        qs.queryInputMapper + this.queryInputMapper,
+        fr"UPDATE $tableName SET ${f(t)} WHERE $whereClause",
       )
-    }
 
   }
 
   final class Query[T] private[Update] (
       t: T,
-      private[query] val query: String,
-      private[query] val queryInputMapper: QueryInputMapper,
+      private[query] val fragment: Fragment,
   ) {
 
     def returning[T2](f: T => Returning[T2]): QueryR[T2] = {
       val ret = f(t)
       QueryR(
-        s"$query RETURNING ${ret.selects.mkString(", ")}",
+        fr"$fragment RETURNING $ret",
         ret.rowDecoder,
-        queryInputMapper,
       )
     }
 
   }
 
   final class QueryR[O] private[Update] (
-      private[query] val query: String,
+      private[query] val fragment: Fragment,
       private[query] val decoder: RowDecoder[O],
-      private[query] val queryInputMapper: QueryInputMapper,
   )
 
 }

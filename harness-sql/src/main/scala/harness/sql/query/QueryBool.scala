@@ -5,35 +5,33 @@ import harness.sql.*
 import scala.util.NotGiven
 
 final case class QueryBool private[sql] (
-    private[sql] val wrapped: String,
+    private[sql] val fragment: Fragment,
     private[sql] val unaryNeedsParens: Boolean,
     private[sql] val binaryNeedsParens: Boolean,
-    private[sql] val queryInputMapper: QueryInputMapper,
 ) {
 
-  def unaryString: String = if (unaryNeedsParens) s"($wrapped)" else wrapped
-  def binaryString: String = if (binaryNeedsParens) s"($wrapped)" else wrapped
+  def unaryFragment: Fragment = fragment.wrapInParensIf(unaryNeedsParens)
+  def binaryFragment: Fragment = fragment.wrapInParensIf(binaryNeedsParens)
 
-  def unary_! : QueryBool = QueryBool(s"NOT $unaryString", false, false, queryInputMapper)
+  def unary_! : QueryBool =
+    QueryBool("NOT " +: unaryFragment, true, false)
   def &&(that: QueryBool): QueryBool =
     QueryBool(
-      s"${this.binaryString} AND ${that.binaryString}",
+      fr"${this.binaryFragment} AND ${that.binaryFragment}",
       true,
       true,
-      this.queryInputMapper + that.queryInputMapper,
     )
   def ||(that: QueryBool): QueryBool =
     QueryBool(
-      s"${this.binaryString} OR ${that.binaryString}",
+      fr"${this.binaryFragment} OR ${that.binaryFragment}",
       true,
       true,
-      this.queryInputMapper + that.queryInputMapper,
     )
 
 }
 
-given Conversion[AppliedCol[Boolean], QueryBool] = a => QueryBool(s"${a.tableVarName}.${a.col.colName}", false, false, QueryInputMapper.empty)
-given Conversion[AppliedCol.Opt[Boolean], QueryBool] = a => QueryBool(s"${a.wrapped.tableVarName}.${a.wrapped.col.colName}", false, false, QueryInputMapper.empty)
+given Conversion[AppliedCol[Boolean], QueryBool] = a => QueryBool(fr"$a", false, false)
+given Conversion[AppliedCol.Opt[Boolean], QueryBool] = a => QueryBool(fr"$a", false, false)
 
 trait QueryBoolOps[A, B] private {
   def build(a: A, b: B, op: String): QueryBool
@@ -75,10 +73,9 @@ object QueryBoolOps {
       bEv: QueryElement[B, BObjT, CompareT],
   ): QueryBoolOps[A, B] = { (a, b, o) =>
     QueryBool(
-      s"${aEv.getCol(a).ref.toStringNoType} $o ${bEv.getCol(b).ref.toStringNoType}",
+      fr"${aEv.getCol(a).ref} $o ${bEv.getCol(b).ref}",
       true,
       false,
-      QueryInputMapper.empty,
     )
   }
 
@@ -88,10 +85,10 @@ object QueryBoolOps {
       convert: MapInput[BObjT, AObjT],
   ): QueryBoolOps[A, B] = { (a, b, o) =>
     QueryBool(
-      s"${aEv.getCol(a).ref.toStringNoType} $o ${aEv.getCol(a).col.`(?)`}",
+      fr"${aEv.getCol(a).ref} $o ${aEv.getCol(a).col.`(?)`}" ##
+        QueryInputMapper.single(in => aEv.getCol(a).col.colCodec.encoder.encodeColumn(convert.f(bEv.getObj(b, in)))),
       true,
       false,
-      QueryInputMapper(_ => 1, (in, out, off) => out(off) = aEv.getCol(a).col.colCodec.encoder.encodeColumn(convert.f(bEv.getObj(b, in)))),
     )
   }
 
@@ -101,10 +98,10 @@ object QueryBoolOps {
       convert: MapInput[AObjT, BObjT],
   ): QueryBoolOps[A, B] = { (a, b, o) =>
     QueryBool(
-      s"${bEv.getCol(b).ref.toStringNoType} $o ${bEv.getCol(b).col.`(?)`}",
+      fr"${bEv.getCol(b).ref.toStringNoType} $o ${bEv.getCol(b).col.`(?)`}" ##
+        QueryInputMapper.single(in => bEv.getCol(b).col.colCodec.encoder.encodeColumn(convert.f(aEv.getObj(a, in)))),
       true,
       false,
-      QueryInputMapper(_ => 1, (in, out, off) => out(off) = bEv.getCol(b).col.colCodec.encoder.encodeColumn(convert.f(aEv.getObj(a, in)))),
     )
   }
 
@@ -120,13 +117,13 @@ extension [A](a: A) {
 }
 
 extension [A](a: AppliedCol[Option[A]]) {
-  def isNull: QueryBool = QueryBool(s"${a.ref} IS NULL", true, false, QueryInputMapper.empty)
-  def isNotNull: QueryBool = QueryBool(s"${a.ref} IS NOT NULL", true, false, QueryInputMapper.empty)
+  def isNull: QueryBool = QueryBool(fr"$a IS NULL", true, false)
+  def isNotNull: QueryBool = QueryBool(fr"$a IS NOT NULL", true, false)
 }
 
 extension [A](a: AppliedCol.Opt[A]) {
-  def isNull: QueryBool = QueryBool(s"${a.wrapped.ref} IS NULL", true, false, QueryInputMapper.empty)
-  def isNotNull: QueryBool = QueryBool(s"${a.wrapped.ref} IS NOT NULL", true, false, QueryInputMapper.empty)
+  def isNull: QueryBool = QueryBool(fr"$a IS NULL", true, false)
+  def isNotNull: QueryBool = QueryBool(fr"$a IS NOT NULL", true, false)
 }
 
 // TODO (KR) : LIKE

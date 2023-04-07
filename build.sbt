@@ -126,7 +126,7 @@ lazy val `harness-sql` =
       ),
       Test / fork := true,
     )
-    .dependsOn(`harness-zio`.jvm)
+    .dependsOn(`harness-zio`.jvm % "test->test;compile->compile")
 
 lazy val `harness-web` =
   crossProject(JSPlatform, JVMPlatform)

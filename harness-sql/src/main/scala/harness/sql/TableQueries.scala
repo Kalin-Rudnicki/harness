@@ -25,8 +25,15 @@ abstract class TableQueries[Id, T[F[_]] <: Table.WithId[F, Id]](implicit ti: Tab
 
   // TODO (KR) : update
 
-  final val deleteById: QueryIO[Id, T[Identity]] =
-    Prepare.deleteIO(s"${ti.referenceName} - deleteById") { Input[Id] } { pk =>
+  final val deleteById: QueryI[Id] =
+    Prepare.deleteI(s"${ti.referenceName} - deleteById") { Input[Id] } { pk =>
+      Delete
+        .from[T](ti.referenceName.head.toString)
+        .where { t => t.id === pk }
+    }
+
+  final val deleteByIdReturning: QueryIO[Id, T[Identity]] =
+    Prepare.deleteIO(s"${ti.referenceName} - deleteByIdReturning") { Input[Id] } { pk =>
       Delete
         .from[T](ti.referenceName.head.toString)
         .where { t => t.id === pk }

@@ -38,7 +38,7 @@ object User {
             user <- Q.User.byUsername(body.username).option.someOrFail(HError.UserError(s"Invalid username: '${body.username}'"))
             _ <- ZIO.fail(HError.UserError("Invalid Password")).unless(BCrypt.checkpw(body.password, user.encryptedPassword))
             session = M.Session.newForUser(user)
-            _ <- Q.Session.insert(session)
+            _ <- Q.Session.insert(session).single
           } yield HttpResponse("OK").withCookie(Cookie(Helpers.SessionToken, session.token).rootPath.secure)
         }
       },
@@ -59,8 +59,8 @@ object User {
             user = new M.User.Identity(M.User.Id.gen, body.firstName, body.lastName, body.username, body.username.toLowerCase, encryptedPassword, body.email)
             session = M.Session.newForUser(user)
             _ <- Logger.log.detailed(s"Creating user ${user.show}")
-            _ <- Q.User.insert(user)
-            _ <- Q.Session.insert(session)
+            _ <- Q.User.insert(user).single
+            _ <- Q.Session.insert(session).single
           } yield HttpResponse("OK").withCookie(Cookie(Helpers.SessionToken, session.token).rootPath.secure)
         }
       },

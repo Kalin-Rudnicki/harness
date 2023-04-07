@@ -267,16 +267,18 @@ object Tmp extends ExecutableApp {
           _ <- Logger.log.info("Starting...")
           _ <- PostgresMeta.schemaDiff(Tables(Musician.tableSchema, Band.tableSchema, MusicianInBand.tableSchema, Note.tableSchema))
 
-          numIters = 125000
+          numIters = 12500
           _ <- Logger.log.info(s"Generating sample sizes of ${numIters.toStringCommas}")
 
           batch1 <- randomNote.replicateZIO(numIters).map(Chunk.fromIterable)
           batch2 <- randomNote.replicateZIO(numIters).map(Chunk.fromIterable)
 
           _ <- Logger.log.info("Starting raw-inserts")
-          _ <- ZIO.foreachDiscard(batch1)(NoteQueries.insert(_)).trace("raw-inserts", Logger.LogLevel.Info)
+          _ <- ZIO.foreachDiscard(batch1)(NoteQueries.insert(_).single).trace("raw-inserts", Logger.LogLevel.Info)
+          _ <- ZIO.foreachDiscard(batch1)(n => NoteQueries.deleteById(n.id).single).trace("raw-deletes", Logger.LogLevel.Info)
           _ <- Logger.log.info("Starting batch-inserts")
-          _ <- NoteQueries.insert.batched(batch2).trace("batch-inserts", Logger.LogLevel.Info)
+          _ <- NoteQueries.insert.batched(batch2).unit.trace("batch-inserts", Logger.LogLevel.Info)
+          _ <- NoteQueries.deleteById.batched(batch2.map(_.id)).expectSize(batch2.length).trace("batch-deletes", Logger.LogLevel.Info)
         } yield ()
       }
 
