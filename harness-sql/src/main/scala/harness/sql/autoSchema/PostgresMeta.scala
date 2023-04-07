@@ -106,7 +106,8 @@ object PostgresMeta {
 
   object schemaDiff {
 
-    def apply(tables: Tables): HRIO[JDBCConnection & Logger & Telemetry, Unit] =
+    def apply(tables: Tables): HRIO[JDBCConnection & Logger & Telemetry, Unit] = schemaDiff(true, tables)
+    def apply(cascadeDropTable: Boolean, tables: Tables): HRIO[JDBCConnection & Logger & Telemetry, Unit] =
       for {
         dbTAC <- tablesAndColumns
         schemaTAC = tablesToMap(tables)
@@ -147,7 +148,7 @@ object PostgresMeta {
 
               query().unit
             case (t, Some(_), None) =>
-              val deleteSql: String = s"DROP TABLE ${t.tableSchema}.${t.tableName}"
+              val deleteSql: String = s"DROP TABLE ${t.tableSchema}.${t.tableName}${if (cascadeDropTable) " CASCADE" else ""}"
               val query: Query = new Query("DROP TABLE", deleteSql, QueryInputMapper.id)
 
               query().unit
