@@ -2,26 +2,36 @@ package harness.zio
 
 import zio.*
 
-final class Cache[-R, +E, -K, +V] private (ref: Ref.Synchronized[Map[K, V]], _get: K => ZIO[R, E, V]) {
+final class Cache[K, V] private (ref: Ref.Synchronized[Map[K, V]]) {
 
-  def get(k: K): ZIO[R, E, V] =
+  def isCached(k: K): UIO[Boolean] =
+    ref.get.map(_.contains(k))
+  def check(k: K): UIO[Option[V]] =
+    ref.get.map(_.get(k))
+
+  def get[R, E](k: K)(_get: K => ZIO[R, E, V]): ZIO[R, E, V] =
     ref.modifyZIO { cached =>
       cached.get(k) match {
         case Some(v) => ZIO.succeed((v, cached))
         case None    => _get(k).map { v => (v, cached.updated(k, v)) }
       }
     }
-  inline def apply(k: K): ZIO[R, E, V] = get(k)
+  inline def apply[R, E](k: K)(_get: K => ZIO[R, E, V]): ZIO[R, E, V] = get(k)(_get)
 
-  def cache(k: K): ZIO[R, E, Unit] =
+  def put(k: K, v: V): UIO[Unit] =
+    ref.update(_.updated(k, v))
+  def putAll(pairs: (K, V)*): UIO[Unit] =
+    ref.update(_ ++ pairs.toMap)
+
+  def cache[R, E](k: K)(_get: K => ZIO[R, E, V]): ZIO[R, E, Unit] =
     ref.updateZIO { cached =>
       _get(k).map { v => cached.updated(k, v) }
     }
-  def cacheAll(ks: K*): ZIO[R, E, Unit] =
+  def cacheAll[R, E](ks: K*)(_get: K => ZIO[R, E, V]): ZIO[R, E, Unit] =
     ref.updateZIO { cached =>
       ZIO.foreach(ks) { k => _get(k).map(k -> _) }.map { pairs => cached ++ pairs.toMap }
     }
-  def cacheAllPar(ks: K*): ZIO[R, E, Unit] =
+  def cacheAllPar[R, E](ks: K*)(_get: K => ZIO[R, E, V]): ZIO[R, E, Unit] =
     ref.updateZIO { cached =>
       ZIO.foreachPar(ks) { k => _get(k).map(k -> _) }.map { pairs => cached ++ pairs.toMap }
     }
@@ -30,22 +40,18 @@ final class Cache[-R, +E, -K, +V] private (ref: Ref.Synchronized[Map[K, V]], _ge
   def invalidateAll(ks: K*): UIO[Unit] = ref.update { _.removedAll(ks) }
   def invalidateAll: UIO[Unit] = ref.update { _ => Map.empty[K, V] }
 
-  def refreshAll: ZIO[R, E, Unit] =
+  def refreshAll[R, E](_get: K => ZIO[R, E, V]): ZIO[R, E, Unit] =
     ref.updateZIO { cached =>
       ZIO.foreach(cached.keySet.toList) { k => _get(k).map(k -> _) }.map(_.toMap)
     }
-  def refreshAllPar: ZIO[R, E, Unit] =
+  def refreshAllPar[R, E](_get: K => ZIO[R, E, V]): ZIO[R, E, Unit] =
     ref.updateZIO { cached =>
       ZIO.foreachPar(cached.keySet.toList) { k => _get(k).map(k -> _) }.map(_.toMap)
     }
 
-  def isCached(k: K): UIO[Boolean] =
-    ref.get.map(_.contains(k))
-
 }
 object Cache {
 
-  def apply[R, E, K, V](get: K => ZIO[R, E, V]): UIO[Cache[R, E, K, V]] =
-    Ref.Synchronized.make(Map.empty[K, V]).map(new Cache(_, get))
+  def make[K, V]: UIO[Cache[K, V]] = Ref.Synchronized.make(Map.empty[K, V]).map(new Cache(_))
 
 }
