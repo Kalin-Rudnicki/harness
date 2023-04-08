@@ -28,7 +28,7 @@ object Tmp extends ExecutableApp {
   object Musician extends Table.Companion.WithId[Musician] {
 
     override implicit lazy val tableSchema: TableSchema[Musician] =
-      TableSchema.derived[Musician]("musician")(
+      TableSchema.derived[Musician]("tmp", "musician")(
         Musician[Col](
           id = Id.pkCol,
           firstName = Col.string("first_name"),
@@ -49,7 +49,7 @@ object Tmp extends ExecutableApp {
   object Band extends Table.Companion.WithId[Band] {
 
     override implicit lazy val tableSchema: TableSchema[Band] =
-      TableSchema.derived[Band]("band")(
+      TableSchema.derived[Band]("tmp", "band")(
         Band[Col](
           id = Id.pkCol,
           name = Col.string("name"),
@@ -68,7 +68,7 @@ object Tmp extends ExecutableApp {
   object MusicianInBand extends Table.Companion.WithId[MusicianInBand] {
 
     override implicit lazy val tableSchema: TableSchema[MusicianInBand] =
-      TableSchema.derived[MusicianInBand]("musician_in_band")(
+      TableSchema.derived[MusicianInBand]("tmp", "musician_in_band")(
         MusicianInBand[Col](
           id = Id.pkCol,
           musicianId = Musician.Id.fkCol("musician_id"),
@@ -91,7 +91,7 @@ object Tmp extends ExecutableApp {
   object Note extends Table.Companion.WithId[Note] {
 
     override implicit lazy val tableSchema: TableSchema[Note] =
-      TableSchema.derived[Note]("note")(
+      TableSchema.derived[Note]("tmp", "note")(
         new Note.Cols(
           id = Note.Id.pkCol,
           text = Col.string("text"),

@@ -38,14 +38,14 @@ object Table {
         def basicCol(colName: String): Col[Id] =
           Col.uuid(colName).imap(Id(_))(_.toUUID)
 
-        inline def pkCol: Col[Id] =
+        def pkCol: Col[Id] =
           Id.pkCol("id")
-        inline def pkCol(colName: String): Col[Id] =
+        def pkCol(colName: String): Col[Id] =
           Id.basicCol(colName).primaryKey
 
-        inline def fkCol(colName: String): Col[Id] =
+        def fkCol(colName: String): Col[Id] =
           Id.fkCol(colName, "id")
-        inline def fkCol(colName: String, referencesColName: String): Col[Id] =
+        def fkCol(colName: String, referencesColName: String): Col[Id] =
           Id.basicCol(colName).references(ForeignKeyRef(tableSchema.tableSchema, tableSchema.tableName, referencesColName))
       }
 
