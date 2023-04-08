@@ -19,10 +19,11 @@ object FragmentSpec extends DefaultHarnessSpec {
 
   private val colRef1: ColRef = ColRef("tab_1", "col", None)
   private val colRef2: ColRef = ColRef("tab_2", "col", None)
-  
+
   override def spec: TestSpec =
     suite("FragmentSpec")(
       makeTest("ColRef")(fr"$colRef1 IS NULL")("tab_1.col IS NULL"),
+      makeTest("CreateTable")(fr"CREATE TABLE ${"schema"}.${"table"} (${"id UUID PRIMARY KEY"})")("CREATE TABLE schema.table (id UUID PRIMARY KEY)"),
     )
 
 }

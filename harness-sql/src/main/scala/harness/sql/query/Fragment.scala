@@ -63,7 +63,7 @@ extension (sc: StringContext) {
         Fragment(s"$str1$sqlStr$str2", qim.getOrElse(QueryInputMapper.empty))
       case (partsList, argsList) =>
         val plr = partsList.reverse
-        Fragment.joinAll(Fragment.fromString(plr.head) :: plr.tail.zip(argsList.reverse).map(join).reverse)
+        Fragment.joinAll((Fragment.fromString(plr.head) :: plr.tail.zip(argsList.reverse).map(join)).reverse)
     }
   }
 }
