@@ -53,7 +53,7 @@ object HttpRequest {
       extends Lookup(
         "header",
         { req => name =>
-          req.headers.get(name).traverse {
+          req.headers.get(name.toLowerCase).traverse {
             case v :: Nil => v.asRight
             case _        => HError.UserError(s"Headers with more than 1 value not supported ($name)").asLeft
           }
@@ -117,7 +117,7 @@ object HttpRequest {
 
   private[server] def read(exchange: HttpExchange, requestId: UUID): HttpRequest = {
     val uri = exchange.getRequestURI
-    val headerMap = exchange.getRequestHeaders.asScala.toMap.map { (k, v) => (k, v.asScala.toList) }
+    val headerMap = exchange.getRequestHeaders.asScala.toMap.map { (k, v) => (k.toLowerCase, v.asScala.toList) }
 
     def getMap(raw: Option[String], firstSplit: String, map: String => String): Map[String, String] =
       raw match {
