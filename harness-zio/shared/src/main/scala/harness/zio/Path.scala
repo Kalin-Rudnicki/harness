@@ -13,6 +13,10 @@ trait Path {
 
   override final def toString: String = show
 
+  def optParent: HTask[Option[Path]]
+  inline final def parent: HTask[Path] =
+    optParent.someOrFail(HError.UserError(s"Path does not have a parent : $show"))
+
   def createFile: HTask[Unit]
   inline final def createFileIfDNE: HTask[Unit] =
     exists.flatMap {

@@ -21,6 +21,8 @@ final case class WrappedJavaPath(javaPath: JavaPath) extends Path {
     }
   }
 
+  override def optParent: HTask[Option[Path]] = ZIO.hAttempt(Option(javaPath.getParent).map(WrappedJavaPath.apply))
+
   override def createFile: HTask[Unit] = ZIO.hAttempt(JavaFiles.createFile(javaPath))
   override def mkdir: HTask[Unit] = ZIO.hAttempt(JavaFiles.createDirectory(javaPath))
   override def mkdirs: HTask[Unit] = ZIO.hAttempt(JavaFiles.createDirectories(javaPath))
