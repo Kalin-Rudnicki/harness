@@ -6,6 +6,7 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import java.time.*
 import java.util.UUID
+import scala.reflect.ClassTag
 import scala.util.Try
 
 trait StringDecoder[+T] { self =>
@@ -114,7 +115,7 @@ object StringDecoder {
 
   implicit val localTime: StringDecoder[LocalTime] = { str =>
     import temporal.*
-    
+
     val hourMinute = s"$numsOneTwo:$numsTwo".r
     val hourMinuteAM = s"$numsOneTwo:$numsTwo$someSpacing(?:AM|am)".r
     val hourMinutePM = s"$numsOneTwo:$numsTwo$someSpacing(?:PM|pm)".r
@@ -161,5 +162,13 @@ object StringDecoder {
   }
 
   implicit val localDateTimeDecodeString: StringDecoder[LocalDateTime] = configurableLocalDateTime(LocalDate.now.getYear, 10)
+
+  def `enum`[E <: Enum[E], Enc: StringDecoder](implicit ewe: Enum.WithEnc[E, Enc], ct: ClassTag[E]): StringDecoder[E] =
+    StringDecoder[Enc].flatMap { enc =>
+      ewe.decode(enc) match {
+        case Some(value) => value.asRight
+        case None        => s"Invalid encoding for enum ${ct.runtimeClass.getSimpleName}: '$enc'".leftNel
+      }
+    }
 
 }

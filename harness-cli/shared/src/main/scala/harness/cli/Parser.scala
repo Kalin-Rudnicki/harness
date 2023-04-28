@@ -5,7 +5,8 @@ import cats.data.NonEmptyList
 import cats.syntax.either.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
-import harness.core.{StringDecoder, Zip}
+import harness.core.{Enum, StringDecoder, StringEncoder, Zip}
+import scala.reflect.ClassTag
 
 trait Parser[T] { self =>
 
@@ -56,6 +57,18 @@ trait Parser[T] { self =>
 
   final def map[T2](f: T => T2): Parser[T2] =
     buildF(_).map(_.map(f))
+
+  final def emap[T2](f: T => Either[String, T2]): Parser[T2] =
+    buildF(_).map {
+      _.mapResult {
+        _.flatMap { (args, t) =>
+          f(t) match {
+            case Left(error)  => ???
+            case Right(value) => ???
+          }
+        }
+      }
+    }
 
   final def as[T2](f: => T2): Parser[T2] = self.map { _ => f }
 
@@ -317,57 +330,74 @@ object Parser {
 
   val unit: Parser[Unit] = Parser.const { () }
 
-  /**
-    * Parses a value from a param:
-    *   - --base-name VALUE
-    *   - --base-name=VALUE
-    */
-  def value[T](
-      baseName: LongName,
-      shortParam: Defaultable.Optional[ShortName] = Defaultable.Auto,
-      helpHint: List[String] = Nil,
-      helpExtraHint: List[String] = Nil,
-  )(implicit decoder: StringDecoder[T]): Parser[T] =
-    verifyAndDerive.value(_, Param.LongWithValue(baseName), shortParam.map(Param.ShortWithValue(_))).map { (usedParams, long, short) =>
-      short match {
-        case Some(short) =>
-          Parser.BuildResult(
-            usedParams,
-            HelpMessage.Text(
-              s"${long.formattedName}, ${short.formattedName}" :: Nil,
-              helpHint,
-            ),
-            HelpMessage.Text(
-              s"${long.formattedName}, ${short.formattedName}" :: Nil,
-              helpHint ::: helpExtraHint,
-            ),
-            (FindFunction.forParam(long) || FindFunction.forParam(short)).toParseFunction(long)(_).flatMap { (args, str) =>
-              decoder.decode(str) match {
-                case Right(value) => ParseResult.Success(args, value)
-                case Left(msg)    => ParseResult.Fail(args, ParsingFailure.MalformedValue(long, str, msg))
-              }
-            },
-          )
-        case None =>
-          Parser.BuildResult(
-            usedParams,
-            HelpMessage.Text(
-              long.formattedName :: Nil,
-              helpHint,
-            ),
-            HelpMessage.Text(
-              long.formattedName :: Nil,
-              helpHint ::: helpExtraHint,
-            ),
-            FindFunction.forParam(long).toParseFunction(long)(_).flatMap { (args, str) =>
-              decoder.decode(str) match {
-                case Right(value) => ParseResult.Success(args, value)
-                case Left(msg)    => ParseResult.Fail(args, ParsingFailure.MalformedValue(long, str, msg))
-              }
-            },
-          )
+  object value {
+
+    /**
+      * Parses a value from a param:
+      *   - --base-name VALUE
+      *   - --base-name=VALUE
+      */
+    def apply[T](
+        baseName: LongName,
+        shortParam: Defaultable.Optional[ShortName] = Defaultable.Auto,
+        helpHint: List[String] = Nil,
+        helpExtraHint: List[String] = Nil,
+    )(implicit decoder: StringDecoder[T]): Parser[T] =
+      verifyAndDerive.value(_, Param.LongWithValue(baseName), shortParam.map(Param.ShortWithValue.apply)).map { (usedParams, long, short) =>
+        short match {
+          case Some(short) =>
+            Parser.BuildResult(
+              usedParams,
+              HelpMessage.Text(
+                s"${long.formattedName}, ${short.formattedName}" :: Nil,
+                helpHint,
+              ),
+              HelpMessage.Text(
+                s"${long.formattedName}, ${short.formattedName}" :: Nil,
+                helpHint ::: helpExtraHint,
+              ),
+              (FindFunction.forParam(long) || FindFunction.forParam(short)).toParseFunction(long)(_).flatMap { (args, str) =>
+                decoder.decode(str) match {
+                  case Right(value) => ParseResult.Success(args, value)
+                  case Left(msg)    => ParseResult.Fail(args, ParsingFailure.MalformedValue(long, str, msg))
+                }
+              },
+            )
+          case None =>
+            Parser.BuildResult(
+              usedParams,
+              HelpMessage.Text(
+                long.formattedName :: Nil,
+                helpHint,
+              ),
+              HelpMessage.Text(
+                long.formattedName :: Nil,
+                helpHint ::: helpExtraHint,
+              ),
+              FindFunction.forParam(long).toParseFunction(long)(_).flatMap { (args, str) =>
+                decoder.decode(str) match {
+                  case Right(value) => ParseResult.Success(args, value)
+                  case Left(msg)    => ParseResult.Fail(args, ParsingFailure.MalformedValue(long, str, msg))
+                }
+              },
+            )
+        }
       }
-    }
+
+    def `enum`[E <: Enum[E]: ClassTag, Enc: StringEncoder: StringDecoder](
+        baseName: LongName,
+        shortParam: Defaultable.Optional[ShortName] = Defaultable.Auto,
+        helpHint: List[String] = Nil,
+        helpExtraHint: List[String] = Nil,
+    )(implicit ewe: Enum.WithEnc[E, Enc]): Parser[E] =
+      Parser.value[E](
+        baseName,
+        shortParam,
+        helpHint,
+        helpExtraHint :+ s"Values: ${ewe.values.map(v => StringEncoder[Enc].encode(ewe.encode(v))).mkString(", ")}",
+      )(StringDecoder.`enum`[E, Enc])
+
+  }
 
   // TODO (KR) : more options for lists?
   //           : list -i=1,2,3
