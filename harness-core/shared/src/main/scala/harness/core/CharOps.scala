@@ -1,6 +1,6 @@
 package harness.core
 
-extension (self: Char) {
+implicit class HarnessCharOps(self: Char) {
 
   def unesc: String = self.unesc("'")
   def unesc(leftAndRight: String): String = self.unesc(leftAndRight, leftAndRight)
