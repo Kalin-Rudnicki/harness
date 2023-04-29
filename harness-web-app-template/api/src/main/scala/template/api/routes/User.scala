@@ -19,15 +19,14 @@ object User {
         Transaction.inTransaction {
           for {
             dbUser <- Helpers.userFromSession
-            user = D.user.User(dbUser.firstName, dbUser.lastName, dbUser.username, dbUser.email)
-          } yield HttpResponse.encodeJson(user)
+          } yield HttpResponse.encodeJson(Helpers.convert.user(dbUser))
         }
       },
       (HttpMethod.GET / "from-session-token-optional").implement { _ =>
         Transaction.inTransaction {
           for {
             dbUser <- Helpers.userFromSessionOptional
-            user = dbUser.map { dbUser => D.user.User(dbUser.firstName, dbUser.lastName, dbUser.username, dbUser.email) }
+            user = dbUser.map(Helpers.convert.user)
           } yield HttpResponse.encodeJson(user)
         }
       },
@@ -39,7 +38,7 @@ object User {
             _ <- ZIO.fail(HError.UserError("Invalid Password")).unless(BCrypt.checkpw(body.password, user.encryptedPassword))
             session = M.Session.newForUser(user)
             _ <- Q.Session.insert(session).single
-          } yield HttpResponse("OK").withCookie(Cookie(Helpers.SessionToken, session.token).rootPath.secure)
+          } yield HttpResponse.encodeJson(Helpers.convert.user(user)).withCookie(Cookie(Helpers.SessionToken, session.token).rootPath.secure)
         }
       },
       (HttpMethod.POST / "log-out").implement { _ =>
@@ -48,7 +47,7 @@ object User {
             tok <- HttpRequest.cookie.get[String](Helpers.SessionToken)
             dbSession <- Q.Session.fromSessionToken(tok).single
             _ <- Q.Session.deleteById(dbSession.id).single
-          } yield HttpResponse("OK").withCookie(Cookie.unset(Helpers.SessionToken).rootPath.secure)
+          } yield HttpResponse.fromHttpCode.Ok.withCookie(Cookie.unset(Helpers.SessionToken).rootPath.secure)
         }
       },
       (HttpMethod.POST / "sign-up").implement { _ =>
@@ -61,7 +60,7 @@ object User {
             _ <- Logger.log.detailed(s"Creating user ${user.show}")
             _ <- Q.User.insert(user).single
             _ <- Q.Session.insert(session).single
-          } yield HttpResponse("OK").withCookie(Cookie(Helpers.SessionToken, session.token).rootPath.secure)
+          } yield HttpResponse.fromHttpCode.Ok.withCookie(Cookie(Helpers.SessionToken, session.token).rootPath.secure)
         }
       },
     )

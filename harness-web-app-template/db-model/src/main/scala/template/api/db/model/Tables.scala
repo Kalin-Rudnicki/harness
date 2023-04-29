@@ -19,7 +19,7 @@ object User extends Table.Companion.WithId[User] {
   override implicit lazy val tableSchema: TableSchema[User] =
     TableSchema.derived[User]("user") {
       new User.Cols(
-        id = User.Id.basicCol("id").primaryKey,
+        id = User.Id.pkCol,
         firstName = Col.string("first_name"),
         lastName = Col.string("last_name"),
         username = Col.string("username"),
@@ -41,8 +41,8 @@ object Session extends Table.Companion.WithId[Session] {
   override implicit lazy val tableSchema: TableSchema[Session] =
     TableSchema.derived[Session]("session") {
       new Session.Cols(
-        id = Session.Id.basicCol("id").primaryKey,
-        userId = User.Id.basicCol("user_id").references(ForeignKeyRef("user", "id")),
+        id = Session.Id.pkCol,
+        userId = User.Id.fkCol("user_id"),
         token = Col.string("token"),
       )
     }

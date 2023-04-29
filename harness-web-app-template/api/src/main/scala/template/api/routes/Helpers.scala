@@ -6,6 +6,7 @@ import harness.web.*
 import harness.web.server.*
 import harness.zio.*
 import template.api.db.{model as M, queries as Q}
+import template.model as D
 import zio.*
 
 private[routes] object Helpers {
@@ -29,5 +30,18 @@ private[routes] object Helpers {
     userFromSessionOptional.someOrElseZIO {
       ZIO.fail(HError.UserError(s"Unauthorized: Specify cookie '$SessionToken'").withHTTPCode(HttpCode.`401`))
     }
+
+  object convert {
+
+    def user(user: M.User.Identity): D.user.User =
+      D.user.User(
+        id = user.id.toUUID,
+        firstName = user.firstName,
+        lastName = user.lastName,
+        username = user.username,
+        email = user.email,
+      )
+
+  }
 
 }
