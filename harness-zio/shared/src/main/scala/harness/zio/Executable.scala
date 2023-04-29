@@ -23,6 +23,7 @@ trait Executable { self =>
     result match {
       case Executable.Result.Success((layer, effect)) =>
         effect.collapseCause
+          .tapError(e => Logger.log.debug(Logger.Event.Compound(e.toNel.toList.map(e => Logger.Event.Output(Map.empty, e.fullInternalMessageWithTrace)))))
           .dumpErrorsAndContinue(Logger.LogLevel.Fatal)
           .map {
             case Some(_) => ExitCode.success
