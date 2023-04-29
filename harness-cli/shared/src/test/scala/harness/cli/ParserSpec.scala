@@ -1,6 +1,6 @@
 package harness.cli
 
-import cats.data.Ior
+import cats.data.{Ior, NonEmptyList}
 import cats.syntax.option.*
 import harness.test.AssertionHelpers.*
 import harness.test.DefaultHarnessSpec
@@ -115,6 +115,30 @@ object ParserSpec extends DefaultHarnessSpec {
       makeTest("-i", "1")(isSuccess(equalTo(1))),
       makeTest("-i=1")(isSuccess(equalTo(1))),
       makeTest()(isSuccess(equalTo(0))),
+    )
+
+  private val simpleValueList: TestSpec =
+    parserSuite("simpleValueList") {
+      Parser.values.list[Int](LongName.unsafe("int"))
+    }(
+      makeTest("--int", "1")(isSuccess(equalTo(List(1)))),
+      makeTest("--int=1")(isSuccess(equalTo(List(1)))),
+      makeTest("-i", "1")(isSuccess(equalTo(List(1)))),
+      makeTest("-i=1")(isSuccess(equalTo(List(1)))),
+      makeTest()(isSuccess(equalTo(List()))),
+      makeTest("--int", "1", "--int=2", "-i", "3", "-i=4", "--int", "5", "--int=6", "-i", "7", "-i=8")(isSuccess(equalTo(List(1, 2, 3, 4, 5, 6, 7, 8)))),
+    )
+
+  private val simpleValueNel: TestSpec =
+    parserSuite("simpleValueNel") {
+      Parser.values.nel[Int](LongName.unsafe("int"))
+    }(
+      makeTest("--int", "1")(isSuccess(equalTo(NonEmptyList.of(1)))),
+      makeTest("--int=1")(isSuccess(equalTo(NonEmptyList.of(1)))),
+      makeTest("-i", "1")(isSuccess(equalTo(NonEmptyList.of(1)))),
+      makeTest("-i=1")(isSuccess(equalTo(NonEmptyList.of(1)))),
+      makeTest()(isParseFail(anything)),
+      makeTest("--int", "1", "--int=2", "-i", "3", "-i=4", "--int", "5", "--int=6", "-i", "7", "-i=8")(isSuccess(equalTo(NonEmptyList.of(1, 2, 3, 4, 5, 6, 7, 8)))),
     )
 
   private final case class Person(
@@ -286,6 +310,8 @@ object ParserSpec extends DefaultHarnessSpec {
         simpleValue,
         simpleValueOptional,
         simpleValueDefault,
+        simpleValueList,
+        simpleValueNel,
       ),
       suite("person")(
         basePerson,

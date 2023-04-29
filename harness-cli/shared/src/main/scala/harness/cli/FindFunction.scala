@@ -24,14 +24,25 @@ extension [A](self: FindFunction[A]) {
   }
 
 }
+extension [A](self: FindFunction[List[Indexed[A]]]) {
+
+  def ++[A2 >: A](other: FindFunction[List[Indexed[A2]]]): FindFunction[List[Indexed[A2]]] =
+    args =>
+      self(args) match {
+        case FindFunction.Result.NotFound                 => other(args)
+        case FindFunction.Result.Found(before, _1, after) => other(before ::: after).map(_2 => (_1 ::: _2).sortBy(_.idx))
+        case fail: FindFunction.Result.Fail               => fail
+      }
+
+}
 extension [A](self: FindFunction[FindFunction.TmpResult[A]]) {
 
   def noValues: FindFunction[A] =
     self(_) match {
       case FindFunction.Result.Found(before, arg, after) =>
         arg match {
-          case FindFunction.TmpResult.WithoutValue(arg, _) => FindFunction.Result.Found(before, arg, after)
-          case FindFunction.TmpResult.WithValue(_, value)  => FindFunction.Result.Fail(ParsingFailure.UnexpectedValue(_, value), before ::: after)
+          case FindFunction.TmpResult.WithoutValue(arg, _)   => FindFunction.Result.Found(before, arg, after)
+          case FindFunction.TmpResult.WithValue(_, _, value) => FindFunction.Result.Fail(ParsingFailure.UnexpectedValue(_, value), before ::: after)
         }
       case FindFunction.Result.NotFound   => FindFunction.Result.NotFound
       case fail: FindFunction.Result.Fail => fail
@@ -44,13 +55,13 @@ extension [A](self: FindFunction[FindFunction.TmpResult[A]]) {
     self(_) match {
       case FindFunction.Result.Found(before, arg, after) =>
         arg match {
-          case FindFunction.TmpResult.WithValue(arg, value) => FindFunction.Result.Found(before, (arg, value), after)
+          case FindFunction.TmpResult.WithValue(arg, _, value) => FindFunction.Result.Found(before, (arg, value), after)
           case FindFunction.TmpResult.WithoutValue(arg, true) =>
             after match {
               case Indexed(value: Arg.Value, _) :: tail => FindFunction.Result.Found(before, (arg, value.value), tail)
-              case _                                    => FindFunction.Result.Fail(ParsingFailure.MissingValue(_), before ::: after)
+              case _                                    => FindFunction.Result.Fail(ParsingFailure.MissingValue.apply, before ::: after)
             }
-          case FindFunction.TmpResult.WithoutValue(_, false) => FindFunction.Result.Fail(ParsingFailure.MissingValue(_), before ::: after)
+          case FindFunction.TmpResult.WithoutValue(_, false) => FindFunction.Result.Fail(ParsingFailure.MissingValue.apply, before ::: after)
         }
       case FindFunction.Result.NotFound   => FindFunction.Result.NotFound
       case fail: FindFunction.Result.Fail => fail
@@ -58,6 +69,27 @@ extension [A](self: FindFunction[FindFunction.TmpResult[A]]) {
 
   def singleValue: FindFunction[String] =
     self.singleValueWithName(_).map(_._2)
+
+  def manyValues: FindFunction[List[Indexed[String]]] = { args =>
+    @tailrec
+    def loop(remaining: IndexedArgs, values: List[Indexed[String]]): FindFunction.Result[List[Indexed[String]]] =
+      self(remaining) match {
+        case FindFunction.Result.Found(before, arg, after) =>
+          arg match {
+            case FindFunction.TmpResult.WithoutValue(_, true) =>
+              after match {
+                case Indexed(value: Arg.Value, idx) :: tail => loop(before ::: tail, Indexed(value.value, idx) :: values)
+                case _                                      => FindFunction.Result.Fail(ParsingFailure.MissingValue.apply, before ::: after)
+              }
+            case FindFunction.TmpResult.WithoutValue(_, false)   => FindFunction.Result.Fail(ParsingFailure.MissingValue.apply, before ::: after)
+            case FindFunction.TmpResult.WithValue(_, idx, value) => loop(before ::: after, Indexed(value, idx) :: values)
+          }
+        case FindFunction.Result.NotFound   => FindFunction.Result.Found(remaining, values, Nil)
+        case fail: FindFunction.Result.Fail => fail
+      }
+
+    loop(args, Nil).map(_.reverse)
+  }
 
 }
 object FindFunction {
@@ -97,14 +129,20 @@ object FindFunction {
   sealed trait TmpResult[+A]
   object TmpResult {
     final case class WithoutValue[+A](arg: A, canLookForValue: Boolean) extends TmpResult[A]
-    final case class WithValue[+A](arg: A, value: String) extends TmpResult[A]
+    final case class WithValue[+A](arg: A, idx: Int, value: String) extends TmpResult[A]
   }
 
   def forParam(param: Param.LongWithValue): FindFunction[String] =
     find(param.name).singleValue
 
+  def forParamMany(param: Param.LongWithValue): FindFunction[List[Indexed[String]]] =
+    find(param.name).manyValues
+
   def forParam(param: Param.ShortWithValue): FindFunction[String] =
     find(param.name).singleValue
+
+  def forParamMany(param: Param.ShortWithValue): FindFunction[List[Indexed[String]]] =
+    find(param.name).manyValues
 
   def forParam(param: Param.LongToggle): FindFunction[Boolean] =
     find(param.trueName).constValue(true) || find(param.falseName).constValue(false)
@@ -119,15 +157,14 @@ object FindFunction {
     find(param.name).constValue { () }
 
   def forValue: FindFunction[String] =
-    findGeneric { case value: Arg.Value =>
+    findGeneric { case Indexed(value: Arg.Value, _) =>
       value.toArgString
     }
 
   // =====| Helpers |=====
 
-  def findGeneric[A](f: PartialFunction[Arg, A]): FindFunction[A] = {
-    val liftedF: Arg => Option[A] = f.lift
-    val iArgF: Indexed[Arg] => Option[A] = iArg => liftedF(iArg.value)
+  def findGeneric[A](f: PartialFunction[Indexed[Arg], A]): FindFunction[A] = {
+    val liftedF: Indexed[Arg] => Option[A] = f.lift
 
     @tailrec
     def loop(
@@ -136,7 +173,7 @@ object FindFunction {
     ): Result[A] =
       queue match {
         case head :: tail =>
-          iArgF(head) match {
+          liftedF(head) match {
             case Some(a) => Result.Found(stack.reverse, a, tail)
             case None    => loop(tail, head :: stack)
           }
@@ -148,15 +185,15 @@ object FindFunction {
 
   private def find(name: LongName): FindFunction[TmpResult[LongName]] =
     findGeneric {
-      case a: Arg.LongParam if a.name == name          => TmpResult.WithoutValue(a.name, true)
-      case a: Arg.LongParamWithValue if a.name == name => TmpResult.WithValue(a.name, a.value)
+      case Indexed(a: Arg.LongParam, _) if a.name == name            => TmpResult.WithoutValue(a.name, true)
+      case Indexed(a: Arg.LongParamWithValue, idx) if a.name == name => TmpResult.WithValue(a.name, idx, a.value)
     }
 
   private def find(name: ShortName): FindFunction[TmpResult[ShortName]] =
     findGeneric {
-      case a: Arg.ShortParamSingle if a.name == name          => TmpResult.WithoutValue(a.name, true)
-      case a: Arg.ShortParamSingleWithValue if a.name == name => TmpResult.WithValue(a.name, a.value)
-      case a: Arg.ShortParamMulti if a.name == name           => TmpResult.WithoutValue(a.name, false)
+      case Indexed(a: Arg.ShortParamSingle, _) if a.name == name            => TmpResult.WithoutValue(a.name, true)
+      case Indexed(a: Arg.ShortParamSingleWithValue, idx) if a.name == name => TmpResult.WithValue(a.name, idx, a.value)
+      case Indexed(a: Arg.ShortParamMulti, _) if a.name == name             => TmpResult.WithoutValue(a.name, false)
     }
 
 }

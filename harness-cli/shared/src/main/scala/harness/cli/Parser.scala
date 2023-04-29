@@ -330,13 +330,13 @@ object Parser {
 
   val unit: Parser[Unit] = Parser.const { () }
 
+  /**
+    * Parses a value from a param:
+    *   - --base-name VALUE
+    *   - --base-name=VALUE
+    */
   object value {
 
-    /**
-      * Parses a value from a param:
-      *   - --base-name VALUE
-      *   - --base-name=VALUE
-      */
     def apply[T](
         baseName: LongName,
         shortParam: Defaultable.Optional[ShortName] = Defaultable.Auto,
@@ -344,44 +344,37 @@ object Parser {
         helpExtraHint: List[String] = Nil,
     )(implicit decoder: StringDecoder[T]): Parser[T] =
       verifyAndDerive.value(_, Param.LongWithValue(baseName), shortParam.map(Param.ShortWithValue.apply)).map { (usedParams, long, short) =>
-        short match {
-          case Some(short) =>
-            Parser.BuildResult(
-              usedParams,
-              HelpMessage.Text(
-                s"${long.formattedName}, ${short.formattedName}" :: Nil,
-                helpHint,
-              ),
-              HelpMessage.Text(
-                s"${long.formattedName}, ${short.formattedName}" :: Nil,
-                helpHint ::: helpExtraHint,
-              ),
-              (FindFunction.forParam(long) || FindFunction.forParam(short)).toParseFunction(long)(_).flatMap { (args, str) =>
-                decoder.decode(str) match {
-                  case Right(value) => ParseResult.Success(args, value)
-                  case Left(msg)    => ParseResult.Fail(args, ParsingFailure.MalformedValue(long, str, msg))
-                }
-              },
-            )
-          case None =>
-            Parser.BuildResult(
-              usedParams,
-              HelpMessage.Text(
-                long.formattedName :: Nil,
-                helpHint,
-              ),
-              HelpMessage.Text(
-                long.formattedName :: Nil,
-                helpHint ::: helpExtraHint,
-              ),
-              FindFunction.forParam(long).toParseFunction(long)(_).flatMap { (args, str) =>
-                decoder.decode(str) match {
-                  case Right(value) => ParseResult.Success(args, value)
-                  case Left(msg)    => ParseResult.Fail(args, ParsingFailure.MalformedValue(long, str, msg))
-                }
-              },
-            )
-        }
+        val (paramStr: String, findFunction: FindFunction[String]) =
+          short match {
+            case Some(short) =>
+              (
+                s"${long.formattedName}, ${short.formattedName}",
+                (FindFunction.forParam(long) || FindFunction.forParam(short)): FindFunction[String],
+              )
+            case None =>
+              (
+                long.formattedName,
+                FindFunction.forParam(long),
+              )
+          }
+
+        Parser.BuildResult(
+          usedParams,
+          HelpMessage.Text(
+            paramStr :: Nil,
+            helpHint,
+          ),
+          HelpMessage.Text(
+            paramStr :: Nil,
+            helpHint ::: helpExtraHint,
+          ),
+          findFunction.toParseFunction(long)(_).flatMap { (args, str) =>
+            decoder.decode(str) match {
+              case Right(value) => ParseResult.Success(args, value)
+              case Left(msg)    => ParseResult.Fail(args, ParsingFailure.MalformedValue(long, str, msg))
+            }
+          },
+        )
       }
 
     def `enum`[E <: Enum[E]: ClassTag, Enc: StringEncoder: StringDecoder](
@@ -399,10 +392,119 @@ object Parser {
 
   }
 
-  // TODO (KR) : more options for lists?
-  //           : list -i=1,2,3
-  //           : list -i=1 -i=2 -i=3
-  //           : list -i=1,2,3 -i=4,5,6
+  /**
+    * Parses many values from a param:
+    *   - --base-name VALUE --base-name VALUE
+    *   - --base-name=VALUE
+    */
+  object values {
+
+    private def generic[T, O[_]](
+        baseName: LongName,
+        shortParam: Defaultable.Optional[ShortName],
+        helpHint: List[String],
+        helpExtraHint: List[String],
+    )(
+        make: List[T] => Option[O[T]],
+    )(implicit decoder: StringDecoder[T]): Parser[O[T]] =
+      verifyAndDerive.value(_, Param.LongWithValue(baseName), shortParam.map(Param.ShortWithValue.apply)).map { (usedParams, long, short) =>
+        val (paramStr: String, findFunction: FindFunction[List[Indexed[String]]]) =
+          short match {
+            case Some(short) =>
+              (
+                s"${long.formattedName}, ${short.formattedName}",
+                (FindFunction.forParamMany(long) ++ FindFunction.forParamMany(short)): FindFunction[List[Indexed[String]]],
+              )
+            case None =>
+              (
+                long.formattedName,
+                FindFunction.forParamMany(long),
+              )
+          }
+
+        Parser.BuildResult(
+          usedParams,
+          HelpMessage.Text(
+            paramStr :: Nil,
+            helpHint,
+          ),
+          HelpMessage.Text(
+            paramStr :: Nil,
+            helpHint ::: (helpExtraHint :+ "(accepts many values)"),
+          ),
+          findFunction
+            .map(_.map(_.value))
+            .toParseFunction(long)(_)
+            .flatMap { (args, strs) =>
+              strs.traverse { str => decoder.decodeAccumulating(str).leftMap(_.map((str, _))) } match {
+                case Right(values) =>
+                  make(values) match {
+                    case Some(value) => ParseResult.Success(args, value)
+                    case None        => ParseResult.Fail(args, ParsingFailure.MissingValue(long))
+                  }
+                case Left(pairs) =>
+                  ParseResult.Fail(
+                    args,
+                    ParsingFailure.and(pairs.map {
+                      ParsingFailure.MalformedValue(long, _, _)
+                    }),
+                  )
+              }
+            },
+        )
+      }
+
+    object nel {
+
+      def apply[T](
+          baseName: LongName,
+          shortParam: Defaultable.Optional[ShortName] = Defaultable.Auto,
+          helpHint: List[String] = Nil,
+          helpExtraHint: List[String] = Nil,
+      )(implicit decoder: StringDecoder[T]): Parser[NonEmptyList[T]] =
+        Parser.values.generic[T, NonEmptyList](baseName, shortParam, helpHint, helpExtraHint)(NonEmptyList.fromList)
+
+      def `enum`[E <: Enum[E]: ClassTag, Enc: StringEncoder: StringDecoder](
+          baseName: LongName,
+          shortParam: Defaultable.Optional[ShortName] = Defaultable.Auto,
+          helpHint: List[String] = Nil,
+          helpExtraHint: List[String] = Nil,
+      )(implicit ewe: Enum.WithEnc[E, Enc]): Parser[NonEmptyList[E]] =
+        Parser.values.nel[E](
+          baseName,
+          shortParam,
+          helpHint,
+          helpExtraHint :+ s"Values: ${ewe.values.map(v => StringEncoder[Enc].encode(ewe.encode(v))).mkString(", ")}",
+        )(StringDecoder.`enum`[E, Enc])
+
+    }
+
+    object list {
+
+      def apply[T](
+          baseName: LongName,
+          shortParam: Defaultable.Optional[ShortName] = Defaultable.Auto,
+          helpHint: List[String] = Nil,
+          helpExtraHint: List[String] = Nil,
+      )(implicit decoder: StringDecoder[T]): Parser[List[T]] =
+        Parser.values.generic[T, List](baseName, shortParam, helpHint, helpExtraHint)(_.some)
+
+      def `enum`[E <: Enum[E]: ClassTag, Enc: StringEncoder: StringDecoder](
+          baseName: LongName,
+          shortParam: Defaultable.Optional[ShortName] = Defaultable.Auto,
+          helpHint: List[String] = Nil,
+          helpExtraHint: List[String] = Nil,
+      )(implicit ewe: Enum.WithEnc[E, Enc]): Parser[List[E]] =
+        Parser.values.list[E](
+          baseName,
+          shortParam,
+          helpHint,
+          helpExtraHint :+ s"Values: ${ewe.values.map(v => StringEncoder[Enc].encode(ewe.encode(v))).mkString(", ")}",
+        )(StringDecoder.`enum`[E, Enc])
+
+    }
+
+  }
 
   /**
     * Parses a boolean based on prefix of baseName:
