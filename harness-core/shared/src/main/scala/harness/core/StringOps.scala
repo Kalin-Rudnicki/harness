@@ -73,6 +73,6 @@ implicit class HarnessStrOps(self: String) {
   def unesc: String = self.unesc("\"")
   def unesc(leftAndRight: String): String = self.unesc(leftAndRight, leftAndRight)
   def unesc(left: String, right: String): String =
-    s"$left${self.toList.map(_.unesc(""))}$right"
-  
+    s"$left${self.toList.map(_.unesc("")).mkString}$right"
+
 }
