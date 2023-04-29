@@ -10,6 +10,8 @@ project/metals.sbt
 project/project/metals.sbt
 project/project/project/metals.sbt
 
+harness-archive/res/js
+harness-archive/res/css
 harness-web-app-template/res/js
 harness-web-app-template/res/css
 .sass-cache

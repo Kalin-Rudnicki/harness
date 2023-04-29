@@ -3,34 +3,31 @@ package harness.zio
 import harness.core.*
 import java.time.OffsetDateTime
 import zio.*
+import zio.json.*
 
 trait Telemetry { self =>
 
-  val appName: String
   def trace(event: Telemetry.Trace): URIO[Logger, Boolean]
 
   final def withMinLogTolerance(min: Logger.LogLevel): Telemetry =
     new Telemetry {
-      override val appName: String = self.appName
       override def trace(event: Telemetry.Trace): URIO[Logger, Boolean] =
         ZIO.when(event.logLevel.logPriority >= min.tolerancePriority)(self.trace(event)).map(_.getOrElse(false))
     }
 
   final def ||(other: Telemetry): Telemetry =
     new Telemetry {
-      override val appName: String = List(self.appName, other.appName).filter(_.nonEmpty).mkString("/")
       override def trace(event: Telemetry.Trace): URIO[Logger, Boolean] =
-        self.trace(event.copy(appName = self.appName)).flatMap {
+        self.trace(event).flatMap {
           case true  => ZIO.succeed(true)
-          case false => other.trace(event.copy(appName = other.appName))
+          case false => other.trace(event)
         }
     }
 
   final def &&(other: Telemetry): Telemetry =
     new Telemetry {
-      override val appName: String = List(self.appName, other.appName).filter(_.nonEmpty).mkString("/")
       override def trace(event: Telemetry.Trace): URIO[Logger, Boolean] =
-        (self.trace(event.copy(appName = self.appName)) <&> other.trace(event.copy(appName = other.appName))).map { _ || _ }
+        (self.trace(event) <&> other.trace(event)).map { _ || _ }
     }
 
 }
@@ -70,13 +67,12 @@ object Telemetry {
     for {
       telemetry <- ZIO.service[Telemetry]
       logContext <- Logger.getContext
-      _ <- telemetry.trace(Telemetry.Trace(telemetry.appName, logLevel, label, startDateTime, endDateTime, success, telemetryContext, logContext))
+      _ <- telemetry.trace(Telemetry.Trace(logLevel, label, startDateTime, endDateTime, success, telemetryContext, logContext))
     } yield ()
 
   // =====| Types |=====
 
   final case class Trace(
-      appName: String,
       logLevel: Logger.LogLevel,
       label: String,
       startDateTime: OffsetDateTime,
@@ -87,18 +83,19 @@ object Telemetry {
   ) {
     def duration: Duration = java.time.Duration.between(startDateTime, endDateTime)
   }
+  object Trace {
+    implicit val jsonCodec: JsonCodec[Trace] = DeriveJsonCodec.gen
+  }
 
   // =====| Layers |=====
 
-  def none: Telemetry =
+  val none: Telemetry =
     new Telemetry {
-      override val appName: String = ""
       override def trace(event: Telemetry.Trace): URIO[Logger, Boolean] = ZIO.succeed(false)
     }
 
-  def log(_appName: String = ""): Telemetry =
+  val log: Telemetry =
     new Telemetry {
-      override val appName: String = _appName
       override def trace(event: Telemetry.Trace): URIO[Logger, Boolean] =
         Logger
           .execute {
@@ -107,7 +104,7 @@ object Telemetry {
               { () =>
                 Logger.Event.Output(
                   event.telemetryContext + ("success" -> event.success.toString),
-                  s"TELEMETRY -${if (appName.isEmpty) "" else s" <$appName>"} (${event.label}) [${event.duration.prettyPrint}]${if (event.success) "" else " *** FAIL ***"}",
+                  s"TELEMETRY - (${event.label}) [${event.duration.prettyPrint}]${if (event.success) "" else " *** FAIL ***"}",
                 )
               },
             )

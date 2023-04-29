@@ -58,18 +58,6 @@ trait Parser[T] { self =>
   final def map[T2](f: T => T2): Parser[T2] =
     buildF(_).map(_.map(f))
 
-  final def emap[T2](f: T => Either[String, T2]): Parser[T2] =
-    buildF(_).map {
-      _.mapResult {
-        _.flatMap { (args, t) =>
-          f(t) match {
-            case Left(error)  => ???
-            case Right(value) => ???
-          }
-        }
-      }
-    }
-
   final def as[T2](f: => T2): Parser[T2] = self.map { _ => f }
 
   // =====| Combinators |=====

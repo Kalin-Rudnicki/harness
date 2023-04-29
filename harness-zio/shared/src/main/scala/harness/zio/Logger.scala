@@ -72,6 +72,8 @@ object Logger { self =>
       defaultColorMode = defaultColorMode,
     )
 
+  def none: Logger = Logger.default(sources = Nil, defaultMinLogTolerance = Logger.LogLevel.Never)
+
   // =====| API |=====
 
   def execute(event: => Event): URIO[Logger, Unit] = ZIO.service[Logger].flatMap(_.execute(event))
@@ -190,8 +192,6 @@ object Logger { self =>
         dateTime: OffsetDateTime,
     )
     object Encoded {
-
-      private implicit val logLevelJsonCodec: JsonCodec[LogLevel] = JsonCodec.fromHarnessStringEncoderAndDecoder
 
       implicit val jsonCodec: JsonCodec[Encoded] = DeriveJsonCodec.gen
 
@@ -429,6 +429,8 @@ object Logger { self =>
 
     implicit val stringDecoder: StringDecoder[LogLevel] =
       StringDecoder.fromOptionF("LogLevel", str => nameMap.get(str.toUpperCase))
+
+    implicit val jsonCodec: JsonCodec[LogLevel] = JsonCodec.fromHarnessStringEncoderAndDecoder
 
   }
 

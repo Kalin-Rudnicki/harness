@@ -36,6 +36,8 @@ object StringEncoder {
 
   implicit val uuid: StringEncoder[UUID] = usingToString
 
+  implicit val duration: StringEncoder[Duration] = usingToString
+
   implicit val localDate: StringEncoder[LocalDate] = usingToString
 
   implicit val localTime: StringEncoder[LocalTime] = usingToString

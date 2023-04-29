@@ -59,13 +59,16 @@ object StringDecoder {
 
   implicit val uuid: StringDecoder[UUID] =
     fromTryF("uuid", UUID.fromString)
-
+  
+  implicit val duration: StringDecoder[Duration] =
+    fromTryF("duration", Duration.parse)
+  
   def list[T](sep: String)(implicit tDecoder: StringDecoder[T]): StringDecoder[List[T]] =
     _.split(sep).toList.parTraverse(tDecoder.decodeAccumulating)
 
   implicit def list[T: StringDecoder]: StringDecoder[List[T]] =
     list[T](",")
-
+  
   private object temporal {
     val numsOneTwo = "(\\d{1,2})"
     val numsTwo = "(\\d{2})"

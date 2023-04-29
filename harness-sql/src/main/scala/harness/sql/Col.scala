@@ -74,6 +74,9 @@ object Col {
   def mappedEnum[E <: Enum[E], Enc](colName: String)(implicit ewe: Enum.WithEnc[E, Enc], gc: Col.GenCol[Enc], ct: ClassTag[E]): Col[E] =
     gc.make(colName).iemap { v => ewe.decode(v).toRight(NonEmptyList.one(s"Invalid ${ct.runtimeClass.getSimpleName}: $v")) }(ewe.encode)
 
+  def encoded[T](colName: String)(implicit encoder: StringEncoder[T], decoder: StringDecoder[T]): Col[T] =
+    Col.string(colName).iemap(decoder.decodeAccumulating)(encoder.encode)
+
   // NOTE : It would be nice if these could use the built-in PSQL 'TIME WITH TIME ZONE' and 'TIMESTAMP WITH TIME ZONE',
   //      : but the issue is that when PSQL stores 'TIMESTAMP WITH TIME ZONE', it stores it in UTC, and then gives it back to you in your time zone.
   //      : This is an issue if you care about

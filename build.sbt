@@ -84,6 +84,7 @@ lazy val `harness-root` =
       `harness-http-server-test`,
       `harness-web-ui`,
       `harness-web-app-template`,
+      `harness-archive`,
     )
 
 lazy val `harness-test` =
@@ -252,7 +253,117 @@ lazy val `harness-web-ui` =
     )
     .dependsOn(`harness-http-client`.js % "test->test;compile->compile")
 
-// =====|  |=====
+// =====| Harness Archive |=====
+
+lazy val `harness-archive` =
+  project
+    .in(file("harness-archive"))
+    .settings(
+      publish / skip := true,
+    )
+    .aggregate(
+      `harness-archive-model`.jvm,
+      `harness-archive-model`.js,
+      `harness-archive-api`,
+      `harness-archive-ui-web`,
+    )
+
+lazy val `harness-archive-model` =
+  crossProject(JSPlatform, JVMPlatform)
+    .in(file("harness-archive/model"))
+    .settings(
+      name := "harness-archive-model",
+      publish / skip := true,
+      miscSettings,
+      testSettings,
+    )
+    .dependsOn(`harness-web`)
+
+lazy val `harness-archive-db-model` =
+  project
+    .in(file("harness-archive/db-model"))
+    .settings(
+      name := "harness-archive-db-model",
+      publish / skip := true,
+      miscSettings,
+      testSettings,
+    )
+    .dependsOn(`harness-sql`, `harness-archive-model`.jvm)
+
+lazy val `harness-archive-api` =
+  project
+    .in(file("harness-archive/api"))
+    .settings(
+      name := "harness-archive-api",
+      publish / skip := true,
+      miscSettings,
+      testSettings,
+      libraryDependencies ++= Seq(
+        "org.mindrot" % "jbcrypt" % "0.4",
+      ),
+    )
+    .dependsOn(`harness-archive-model`.jvm, `harness-archive-db-model`, `harness-http-server`, `harness-http-server-test` % Test)
+
+lazy val `harness-archive-ui-web` =
+  project
+    .in(file("harness-archive/ui-web"))
+    .enablePlugins(ScalaJSPlugin)
+    .settings(
+      name := "harness-archive-ui-web",
+      publish / skip := true,
+      miscSettings,
+      testSettings,
+      scalaJSUseMainModuleInitializer := true,
+      buildUI :=
+        Def.inputTaskDyn {
+          import complete.DefaultParsers._
+
+          val resDir = file("/home/kalin/dev/current/harness/harness-archive/res")
+
+          lazy val fast = (fastLinkJS, "fastopt")
+          lazy val full = (fullLinkJS, "opt")
+
+          val args: List[String] = spaceDelimited("<arg>").parsed.toList
+          val (t, s) =
+            if (args.contains("-F")) full
+            else fast
+          val m = !args.contains("-m")
+
+          Def.sequential(
+            Def.inputTask { println("Running 'webComp'...") }.toTask(""),
+            Compile / t,
+            Def
+              .inputTask {
+                def jsFile(fName: String): File = {
+                  val crossTargetDir = (crossTarget in (Compile / t)).value
+                  val projectName = normalizedName.value
+                  file(s"$crossTargetDir/$projectName-$s/$fName")
+                }
+
+                val moveToDir = resDir / "js"
+
+                val files =
+                  jsFile("main.js") ::
+                    (if (m) jsFile("main.js.map") :: Nil else Nil)
+
+                moveToDir.mkdirs()
+                moveToDir.listFiles.foreach { f =>
+                  if (f.name.contains("main.js"))
+                    f.delete()
+                }
+                files.foreach { f =>
+                  IO.copyFile(f, new File(moveToDir, f.getName))
+                }
+
+                ()
+              }
+              .toTask(""),
+          )
+        }.evaluated,
+    )
+    .dependsOn(`harness-archive-model`.js, `harness-web-ui`)
+
+// =====| Harness Web App Template |=====
 
 lazy val `harness-web-app-template` =
   project
