@@ -59,6 +59,7 @@ lazy val `harness-root` =
     .in(file("."))
     .settings(
       publish / skip := true,
+      organization := MyOrg,
       sonatypeCredentialHost := "s01.oss.sonatype.org",
       sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
     )
