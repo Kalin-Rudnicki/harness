@@ -16,6 +16,9 @@ val githubProject = "harness"
 
 ThisBuild / watchBeforeCommand := Watch.clearScreen
 
+ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
+ThisBuild / sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
+
 lazy val miscSettings =
   Seq(
     scalaVersion := Scala_3,
@@ -41,6 +44,7 @@ lazy val publishSettings =
       ),
     ),
     sonatypeCredentialHost := "s01.oss.sonatype.org",
+    sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
   )
 
 lazy val testSettings =
@@ -55,6 +59,8 @@ lazy val `harness-root` =
     .in(file("."))
     .settings(
       publish / skip := true,
+      sonatypeCredentialHost := "s01.oss.sonatype.org",
+      sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
     )
     .aggregate(
       `harness-test`.js,
