@@ -11,6 +11,8 @@ git.gitTagToVersionNumber := { tag =>
 val Scala_3 = "3.1.3"
 
 val MyOrg = "io.github.kalin-rudnicki"
+val githubUsername = "Kalin-Rudnicki"
+val githubProject = "harness"
 
 ThisBuild / watchBeforeCommand := Watch.clearScreen
 
@@ -27,6 +29,18 @@ lazy val miscSettings =
 lazy val publishSettings =
   Seq(
     organization := MyOrg,
+    description := "Miscellaneous libraries/utilities for Scala.",
+    licenses := List("MIT" -> new URL("https://opensource.org/licenses/MIT")),
+    homepage := Some(url(s"https://github.com/$githubUsername/$githubProject")),
+    developers := List(
+      Developer(
+        id = "Kalin-Rudnicki",
+        name = "Kalin Rudnicki",
+        email = "kalin.rudnicki@gmail.com",
+        url = url(s"https://github.com/$githubUsername"),
+      ),
+    ),
+    sonatypeCredentialHost := "s01.oss.sonatype.org",
   )
 
 lazy val testSettings =
@@ -83,6 +97,7 @@ lazy val `harness-core` =
       libraryDependencies ++= Seq(
         "org.typelevel" %%% "cats-core" % "2.8.0",
       ),
+      sonatypeCredentialHost := "s01.oss.sonatype.org",
     )
     .dependsOn(`harness-test` % Test)
 
