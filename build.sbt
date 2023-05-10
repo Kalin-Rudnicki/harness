@@ -68,6 +68,8 @@ lazy val `harness-root` =
       `harness-test`.jvm,
       `harness-core`.js,
       `harness-core`.jvm,
+      `harness-csv`.js,
+      `harness-csv`.jvm,
       `harness-cli`.js,
       `harness-cli`.jvm,
       `harness-zio`.js,
@@ -107,6 +109,18 @@ lazy val `harness-core` =
       sonatypeCredentialHost := "s01.oss.sonatype.org",
     )
     .dependsOn(`harness-test` % Test)
+
+lazy val `harness-csv` =
+  crossProject(JSPlatform, JVMPlatform)
+    .in(file("harness-csv"))
+    .settings(
+      name := "harness-csv",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      sonatypeCredentialHost := "s01.oss.sonatype.org",
+    )
+    .dependsOn(`harness-core` % "test->test;compile->compile")
 
 lazy val `harness-cli` =
   crossProject(JSPlatform, JVMPlatform)
