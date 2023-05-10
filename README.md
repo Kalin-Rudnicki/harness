@@ -13,6 +13,11 @@ There are several harness libraries:
 - [harness-web-test](#harness-web-test)
 - [harness-web-app-template](#harness-web-app-template)
 
+Special mentions:
+- [CLI Parser](#parser)
+- [ZIO Executable](#executable)
+- [SQL](#harness-sql)
+
 ## Harness Core
 
 <span style="font-size: 2.5em; color: red">TODO</span>

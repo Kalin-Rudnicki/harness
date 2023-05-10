@@ -140,7 +140,7 @@ object HttpRequest {
       path = uri.getPath.split("/").toList.filter(_.nonEmpty),
       queries = getMap(Option(uri.getQuery), "&", identity),
       headers = headerMap,
-      cookies = getMap(headerMap.get("Cookie").flatMap(_.headOption), ";", _.trim),
+      cookies = getMap(headerMap.get("cookie").flatMap(_.headOption), ";", _.trim),
       rawInputStream = exchange.getRequestBody,
       remoteAddress = exchange.getRemoteAddress,
     )
