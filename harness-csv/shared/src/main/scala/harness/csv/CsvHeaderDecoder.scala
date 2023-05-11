@@ -1,5 +1,6 @@
 package harness.csv
 
+import cats.data.NonEmptyList
 import cats.syntax.either.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
@@ -60,6 +61,19 @@ object CsvHeaderDecoder {
 
   def cell[T](header: String)(implicit decoder: StringDecoder[T]): CsvHeaderDecoder[T] =
     CsvHeaderDecoder.cell(header, decoder.decode)
+
+  def multiOptHeaderDecoder[T](header: String)(implicit decoder: StringDecoder[T]): CsvHeaderDecoder[NonEmptyList[Option[T]]] = { headers =>
+    NonEmptyList.fromList(headers.zipWithIndex.filter { (h, _) => h.contains(header) }.map(_._2).toList) match {
+      case Some(indexes) =>
+        new AppliedCsvHeaderDecoder[NonEmptyList[Option[T]]] {
+          override protected val minSize: Int = indexes.toList.max
+          override protected val headerIndexes: Set[Int] = indexes.toList.toSet
+          override def decodeImpl(line: IArray[Option[String]], lineNo: Int): Either[String, NonEmptyList[Option[T]]] =
+            indexes.traverse { line(_).traverse(decoder.decode) }
+        }.asRight
+      case None => s"Did not find any headers with value '$header'".asLeft
+    }
+  }
 
   implicit def optional[T](implicit decoder: CsvHeaderDecoder[T]): CsvHeaderDecoder[Option[T]] =
     decoder.optional
