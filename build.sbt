@@ -70,6 +70,7 @@ lazy val `harness-root` =
       `harness-core`.jvm,
       `harness-csv`.js,
       `harness-csv`.jvm,
+      `harness-xml`,
       `harness-cli`.js,
       `harness-cli`.jvm,
       `harness-zio`.js,
@@ -121,6 +122,21 @@ lazy val `harness-csv` =
       sonatypeCredentialHost := "s01.oss.sonatype.org",
     )
     .dependsOn(`harness-core` % "test->test;compile->compile")
+
+lazy val `harness-xml` =
+  project
+    .in(file("harness-xml"))
+    .settings(
+      name := "harness-xml",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      libraryDependencies ++= Seq(
+        "org.scala-lang.modules" %% "scala-xml" % "2.0.0",
+      ),
+      sonatypeCredentialHost := "s01.oss.sonatype.org",
+    )
+    .dependsOn(`harness-core`.jvm % "test->test;compile->compile")
 
 lazy val `harness-cli` =
   crossProject(JSPlatform, JVMPlatform)
