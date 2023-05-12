@@ -5,6 +5,8 @@ Some miscellaneous libraries/utilities for Scala that I have found very useful i
 
 There are several harness libraries:
 - [harness-core](#harness-core)
+- [harness-csv](#harness-csv)
+- [harness-xml](#harness-xml)
 - [harness-cli](#harness-cli)
 - [harness-zio](#harness-zio)
 - [harness-sql](#harness-sql)
@@ -35,6 +37,14 @@ Special mentions:
 <span style="font-size: 2.5em; color: red">TODO</span>
 
 ### StringEncoder / StringDecoder
+
+<span style="font-size: 2.5em; color: red">TODO</span>
+
+## Harness CSV
+
+<span style="font-size: 2.5em; color: red">TODO</span>
+
+## Harness XML
 
 <span style="font-size: 2.5em; color: red">TODO</span>
 
