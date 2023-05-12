@@ -23,6 +23,9 @@ trait XmlDecoder[T] { self =>
   final def /:(nodeName: String): XmlDecoder.SingleNodeDecoder[T] = XmlDecoder.SingleNodeDecoder(nodeName, self)
   final def inNode(nodeName: String): XmlDecoder.SingleNodeDecoder[T] = XmlDecoder.SingleNodeDecoder(nodeName, self)
 
+  final def someOrElse[T2](default: => T2)(implicit ev: T <:< Option[T2]): XmlDecoder[T2] =
+    self.decodeAccumulating(_).map(_.getOrElse(default))
+
 }
 object XmlDecoder {
 
@@ -30,6 +33,9 @@ object XmlDecoder {
   def textFromStringDecoder[T](implicit decoder: StringDecoder[T]): XmlDecoder.TextDecoder[T] = XmlDecoder.TextDecoder(decoder.decodeAccumulating)
 
   def node[T](nodeName: String)(innerDecoder: XmlDecoder[T]): XmlDecoder.SingleNodeDecoder[T] = XmlDecoder.SingleNodeDecoder(nodeName, innerDecoder)
+
+  def pure[T](value: T): XmlDecoder[T] =
+    _ => value.asRight
 
   // =====|  |=====
 
