@@ -16,6 +16,8 @@ final case class Logger(
     defaultColorMode: ColorMode,
 ) { self =>
 
+  private val hasSourceWithLogToleranceOverride: Boolean = sources.exists(_.minLogTolerance.nonEmpty)
+
   def execute(event: Logger.Event): UIO[Unit] = {
     def handle(
         sourceMinLogTolerance: Logger.LogLevel,
@@ -40,10 +42,14 @@ final case class Logger(
     def execOnSource(source: Logger.Source, now: OffsetDateTime): URIO[Scope, Any] =
       source.target.flatMap(handle(source.minLogTolerance.getOrElse(defaultMinLogTolerance), source.colorMode.getOrElse(defaultColorMode), _, None, event, now))
 
-    ZIO.scoped {
-      Clock.currentDateTime.flatMap { now =>
-        ZIO.foreachParDiscard(sources)(execOnSource(_, now))
-      }
+    (hasSourceWithLogToleranceOverride, event) match {
+      case (false, Logger.Event.AtLogLevel(logLevel, _)) if logLevel.logPriority < defaultMinLogTolerance.tolerancePriority => ZIO.unit
+      case _ =>
+        ZIO.scoped {
+          Clock.currentDateTime.flatMap { now =>
+            ZIO.foreachParDiscard(sources)(execOnSource(_, now))
+          }
+        }
     }
   }
 

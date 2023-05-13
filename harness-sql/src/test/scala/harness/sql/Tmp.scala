@@ -295,15 +295,16 @@ object Tmp extends ExecutableApp {
       .withEffect {
         for {
           _ <- Logger.log.info("Starting...")
+          _ <- Logger.log.debug("Starting[Debug]")
           _ <- PostgresMeta.schemaDiff(Tables(Musician.tableSchema, Band.tableSchema, MusicianInBand.tableSchema, Note.tableSchema))
 
           // _ <- batchTimings(1000)
 
-          initialNote <- randomNote
-          _ <- NoteQueries.insert(initialNote).single
-          _ <- NoteQueries.updateNoteText(initialNote.copy(text = s"updated - ${initialNote.text}", localDate = initialNote.localDate.plusDays(1))).single
-          updatedNote <- NoteQueries.selectById(initialNote.id).single
-          _ <- Logger.log.info(s"$initialNote\n$updatedNote")
+          // initialNote <- randomNote
+          // _ <- NoteQueries.insert(initialNote).single
+          // _ <- NoteQueries.updateNoteText(initialNote.copy(text = s"updated - ${initialNote.text}", localDate = initialNote.localDate.plusDays(1))).single
+          // updatedNote <- NoteQueries.selectById(initialNote.id).single
+          // _ <- Logger.log.info(s"$initialNote\n$updatedNote")
         } yield ()
       }
 
