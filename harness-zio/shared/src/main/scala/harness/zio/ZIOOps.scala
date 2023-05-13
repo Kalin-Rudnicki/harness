@@ -1,6 +1,6 @@
 package harness.zio
 
-import cats.data.NonEmptyList
+import cats.data.{EitherNel, NonEmptyList}
 import cats.syntax.list.*
 import harness.core.*
 import scala.annotation.tailrec
@@ -67,6 +67,12 @@ extension (self: ZIO.type) {
   def hFailUserError(string: String): HTask[Nothing] = ZIO.fail(HError.UserError(string))
   def hFailUserErrors(strings: NonEmptyList[String]): HTask[Nothing] = ZIO.fail(HError(strings.map(HError.UserError(_))))
   def hFailUserErrors(string0: String, stringN: String*): HTask[Nothing] = hFailUserErrors(NonEmptyList(string0, stringN.toList))
+
+  def eitherNelToUserErrors[T](eitherNel: EitherNel[String, T]): HTask[T] =
+    eitherNel match {
+      case Right(value) => ZIO.succeed(value)
+      case Left(errors) => ZIO.hFailUserErrors(errors)
+    }
 
 }
 

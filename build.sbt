@@ -8,7 +8,7 @@ git.gitTagToVersionNumber := { tag =>
   else None
 }
 
-val Scala_3 = "3.1.3"
+val Scala_3 = "3.2.2"
 
 val MyOrg = "io.github.kalin-rudnicki"
 val githubUsername = "Kalin-Rudnicki"
@@ -78,6 +78,8 @@ lazy val `harness-root` =
       `harness-sql`,
       `harness-web`.js,
       `harness-web`.jvm,
+      `harness-web-client`.js,
+      `harness-web-client`.jvm,
       `harness-web-test`,
       `harness-web-app-template`,
     )
@@ -179,6 +181,18 @@ lazy val `harness-sql` =
       Test / fork := true,
     )
     .dependsOn(`harness-zio`.jvm % "test->test;compile->compile")
+
+lazy val `harness-web-client` =
+  crossProject(JSPlatform, JVMPlatform)
+    .in(file("harness-web-client"))
+    .settings(
+      name := "harness-web-client",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      Test / fork := true,
+    )
+    .dependsOn(`harness-zio` % "test->test;compile->compile")
 
 lazy val `harness-web` =
   crossProject(JSPlatform, JVMPlatform)
