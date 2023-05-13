@@ -47,7 +47,7 @@ final class JsClient extends HttpClient[JsClient.RequestT, JsClient.ResponseT] {
       xhr.onload = { _ => register(getResponse(xhr)) }
     }
 
-  private inline def send(xhr: XMLHttpRequest, body: Option[JsClient.RequestT]): HTask[Unit] =
+  private inline def send(xhr: XMLHttpRequest, body: Option[JsClient.RequestT]): HRIO[Logger, Unit] =
     body match {
       case Some(body) => ZIO.hAttempt { xhr.send(body) }
       case None       => ZIO.hAttempt { xhr.send() }

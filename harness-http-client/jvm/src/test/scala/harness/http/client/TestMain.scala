@@ -24,7 +24,7 @@ object TestMain extends ExecutableApp {
               // HttpRequest.post("http://localhost:3000/api/ofx/upload-transactions").withNoBody,
             )
           _ <- ZIO.foreachDiscard(reqs) { req =>
-            val effect: HRIO[HttpClient.ClientT & Logger & Scope, Unit] =
+            val effect: HRIO[HttpClient.ClientT & Logger & Telemetry & Scope, Unit] =
               for {
                 // response <- HttpClient.send(req)
                 // _ <- response.show.flatMap(Logger.log.info(_))

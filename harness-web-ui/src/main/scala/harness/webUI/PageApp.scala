@@ -77,6 +77,7 @@ trait PageApp extends ZIOApp {
 
   override def run: URIO[HarnessEnv & HttpClient.ClientT & Scope, Any] =
     (for {
+      _ <- Logger.log.info("Starting page load")
       runtime <- bootstrap.toRuntime
       renderer <- Renderer.Initial
       urlToPage = { (url: Url) =>

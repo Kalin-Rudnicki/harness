@@ -9,7 +9,6 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
   override type RequestT = JsClient.RequestT
   override type ResponseT = JsClient.ResponseT
 
-  override val defaultLayer: HTaskLayer[HttpClient[RequestT, ResponseT]] =
-    ZLayer.fromZIO { ZIO.fail(HError.???("Creating JS HTTP Client")) }
+  override val defaultLayer: HTaskLayer[HttpClient[RequestT, ResponseT]] = JsClient.layer
 
 }
