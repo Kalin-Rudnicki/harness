@@ -3,7 +3,7 @@ package template.api.routes
 import harness.core.*
 import harness.sql.*
 import harness.web.*
-import harness.web.server.*
+import harness.http.server.*
 import harness.zio.*
 import template.api.db.{model as M, queries as Q}
 import template.model as D

@@ -4,7 +4,7 @@ import harness.core.*
 import harness.sql.*
 import harness.sql.query.Transaction
 import harness.web.*
-import harness.web.server.{given, *}
+import harness.http.server.{given, *}
 import harness.zio.*
 import org.mindrot.jbcrypt.BCrypt
 import template.api.db.{model as M, queries as Q}

@@ -1,7 +1,7 @@
 package template.ui.web
 
 import harness.core.RunMode
-import harness.web.client.*
+import harness.webUI.*
 
 object Main extends PageApp {
 

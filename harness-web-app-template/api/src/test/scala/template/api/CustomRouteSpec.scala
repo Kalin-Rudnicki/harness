@@ -1,7 +1,7 @@
 package template.api
 
-import harness.web.server.*
-import harness.web.test.RouteSpec
+import harness.http.server.*
+import harness.http.server.test.RouteSpec
 import harness.zio.*
 import zio.*
 import zio.test.*

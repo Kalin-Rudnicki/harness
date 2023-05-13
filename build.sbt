@@ -78,9 +78,11 @@ lazy val `harness-root` =
       `harness-sql`,
       `harness-web`.js,
       `harness-web`.jvm,
-      `harness-web-client`.js,
-      `harness-web-client`.jvm,
-      `harness-web-test`,
+      `harness-http-client`.js,
+      `harness-http-client`.jvm,
+      `harness-http-server`,
+      `harness-http-server-test`,
+      `harness-web-ui`,
       `harness-web-app-template`,
     )
 
@@ -182,18 +184,6 @@ lazy val `harness-sql` =
     )
     .dependsOn(`harness-zio`.jvm % "test->test;compile->compile")
 
-lazy val `harness-web-client` =
-  crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-web-client"))
-    .settings(
-      name := "harness-web-client",
-      publishSettings,
-      miscSettings,
-      testSettings,
-      Test / fork := true,
-    )
-    .dependsOn(`harness-zio` % "test->test;compile->compile")
-
 lazy val `harness-web` =
   crossProject(JSPlatform, JVMPlatform)
     .in(file("harness-web"))
@@ -213,19 +203,54 @@ lazy val `harness-web` =
     )
     .dependsOn(`harness-zio` % "test->test;compile->compile")
 
-lazy val `harness-web-test` =
-  project
-    .in(file("harness-web-test"))
+lazy val `harness-http-client` =
+  crossProject(JSPlatform, JVMPlatform)
+    .in(file("harness-http-client"))
     .settings(
-      name := "harness-web-test",
+      name := "harness-http-client",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      Test / fork := true,
+    )
+    .dependsOn(`harness-web` % "test->test;compile->compile")
+
+lazy val `harness-http-server` =
+  project
+    .in(file("harness-http-server"))
+    .settings(
+      name := "harness-http-server",
+      publishSettings,
+      miscSettings,
+      testSettings,
+    )
+    .dependsOn(`harness-web`.jvm % "test->test;compile->compile")
+
+lazy val `harness-http-server-test` =
+  project
+    .in(file("harness-http-server-test"))
+    .settings(
+      name := "harness-http-server-test",
       publishSettings,
       miscSettings,
     )
     .dependsOn(
       `harness-test`.jvm,
-      `harness-web`.jvm,
+      `harness-http-server`,
       `harness-sql`,
     )
+
+lazy val `harness-web-ui` =
+  project
+    .in(file("harness-web-ui"))
+    .enablePlugins(ScalaJSPlugin)
+    .settings(
+      name := "harness-web-ui",
+      publishSettings,
+      miscSettings,
+      testSettings,
+    )
+    .dependsOn(`harness-http-client`.js % "test->test;compile->compile")
 
 // =====|  |=====
 
@@ -276,7 +301,7 @@ lazy val `harness-web-app-template--api` =
         "org.mindrot" % "jbcrypt" % "0.4",
       ),
     )
-    .dependsOn(`harness-web-app-template--model`.jvm, `harness-web-app-template--db-model`, `harness-web-test` % Test)
+    .dependsOn(`harness-web-app-template--model`.jvm, `harness-web-app-template--db-model`, `harness-http-server`, `harness-http-server-test` % Test)
 
 lazy val buildUI: InputKey[Unit] = inputKey("build UI")
 
@@ -337,4 +362,4 @@ lazy val `harness-web-app-template--ui-web` =
           )
         }.evaluated,
     )
-    .dependsOn(`harness-web-app-template--model`.js, `harness-web`.js)
+    .dependsOn(`harness-web-app-template--model`.js, `harness-web-ui`)

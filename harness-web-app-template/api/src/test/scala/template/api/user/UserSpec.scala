@@ -1,7 +1,7 @@
 package template.api.user
 
 import harness.core.HError
-import harness.web.server.*
+import harness.http.server.*
 import harness.zio.Logger
 import template.api.*
 import template.api.generators as G

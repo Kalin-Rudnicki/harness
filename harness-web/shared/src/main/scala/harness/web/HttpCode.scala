@@ -1,7 +1,18 @@
 package harness.web
 
 sealed abstract class HttpCode(val code: Int, val name: String) {
+  private final val hundred = code / 100
+
+  final def is1xx: Boolean = hundred == 1
+  final def is2xx: Boolean = hundred == 2
+  final def is3xx: Boolean = hundred == 3
+  final def is4xx: Boolean = hundred == 4
+  final def is5xx: Boolean = hundred == 5
+
+  final def is4xxOr5xx: Boolean = hundred == 4 || hundred == 5
+
   override def toString: String = s"$code - $name"
+
 }
 object HttpCode {
 
@@ -148,7 +159,7 @@ object HttpCode {
   final case class NotStandard private[HttpCode] (_code: Int) extends HttpCode(_code, "Not a standard HTTP Code")
 
   implicit val ordering: Ordering[HttpCode] = Ordering.by(_.code)
-  
+
   private val lookupMap: Map[Int, HttpCode] =
     List[HttpCode](
       HttpCode.Continue,

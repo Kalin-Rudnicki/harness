@@ -4,9 +4,9 @@ import _root_.template.model as D
 import _root_.template.ui.web.helpers.*
 import cats.data.EitherNel
 import cats.syntax.either.*
-import harness.web.client.*
-import harness.web.client.vdom.{given, *}
-import harness.web.client.widgets.*
+import harness.webUI.*
+import harness.webUI.vdom.{given, *}
+import harness.webUI.widgets.*
 import harness.zio.*
 import zio.json.*
 

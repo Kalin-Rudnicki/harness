@@ -11,14 +11,18 @@ There are several harness libraries:
 - [harness-zio](#harness-zio)
 - [harness-sql](#harness-sql)
 - [harness-web](#harness-web)
+- [harness-http-server](#harness-http-server)
+- [harness-http-client](#harness-http-client)
+- [harness-web-ui](#harness-web-ui)
 - [harness-test](#harness-test)
-- [harness-web-test](#harness-web-test)
+- [harness-http-server-test](#harness-http-server-test)
 - [harness-web-app-template](#harness-web-app-template)
 
 Special mentions:
 - [CLI Parser](#parser)
 - [ZIO Executable](#executable)
 - [SQL](#harness-sql)
+- [HTTP Server](#harness-http-server)
 
 ## Harness Core
 
@@ -88,23 +92,27 @@ Special mentions:
 
 <span style="font-size: 2.5em; color: red">TODO</span>
 
-### Server
+## Harness Http Server
 
 <span style="font-size: 2.5em; color: red">TODO</span>
 
-### Server : Route
+### Route
 
 <span style="font-size: 2.5em; color: red">TODO</span>
 
-### Server : HttpRequest
+### HttpRequest
 
 <span style="font-size: 2.5em; color: red">TODO</span>
 
-### Server : HttpResponse
+### HttpResponse
 
 <span style="font-size: 2.5em; color: red">TODO</span>
 
-### Client
+## Harness Http Client
+
+<span style="font-size: 2.5em; color: red">TODO</span>
+
+## Harness Web UI
 
 <span style="font-size: 2.5em; color: red">TODO</span>
 
@@ -112,7 +120,7 @@ Special mentions:
 
 <span style="font-size: 2.5em; color: red">TODO</span>
 
-## Harness Web Test
+## Harness Http Server Test
 
 <span style="font-size: 2.5em; color: red">TODO</span>
 

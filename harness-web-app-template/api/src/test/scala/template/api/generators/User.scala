@@ -2,8 +2,8 @@ package template.api.generators
 
 import harness.sql.*
 import harness.sql.query.Transaction
-import harness.web.server.HttpRequest
-import harness.web.test.*
+import harness.http.server.HttpRequest
+import harness.http.server.test.*
 import harness.zio.*
 import org.mindrot.jbcrypt.BCrypt
 import template.api.*

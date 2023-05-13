@@ -1,6 +1,7 @@
 package template.ui.web.helpers
 
-import harness.web.client.*
+import harness.http.client.{HttpClient, HttpRequest}
+import harness.webUI.*
 import harness.zio.*
 import template.model as D
 
@@ -8,35 +9,40 @@ object Api {
 
   object user {
 
-    def fromSessionToken: HTask[D.user.User] =
+    def fromSessionToken: HRIO[HttpClient.ClientT & Logger, D.user.User] =
       HttpRequest
         .get("/api/user/from-session-token")
-        .noBody
-        .jsonResponse[D.user.User]
+        .withNoBody
+        .response
+        .jsonBody[D.user.User]
 
-    def fromSessionTokenOptional: HTask[Option[D.user.User]] =
+    def fromSessionTokenOptional: HRIO[HttpClient.ClientT & Logger, Option[D.user.User]] =
       HttpRequest
         .get("/api/user/from-session-token-optional")
-        .noBody
-        .jsonResponse[Option[D.user.User]]
+        .withNoBody
+        .response
+        .jsonBody[Option[D.user.User]]
 
-    def signUp(d: D.user.SignUp): HTask[Unit] =
+    def signUp(d: D.user.SignUp): HRIO[HttpClient.ClientT & Logger, Unit] =
       HttpRequest
         .post("/api/user/sign-up")
-        .jsonBody(d)
-        .unit200
+        .withBodyJsonEncoded(d)
+        .response
+        .unit2xx
 
-    def login(d: D.user.Login): HTask[Unit] =
+    def login(d: D.user.Login): HRIO[HttpClient.ClientT & Logger, Unit] =
       HttpRequest
         .post("/api/user/login")
-        .jsonBody(d)
-        .unit200
+        .withBodyJsonEncoded(d)
+        .response
+        .unit2xx
 
-    def logOut: HTask[Unit] =
+    def logOut: HRIO[HttpClient.ClientT & Logger, Unit] =
       HttpRequest
         .post("/api/user/log-out")
-        .noBody
-        .unit200
+        .withNoBody
+        .response
+        .unit2xx
 
   }
 

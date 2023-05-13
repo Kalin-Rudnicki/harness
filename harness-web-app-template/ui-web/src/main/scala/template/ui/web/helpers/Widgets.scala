@@ -2,9 +2,9 @@ package template.ui.web.helpers
 
 import _root_.template.model as D
 import harness.core.*
-import harness.web.client.*
-import harness.web.client.vdom.{given, *}
-import harness.web.client.widgets.*
+import harness.webUI.*
+import harness.webUI.vdom.{given, *}
+import harness.webUI.widgets.*
 
 object Widgets {
 

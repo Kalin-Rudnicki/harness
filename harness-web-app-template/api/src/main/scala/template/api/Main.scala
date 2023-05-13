@@ -1,11 +1,11 @@
 package template.api
 
 import harness.core.*
+import harness.http.server.{given, *}
 import harness.sql.*
 import harness.sql.autoSchema.*
 import harness.sql.query.Transaction
 import harness.web.*
-import harness.web.server.{given, *}
 import harness.zio.*
 import template.api.routes as R
 import zio.*
