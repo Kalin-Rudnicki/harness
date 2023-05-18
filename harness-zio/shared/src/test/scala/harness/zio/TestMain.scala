@@ -14,6 +14,8 @@ object TestMain extends ExecutableApp {
         _ <- Clock.sleep(Duration.fromNanos(2500000)).trace("effect-3")
         _ <- ZIO.fail("").trace("effect-4", Logger.LogLevel.Debug, "should-pass" -> false).either
         _ <- Logger.log.info(java.time.Duration.ofHours(1).toNanos)
+        _ <- ZIO.acquireRelease(ZIO.unit) { _ => Logger.log.info("CLOSE") }
+        _ <- Clock.sleep(1.minute)
       } yield ()
     }
 

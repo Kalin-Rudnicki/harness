@@ -52,21 +52,21 @@ object Executable {
     def withLayer[R: EnvironmentTag](layer: ParseT => SHRLayer[Scope, R]): Builder2[ParseT, R] = Builder2(parser, layer)
     inline def withLayer[R: EnvironmentTag](layer: => SHRLayer[Scope, R]): Builder2[ParseT, R] = this.withLayer { _ => layer }
 
-    inline def withEffect(effect: ParseT => SHTask[Any]): Executable = this.withLayer(ZLayer.empty).withEffect(effect)
-    inline def withEffect(effect: => SHTask[Any]): Executable = this.withEffect { _ => effect }
+    inline def withEffect(effect: ParseT => SHRIO[Scope, Any]): Executable = this.withLayer(ZLayer.empty).withEffect(effect)
+    inline def withEffect(effect: => SHRIO[Scope, Any]): Executable = this.withEffect { _ => effect }
 
   }
 
   final class Builder2[ParseT, R: EnvironmentTag] private[Executable] (parser: FinalizedParser[ParseT], layer: ParseT => SHRLayer[Scope, R]) {
 
-    def withEffect(effect: ParseT => SHRIO[R, Any]): Executable = { args =>
+    def withEffect(effect: ParseT => SHRIO[R & Scope, Any]): Executable = { args =>
       Executable.finalizedResultToExecutableResult(parser.parse(args)) match {
         case Executable.Result.Success(parseT) => ZIO.scoped { effect(parseT).provideSomeLayer(layer(parseT)) }
         case Executable.Result.Help(message)   => Logger.log.info(message)
         case Executable.Result.Fail(error)     => ZIO.fail(error)
       }
     }
-    inline def withEffect(effect: => SHRIO[R, Any]): Executable = this.withEffect { _ => effect }
+    inline def withEffect(effect: => SHRIO[R & Scope, Any]): Executable = this.withEffect { _ => effect }
 
   }
 
