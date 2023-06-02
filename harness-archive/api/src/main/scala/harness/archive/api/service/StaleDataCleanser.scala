@@ -10,7 +10,7 @@ import zio.*
 
 trait StaleDataCleanser {
 
-  def startFiber: HRIO[JDBCConnectionPool & Transaction & Logger & Telemetry, Unit]
+  def startFiber: HRIO[JDBCConnectionPool & Transaction & Logger & Telemetry, Fiber.Runtime[HError, Unit]]
 
 }
 object StaleDataCleanser {
@@ -46,19 +46,18 @@ object StaleDataCleanser {
           else rec(NonEmptyList.fromList(waitNel.tail).getOrElse(waitNel))
       } yield ()
 
-    override def startFiber: HRIO[JDBCConnectionPool & Transaction & Logger & Telemetry, Unit] =
-      rec(backoff)
+    override def startFiber: HRIO[JDBCConnectionPool & Transaction & Logger & Telemetry, Fiber.Runtime[HError, Unit]] =
+      rec(backoff).fork
 
   }
 
   // =====|  |=====
 
-  def startFiber: HRIO[StaleDataCleanser & JDBCConnectionPool & Transaction & Logger & Telemetry, Unit] =
+  def startFiber: HRIO[StaleDataCleanser & JDBCConnectionPool & Transaction & Logger & Telemetry, Fiber.Runtime[HError, Unit]] =
     ZIO.serviceWithZIO[StaleDataCleanser](_.startFiber)
 
   // =====|  |=====
 
-  
   def live(backoff: NonEmptyList[Duration]): ULayer[StaleDataCleanser] = ZLayer.succeed { StaleDataCleanser.Live(backoff) }
   def live(backoff0: Duration, backoffN: Duration*): ULayer[StaleDataCleanser] = StaleDataCleanser.live(NonEmptyList(backoff0, backoffN.toList))
 

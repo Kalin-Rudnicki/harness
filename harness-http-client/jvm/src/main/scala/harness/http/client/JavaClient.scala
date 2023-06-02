@@ -65,6 +65,7 @@ final class JavaClient extends HttpClient[JavaClient.RequestT, JavaClient.Respon
       _ <- Logger.log.debug(s"Sending HTTP request to: $url")
       con: HttpURLConnection <- getConnection(url)
       _ <- setMethod(con, request.method)
+      _ <- ZIO.hAttempt { con.setDoOutput(true) }
       _ <- setHeaders(con, request.headers)
       _ <- ZIO.foreachDiscard(request.body)(setBody(con, _))
       response <- getResponse(con)

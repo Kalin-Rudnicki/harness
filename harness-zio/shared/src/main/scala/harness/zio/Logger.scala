@@ -72,7 +72,7 @@ object Logger { self =>
       defaultColorMode = defaultColorMode,
     )
 
-  def none: Logger = Logger.default(sources = Nil, defaultMinLogTolerance = Logger.LogLevel.Never)
+  val none: Logger = Logger.default(sources = Nil, defaultMinLogTolerance = Logger.LogLevel.Never)
 
   // =====| API |=====
 
@@ -205,9 +205,7 @@ object Logger { self =>
   object Target {
 
     def fromPrintStream(name: String, printStream: PrintStream, eventToString: ExecutedEvent => String): Target =
-      new Target {
-        override def log(event: ExecutedEvent): UIO[Unit] = ZIO.hAttempt { printStream.println(eventToString(event)) }.orDie
-      }
+      event => ZIO.hAttempt { printStream.println(eventToString(event)) }.orDie
 
   }
 
@@ -254,9 +252,7 @@ object Logger { self =>
         colorMode: Option[ColorMode],
     ): Source =
       Source.const(
-        new Target {
-          override def log(event: ExecutedEvent): UIO[Unit] = ZIO.succeed { sb.append(event.formatted); sb.append('\n') }
-        },
+        event => ZIO.succeed { sb.append(event.formatted); sb.append('\n') },
         minLogTolerance,
         colorMode,
       )

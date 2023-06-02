@@ -266,7 +266,20 @@ lazy val `harness-archive` =
       `harness-archive-model`.js,
       `harness-archive-api`,
       `harness-archive-ui-web`,
+      `harness-archive-client`.jvm,
+      `harness-archive-client`.js,
     )
+
+lazy val `harness-archive-client` =
+  crossProject(JSPlatform, JVMPlatform)
+    .in(file("harness-archive/client"))
+    .settings(
+      name := "harness-archive-client",
+      publish / skip := true,
+      miscSettings,
+      testSettings,
+    )
+    .dependsOn(`harness-http-client`, `harness-archive-model`)
 
 lazy val `harness-archive-model` =
   crossProject(JSPlatform, JVMPlatform)
