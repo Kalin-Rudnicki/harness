@@ -3,6 +3,7 @@ package harness.http.client
 import harness.core.*
 import harness.web.*
 import harness.zio.*
+import org.scalajs.dom.File
 import org.scalajs.dom.XMLHttpRequest
 import scala.scalajs.js.URIUtils.encodeURIComponent
 import zio.*
@@ -49,8 +50,9 @@ final class JsClient extends HttpClient[JsClient.RequestT, JsClient.ResponseT] {
 
   private inline def send(xhr: XMLHttpRequest, body: Option[JsClient.RequestT]): HRIO[Logger, Unit] =
     body match {
-      case Some(body) => ZIO.hAttempt { xhr.send(body) }
-      case None       => ZIO.hAttempt { xhr.send() }
+      case Some(body: String) => ZIO.hAttempt { xhr.send(body) }
+      case Some(body: File)   => ZIO.hAttempt { xhr.send(body) }
+      case None               => ZIO.hAttempt { xhr.send() }
     }
 
   override protected def sendImpl(request: HttpRequest[JsClient.RequestT]): HRIO[Logger & Scope, HttpResponse.Result[JsClient.ResponseT]] =
@@ -67,7 +69,7 @@ final class JsClient extends HttpClient[JsClient.RequestT, JsClient.ResponseT] {
 }
 object JsClient {
 
-  type RequestT = String // TODO (KR) : Make `js.Any`?
+  type RequestT = String | File // TODO (KR) : Make `js.Any`?
   type ResponseT = String // TODO (KR) : Make `Any`?
 
   val layer: ULayer[HttpClient.ClientT] = ZLayer.succeed(new JsClient)
