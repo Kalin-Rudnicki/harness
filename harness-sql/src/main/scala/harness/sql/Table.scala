@@ -1,5 +1,6 @@
 package harness.sql
 
+import harness.core.*
 import harness.sql.query.*
 import java.util.UUID
 
@@ -30,6 +31,9 @@ object Table {
       object Id {
         def apply(uuid: UUID): Id = uuid
         def gen: Id = UUID.randomUUID
+
+        implicit val stringDecoder: StringDecoder[Id] = StringDecoder.uuid.map(Id(_))
+        implicit val stringEncoder: StringEncoder[Id] = StringEncoder.uuid.imap[Id](_.toUUID)
 
         /**
           * It is recommended to use [[pkCol]] or [[fkCol]] instead,
