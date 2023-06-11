@@ -22,16 +22,8 @@ extension (self: Long) {
 
 extension (self: Double) {
 
-  def toStringCommas(showEmptyDecimal: Boolean): String = {
-    def convert(int: String, fract: String): String =
-      (commaify(int) :: Option.when(showEmptyDecimal || fract != "0")(fract).toList).mkString(".")
-
-    BigDecimal(self).toString.split("\\.") match {
-      case Array(int, fract) => convert(int, fract)
-      case Array(int)        => convert(int, "0")
-      case _                 => ???
-    }
-  }
+  def toStringCommas(showEmptyDecimal: Boolean): String =
+    BigDecimal(self).toStringCommas(showEmptyDecimal)
 
   def roundTo(numPlaces: Int): Double =
     roundTo(Math.pow(10, numPlaces))
@@ -44,5 +36,20 @@ extension (self: Double) {
 
   def ceilTo(mult: Double): Double =
     (self * mult).ceil / mult
+
+}
+
+extension (self: BigDecimal) {
+
+  def toStringCommas(showEmptyDecimal: Boolean): String = {
+    def convert(int: String, fract: String): String =
+      (commaify(int) :: Option.when(showEmptyDecimal || fract != "0")(fract).toList).mkString(".")
+
+    self.toString.split("\\.") match {
+      case Array(int, fract) => convert(int, fract)
+      case Array(int)        => convert(int, "0")
+      case _                 => ???
+    }
+  }
 
 }
