@@ -47,6 +47,9 @@ object HttpRequest {
     def withQueryParam(key: String, value: String): HttpRequest.Builder2 = HttpRequest.Builder2(method, url, queryParams.updated(key, value), headers)
     inline def withQueryParamEncoded[A: StringEncoder](key: String, value: A): HttpRequest.Builder2 = self.withQueryParam(key, StringEncoder[A].encode(value))
 
+    inline def withOptQueryParam(key: String, value: Option[String]): HttpRequest.Builder2 = value.fold(self)(self.withQueryParam(key, _))
+    inline def withOptQueryParamEncoded[A: StringEncoder](key: String, value: Option[A]): HttpRequest.Builder2 = self.withOptQueryParam(key, value.map(StringEncoder[A].encode))
+
     def withHeader(key: String, value: String): HttpRequest.Builder2 = HttpRequest.Builder2(method, url, queryParams, headers.updated(key, value :: Nil))
     inline def withHeaderEncoded[A: StringEncoder](key: String, value: A): HttpRequest.Builder2 = self.withHeader(key, StringEncoder[A].encode(value))
 
