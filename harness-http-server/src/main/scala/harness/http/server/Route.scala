@@ -43,6 +43,24 @@ object Route {
     rec(routes.toList)
   }
 
+  private val pageHtmlResponse: HttpResponse =
+    HttpResponse(
+      """<!DOCTYPE html>
+        |<html lang="en">
+        |
+        |<head>
+        |    <meta charset="UTF-8">
+        |    <title>Title</title>
+        |    <link rel='shortcut icon' type='image/x-icon' href='/res/favicon.ico' />
+        |    <script id="scripts" src="/res/js/main.js"></script>
+        |</head>
+        |
+        |<body>
+        |</body>
+        |
+        |</html>""".stripMargin,
+    )
+
   /**
     * {res} : resource dir, can be set via `--res-dir=VALUE`
     *
@@ -66,11 +84,7 @@ object Route {
         } yield HttpResponse.fromHttpCode.Ok
       },
       (HttpMethod.GET / "page" / RouteMatcher.**).implement { _ =>
-        for {
-          resDir <- Path(config.resDir)
-          file <- resDir.child("index.html")
-          response <- HttpResponse.fileOrNotFound(file)
-        } yield response
+        ZIO.succeed(pageHtmlResponse)
       },
       HttpMethod.GET /: "res" /: Route.oneOf(
         "favicon.ico".implement { _ =>
@@ -84,13 +98,6 @@ object Route {
           for {
             resDir <- Path(config.resDir)
             file <- resDir.child(("js" :: routes).mkString("/"))
-            response <- HttpResponse.fileOrFail(file)
-          } yield response
-        },
-        ("css" / RouteMatcher.**).implement { routes =>
-          for {
-            resDir <- Path(config.resDir)
-            file <- resDir.child(("css" :: routes).mkString("/"))
             response <- HttpResponse.fileOrFail(file)
           } yield response
         },

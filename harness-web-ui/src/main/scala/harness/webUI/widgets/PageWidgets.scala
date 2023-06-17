@@ -1,6 +1,7 @@
 package harness.webUI.widgets
 
 import harness.webUI.*
+import harness.webUI.style.{given, *}
 import harness.webUI.vdom.{given, *}
 import java.util.UUID
 import monocle.macros.GenLens
@@ -11,7 +12,7 @@ object PageWidgets {
   val pageMessageWidget: ModifierA[UUID, PageMessage] =
     PModifier.builder.withAction[UUID].withState[PageMessage] { (rh, s) =>
       div(
-        CssClass.be("page-messages", "message"),
+        DefaultStyleSheet.pageMessages.message,
         s.style,
         s.title,
         onClick := { _ =>
@@ -23,7 +24,7 @@ object PageWidgets {
   val pageMessages: PModifier[Nothing, PageState[Any], PageState[Nothing], Unit] = {
     val tmp: Modifier[PageState[Any]] =
       div(
-        CssClass.b("page-messages"),
+        DefaultStyleSheet.pageMessages,
         Common
           .listWidget(pageMessageWidget)
           .mapActionV[List[PageMessage], List[PageMessage], Nothing] { (_, a) =>
@@ -37,10 +38,10 @@ object PageWidgets {
 
   def pageBody[Action, State](children: PModifier[Action, State, State, Any]*): ModifierA[Action, PageState[State]] =
     div(
-      CssClass.b("page"),
+      DefaultStyleSheet.page,
       PageWidgets.pageMessages,
       div(
-        CssClass.be("page", "body"),
+        DefaultStyleSheet.page.body,
         children,
       ).zoomOutToPage,
     )

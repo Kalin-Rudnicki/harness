@@ -1,42 +1,43 @@
 package harness.webUI.vdom
 
 import harness.webUI.rawVDOM
+import harness.webUI.rawVDOM.VDom.CSSAttr
 import org.scalajs.dom.MouseEvent
 import scala.scalajs.js
 
 abstract class CSSAttrBuilder(scopedName: rawVDOM.VDom.ScopedName) { self =>
-  final def :=(value: String): CModifier = PModifier.cssAttr(scopedName, value)
+  final def :=(value0: String): CSSAttr = CSSAttr(scopedName, value0)
 
-  inline final def inherit: CModifier = self := "inherit"
-  inline final def initial: CModifier = self := "initial"
-  inline final def unset: CModifier = self := "unset"
-  inline final def revert: CModifier = self := "revert"
+  inline final def inherit: CSSAttr = self := "inherit"
+  inline final def initial: CSSAttr = self := "initial"
+  inline final def unset: CSSAttr = self := "unset"
+  inline final def revert: CSSAttr = self := "revert"
 }
 
 abstract class ColorCSSAttrBuilder(scopedName: rawVDOM.VDom.ScopedName) extends CSSAttrBuilder(scopedName) { self =>
-  inline final def red: CModifier = self := "red"
-  inline final def blue: CModifier = self := "blue"
-  inline final def green: CModifier = self := "green"
-  inline final def black: CModifier = self := "black"
-  inline final def white: CModifier = self := "white"
-  inline final def gray: CModifier = self := "gray"
-  inline final def yellow: CModifier = self := "yellow"
-  inline final def orange: CModifier = self := "orange"
-  inline final def purple: CModifier = self := "purple"
-  inline final def brown: CModifier = self := "brown"
-  inline final def pink: CModifier = self := "pink"
-  inline final def cyan: CModifier = self := "cyan"
-  inline final def magenta: CModifier = self := "magenta"
-  inline final def transparent: CModifier = self := "transparent"
-  inline final def silver: CModifier = self := "silver"
-  inline final def lime: CModifier = self := "lime"
-  inline final def maroon: CModifier = self := "maroon"
-  inline final def olive: CModifier = self := "olive"
-  inline final def teal: CModifier = self := "teal"
-  inline final def navy: CModifier = self := "navy"
-  inline final def fuchsia: CModifier = self := "fuchsia"
-  inline final def aqua: CModifier = self := "aqua"
-  inline final def rgb(r: Int, g: Int, b: Int): CModifier = self := s"rgb($r, $g, $b)"
+  inline final def red: CSSAttr = self := "red"
+  inline final def blue: CSSAttr = self := "blue"
+  inline final def green: CSSAttr = self := "green"
+  inline final def black: CSSAttr = self := "black"
+  inline final def white: CSSAttr = self := "white"
+  inline final def gray: CSSAttr = self := "gray"
+  inline final def yellow: CSSAttr = self := "yellow"
+  inline final def orange: CSSAttr = self := "orange"
+  inline final def purple: CSSAttr = self := "purple"
+  inline final def brown: CSSAttr = self := "brown"
+  inline final def pink: CSSAttr = self := "pink"
+  inline final def cyan: CSSAttr = self := "cyan"
+  inline final def magenta: CSSAttr = self := "magenta"
+  inline final def transparent: CSSAttr = self := "transparent"
+  inline final def silver: CSSAttr = self := "silver"
+  inline final def lime: CSSAttr = self := "lime"
+  inline final def maroon: CSSAttr = self := "maroon"
+  inline final def olive: CSSAttr = self := "olive"
+  inline final def teal: CSSAttr = self := "teal"
+  inline final def navy: CSSAttr = self := "navy"
+  inline final def fuchsia: CSSAttr = self := "fuchsia"
+  inline final def aqua: CSSAttr = self := "aqua"
+  inline final def rgb(r: Int, g: Int, b: Int): CSSAttr = self := s"rgb($r, $g, $b)"
 }
 
 object color extends ColorCSSAttrBuilder("color")
@@ -44,44 +45,44 @@ object backgroundColor extends ColorCSSAttrBuilder("background-color")
 object width extends CSSAttrBuilder("width")
 object height extends CSSAttrBuilder("height")
 object cursor extends CSSAttrBuilder("cursor") { self =>
-  inline def pointer: CModifier = self := "pointer"
-  inline def auto: CModifier = self := "auto"
-  inline def crosshair: CModifier = self := "crosshair"
-  inline def default: CModifier = self := "default"
-  inline def move: CModifier = self := "move"
-  inline def text: CModifier = self := "text"
-  inline def help: CModifier = self := "help"
-  inline def progress: CModifier = self := "progress"
-  inline def noDrop: CModifier = self := "noDrop"
-  inline def notAllowed: CModifier = self := "notAllowed"
-  inline def eResize: CModifier = self := "eResize"
-  inline def nResize: CModifier = self := "nResize"
-  inline def neResize: CModifier = self := "neResize"
-  inline def nwResize: CModifier = self := "nwResize"
-  inline def sResize: CModifier = self := "sResize"
-  inline def seResize: CModifier = self := "seResize"
-  inline def swResize: CModifier = self := "swResize"
-  inline def wResize: CModifier = self := "wResize"
-  inline def ewResize: CModifier = self := "ewResize"
-  inline def nsResize: CModifier = self := "nsResize"
-  inline def neswResize: CModifier = self := "neswResize"
-  inline def nwseResize: CModifier = self := "nwseResize"
-  inline def colResize: CModifier = self := "colResize"
-  inline def rowResize: CModifier = self := "rowResize"
-  inline def allScroll: CModifier = self := "allScroll"
-  inline def zoomIn: CModifier = self := "zoomIn"
-  inline def zoomOut: CModifier = self := "zoomOut"
+  inline def pointer: CSSAttr = self := "pointer"
+  inline def auto: CSSAttr = self := "auto"
+  inline def crosshair: CSSAttr = self := "crosshair"
+  inline def default: CSSAttr = self := "default"
+  inline def move: CSSAttr = self := "move"
+  inline def text: CSSAttr = self := "text"
+  inline def help: CSSAttr = self := "help"
+  inline def progress: CSSAttr = self := "progress"
+  inline def noDrop: CSSAttr = self := "noDrop"
+  inline def notAllowed: CSSAttr = self := "notAllowed"
+  inline def eResize: CSSAttr = self := "eResize"
+  inline def nResize: CSSAttr = self := "nResize"
+  inline def neResize: CSSAttr = self := "neResize"
+  inline def nwResize: CSSAttr = self := "nwResize"
+  inline def sResize: CSSAttr = self := "sResize"
+  inline def seResize: CSSAttr = self := "seResize"
+  inline def swResize: CSSAttr = self := "swResize"
+  inline def wResize: CSSAttr = self := "wResize"
+  inline def ewResize: CSSAttr = self := "ewResize"
+  inline def nsResize: CSSAttr = self := "nsResize"
+  inline def neswResize: CSSAttr = self := "neswResize"
+  inline def nwseResize: CSSAttr = self := "nwseResize"
+  inline def colResize: CSSAttr = self := "colResize"
+  inline def rowResize: CSSAttr = self := "rowResize"
+  inline def allScroll: CSSAttr = self := "allScroll"
+  inline def zoomIn: CSSAttr = self := "zoomIn"
+  inline def zoomOut: CSSAttr = self := "zoomOut"
 }
 object userSelect extends CSSAttrBuilder("user-select") { self =>
-  inline def none: CModifier = self := "none"
-  inline def text: CModifier = self := "text"
-  inline def all: CModifier = self := "all"
-  inline def auto: CModifier = self := "auto"
-  inline def contain: CModifier = self := "contain"
-  inline def allScroll: CModifier = self := "allScroll"
-  inline def element: CModifier = self := "element"
-  inline def elements: CModifier = self := "elements"
-  inline def toggle: CModifier = self := "toggle"
+  inline def none: CSSAttr = self := "none"
+  inline def text: CSSAttr = self := "text"
+  inline def all: CSSAttr = self := "all"
+  inline def auto: CSSAttr = self := "auto"
+  inline def contain: CSSAttr = self := "contain"
+  inline def allScroll: CSSAttr = self := "allScroll"
+  inline def element: CSSAttr = self := "element"
+  inline def elements: CSSAttr = self := "elements"
+  inline def toggle: CSSAttr = self := "toggle"
 }
 object padding extends CSSAttrBuilder("padding")
 object paddingTop extends CSSAttrBuilder("padding-top")
@@ -94,21 +95,21 @@ object marginRight extends CSSAttrBuilder("margin-right")
 object marginBottom extends CSSAttrBuilder("margin-bottom")
 object marginLeft extends CSSAttrBuilder("margin-left")
 object display extends CSSAttrBuilder("display") { self =>
-  inline def inline: CModifier = self := "inline"
-  inline def block: CModifier = self := "block"
-  inline def inlineBlock: CModifier = self := "inline-block"
-  inline def flex: CModifier = self := "flex"
-  inline def inlineFlex: CModifier = self := "inline-flex"
-  inline def table: CModifier = self := "table"
-  inline def tableCell: CModifier = self := "table-cell"
-  inline def tableRow: CModifier = self := "table-row"
-  inline def tableRowGroup: CModifier = self := "table-row-group"
-  inline def tableHeaderGroup: CModifier = self := "table-header-group"
-  inline def tableFooterGroup: CModifier = self := "table-footer-group"
-  inline def tableColumn: CModifier = self := "table-column"
-  inline def tableColumnGroup: CModifier = self := "table-column-group"
-  inline def tableCaption: CModifier = self := "table-caption"
-  inline def none: CModifier = self := "none"
+  inline def inline: CSSAttr = self := "inline"
+  inline def block: CSSAttr = self := "block"
+  inline def inlineBlock: CSSAttr = self := "inline-block"
+  inline def flex: CSSAttr = self := "flex"
+  inline def inlineFlex: CSSAttr = self := "inline-flex"
+  inline def table: CSSAttr = self := "table"
+  inline def tableCell: CSSAttr = self := "table-cell"
+  inline def tableRow: CSSAttr = self := "table-row"
+  inline def tableRowGroup: CSSAttr = self := "table-row-group"
+  inline def tableHeaderGroup: CSSAttr = self := "table-header-group"
+  inline def tableFooterGroup: CSSAttr = self := "table-footer-group"
+  inline def tableColumn: CSSAttr = self := "table-column"
+  inline def tableColumnGroup: CSSAttr = self := "table-column-group"
+  inline def tableCaption: CSSAttr = self := "table-caption"
+  inline def none: CSSAttr = self := "none"
 }
 object textAlign extends CSSAttrBuilder("text-align")
 object verticalAlign extends CSSAttrBuilder("vertical-align")
@@ -125,12 +126,12 @@ object borderBottom extends CSSAttrBuilder("border-bottom")
 object borderLeft extends CSSAttrBuilder("border-left")
 object border extends CSSAttrBuilder("border")
 object whiteSpace extends CSSAttrBuilder("white-space") { self =>
-  inline def normal: CModifier = self := "normal"
-  inline def noWrap: CModifier = self := "nowrap"
-  inline def pre: CModifier = self := "pre"
-  inline def preWrap: CModifier = self := "pre-wrap"
-  inline def preLine: CModifier = self := "pre-line"
-  inline def breakSpaces: CModifier = self := "break-spaces"
+  inline def normal: CSSAttr = self := "normal"
+  inline def noWrap: CSSAttr = self := "nowrap"
+  inline def pre: CSSAttr = self := "pre"
+  inline def preWrap: CSSAttr = self := "pre-wrap"
+  inline def preLine: CSSAttr = self := "pre-line"
+  inline def breakSpaces: CSSAttr = self := "break-spaces"
 }
 object boxShadow extends CSSAttrBuilder("box-shadow")
 object textShadow extends CSSAttrBuilder("text-shadow")
@@ -150,3 +151,33 @@ object animationDirection extends CSSAttrBuilder("animation-direction")
 object animationIterationCount extends CSSAttrBuilder("animation-iteration-count")
 object animationFillMode extends CSSAttrBuilder("animation-fill-mode")
 object animationPlayState extends CSSAttrBuilder("animation-play-state")
+object flex extends CSSAttrBuilder("flex")
+object flexWrap extends CSSAttrBuilder("flex-wrap") { self =>
+  inline def nowrap: CSSAttr = self := "nowrap"
+  inline def wrap: CSSAttr = self := "wrap"
+  inline def wrapReverse: CSSAttr = self := "wrap-reverse"
+}
+object boxSizing extends CSSAttrBuilder("box-sizing") { self =>
+  inline def contentBox: CSSAttr = self := "content-box"
+  inline def borderBox: CSSAttr = self := "border-box"
+}
+object justifyContent extends CSSAttrBuilder("justify-content") { self =>
+  inline def flexStart: CSSAttr = self := "flex-start"
+  inline def flexEnd: CSSAttr = self := "flex-end"
+  inline def center: CSSAttr = self := "center"
+  inline def spaceBetween: CSSAttr = self := "space-between"
+  inline def spaceAround: CSSAttr = self := "space-around"
+  inline def spaceEvenly: CSSAttr = self := "space-evenly"
+}
+object alignItems extends CSSAttrBuilder("align-items") { self =>
+  inline def flexStart: CSSAttr = self := "flex-start"
+  inline def flexEnd: CSSAttr = self := "flex-end"
+  inline def center: CSSAttr = self := "center"
+  inline def baseline: CSSAttr = self := "baseline"
+  inline def stretch: CSSAttr = self := "stretch"
+}
+object outline extends CSSAttrBuilder("outline")
+object borderCollapse extends CSSAttrBuilder("border-collapse") { self =>
+  inline def collapse: CSSAttr = self := "collapse"
+  inline def separate: CSSAttr = self := "separate"
+}

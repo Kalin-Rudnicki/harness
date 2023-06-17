@@ -1,6 +1,6 @@
 package harness.webUI
 
-import harness.webUI.vdom.*
+import harness.webUI.vdom.{given, *}
 import harness.zio.*
 import java.util.UUID
 

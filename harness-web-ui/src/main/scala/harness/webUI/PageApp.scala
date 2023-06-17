@@ -4,9 +4,10 @@ import cats.data.NonEmptyList
 import harness.core.*
 import harness.http.client.HttpClient
 import harness.webUI.rawVDOM.Renderer
+import harness.webUI.style.{CssClassMap, StyleSheet}
 import harness.webUI.vdom.{given, *}
 import harness.zio.*
-import org.scalajs.dom.{console, window}
+import org.scalajs.dom.{console, document, window}
 import scala.annotation.nowarn
 import zio.*
 
@@ -74,6 +75,7 @@ trait PageApp extends ZIOApp {
   }
 
   val routeMatcher: RouteMatcher.Root
+  val styleSheets: List[StyleSheet]
 
   override def run: URIO[HarnessEnv & HttpClient.ClientT & Scope, Any] =
     (for {
@@ -94,6 +96,15 @@ trait PageApp extends ZIOApp {
             .flatMap(_.replaceNoTrace(renderer, runtime, urlToPage, url))
             .trace("Load Page", Logger.LogLevel.Debug, "url" -> url.path.mkString("/", "/", ""), "stage" -> "attempt-to-load-page")
         }
+      cssClassMap = CssClassMap.mergeAll(styleSheets.map(_.toCssClassMap))
+      _ <- ZIO.foreachDiscard(cssClassMap.renderOpt) { renderedCss =>
+        (for {
+          _ <- Logger.log.detailed(s"Adding global style-sheet:\n$renderedCss")
+          element <- ZIO.hAttempt { document.createElement("style") }
+          _ <- ZIO.hAttempt { element.innerHTML = renderedCss }
+          _ <- ZIO.hAttempt { document.head.append(element) }
+        } yield ()).mapError(HError.InternalDefect("Unable to add global style-sheet", _))
+      }
       _ <- attemptToLoadPage
       _ <-
         ZIO.hAttempt {

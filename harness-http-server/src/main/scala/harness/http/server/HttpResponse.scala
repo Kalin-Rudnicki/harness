@@ -101,7 +101,7 @@ object HttpResponse {
     genericFile(path, code) { ZIO.succeed(HttpResponse.NotFound) }
 
   def fileOrFail(path: Path, code: HttpCode = HttpCode.`200`): SHRIO[Scope, HttpResponse] =
-    genericFile(path, code) { ZIO.fail(HError.UserError("No such file", s"No file @ ${path.pathName}")) }
+    genericFile(path, code) { ZIO.fail(HError.UserError("No such file", s"No file @ ${path.pathName}").withHTTPCode(HttpCode.`404`)) }
 
   // TODO (KR) : jar resource
 

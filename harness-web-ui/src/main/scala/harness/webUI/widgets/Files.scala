@@ -7,6 +7,7 @@ import cats.syntax.option.*
 import harness.core.*
 import harness.webUI.*
 import harness.webUI.facades.*
+import harness.webUI.style.{given, *}
 import harness.webUI.vdom.{given, *}
 import harness.zio.*
 import org.scalajs.dom.{File, FileList}
@@ -42,7 +43,7 @@ object Files {
       inputMods: CModifier*,
   ): CNodeWidgetA[Option[NonEmptyList[File]]] =
     label(
-      CssClass.b("file-input"),
+      DefaultStyleSheet.fileInput,
       onDragOver := { e =>
         e.preventDefault()
       },
@@ -110,7 +111,7 @@ object Files {
 
     val widget: CNodeWidgetA[Chunk[(Option[String], File)]] =
       span(
-        CssClass.b("file-input"),
+        DefaultStyleSheet.fileInput,
         "Drop files/directories here!",
         onDragOver := { e =>
           e.preventDefault()

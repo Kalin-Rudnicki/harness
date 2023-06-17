@@ -3,6 +3,7 @@ package template.ui.web.helpers
 import _root_.template.model as D
 import harness.core.*
 import harness.webUI.*
+import harness.webUI.style.{given, *}
 import harness.webUI.vdom.{given, *}
 import harness.webUI.widgets.*
 
@@ -45,10 +46,10 @@ object Widgets {
       inputModifier: CModifier = PModifier(),
       labelModifier: CModifier = PModifier(),
   ): ModifierAV[Submit, String, V] =
-    div(CssClass.b("form-field")).defer(
+    div(DefaultStyleSheet.formField).defer(
       formInput[V]
         .apply(
-          CssClass.be("form-field", "input"),
+          DefaultStyleSheet.formField.input,
           id := _id,
           inputModifier,
         )
@@ -57,7 +58,7 @@ object Widgets {
           _label,
           label(
             _,
-            CssClass.be("form-field", "label"),
+            DefaultStyleSheet.formField.label,
             `for` := _id,
             labelModifier,
           ),
@@ -66,7 +67,7 @@ object Widgets {
 
   val stdSubmit: CNodeWidgetA[Submit] =
     formSubmitButton(
-      CssClass.b("form-submit"),
+      DefaultStyleSheet.formSubmit,
     )
 
 }

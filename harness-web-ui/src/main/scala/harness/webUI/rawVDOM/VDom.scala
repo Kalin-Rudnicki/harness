@@ -105,32 +105,39 @@ object VDom {
   // =====| Attrs |=====
 
   enum ClassName extends Modifier.Attr {
-    case Block(block: String, modifiers: Set[String])
-    case Element(block: String, element: String, modifiers: Set[String])
+    case Block(block: String)
+    case BlockM(block: String, modifiers: Set[String])
+    case Element(block: String, element: String)
+    case ElementM(block: String, element: String, modifiers: Set[String])
 
     final def classNames: Set[String] =
       this match {
-        case Block(block, modifiers)            => ClassName.classNames(block, modifiers)
-        case Element(block, element, modifiers) => ClassName.classNames(s"${block}__$element", modifiers)
+        case Block(block)                        => ClassName.classNames(block, Set.empty, true)
+        case BlockM(block, modifiers)            => ClassName.classNames(block, modifiers, true)
+        case Element(block, element)             => ClassName.classNames(s"${block}__$element", Set.empty, true)
+        case ElementM(block, element, modifiers) => ClassName.classNames(s"${block}__$element", modifiers, true)
       }
 
   }
 
   object ClassName {
 
-    private def classNames(base: String, modifiers: Set[String]): Set[String] = modifiers.map(modifier => s"$base--$modifier") + base
+    private def classNames(base: String, modifiers: Set[String], includeBase: Boolean): Set[String] =
+      modifiers.map(modifier => s"$base--$modifier") ++ Option.when(includeBase)(base)
 
-    def b(block: String): ClassName = Block(block, Set.empty)
-    def b(block: String, m0: String, mN: String*): ClassName = Block(block, (m0 :: mN.toList).toSet)
-    def b(block: String, m0: IterableOnce[String], mN: IterableOnce[String]*): ClassName = Block(block, (m0 :: mN.toList).toSet.flatten)
+    def b(block: String): ClassName = Block(block)
+    def bm(block: String, m0: String, mN: String*): ClassName = BlockM(block, (m0 :: mN.toList).toSet)
+    def bm(block: String, m0: IterableOnce[String], mN: IterableOnce[String]*): ClassName = BlockM(block, (m0 :: mN.toList).toSet.flatten)
 
-    def be(block: String, element: String): ClassName = Element(block, element, Set.empty)
-    def be(block: String, element: String, m0: String, mN: String*): ClassName = Element(block, element, (m0 :: mN.toList).toSet)
-    def be(block: String, element: String, m0: IterableOnce[String], mN: IterableOnce[String]*): ClassName = Element(block, element, (m0 :: mN.toList).toSet.flatten)
+    def be(block: String, element: String): ClassName = Element(block, element)
+    def bem(block: String, element: String, m0: String, mN: String*): ClassName = ElementM(block, element, (m0 :: mN.toList).toSet)
+    def bem(block: String, element: String, m0: IterableOnce[String], mN: IterableOnce[String]*): ClassName = ElementM(block, element, (m0 :: mN.toList).toSet.flatten)
 
   }
 
-  final case class CSSAttr(scopedName: ScopedName, value: String) extends Modifier.Attr
+  final case class CSSAttr(scopedName: ScopedName, value: String) extends Modifier.Attr {
+    override def toString: String = s"$scopedName := $value"
+  }
   final case class StdAttr(scopedName: ScopedName, value: String) extends Modifier.Attr
   final case class KeyAttr(name: String, value: js.Any) extends Modifier.Attr
 
