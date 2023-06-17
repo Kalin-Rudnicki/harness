@@ -111,12 +111,17 @@ object StyleSheetUtils {
       userSelect.none,
     )
 
-  def pb(implicit colorPalate: ColorPalate): StyleElement =
+  val buttonStyle: StyleElement =
     StyleElement(
-      bgPrimary,
       clickable,
       border := "2px solid black",
       padding := "5px 10px",
+    )
+
+  def pb(implicit colorPalate: ColorPalate): StyleElement =
+    StyleElement(
+      buttonStyle,
+      bgPrimary,
       PseudoClass.Hover(
         backgroundColor := colorPrimaryAccent,
       ),

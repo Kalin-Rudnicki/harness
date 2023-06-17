@@ -148,6 +148,26 @@ abstract class _DefaultStyleSheet(
         ),
       ); fileInput
 
+  object button
+      extends Block("button")(
+        buttonStyle,
+      ) {
+
+    abstract class M(name: String)(bgc: String, c: String, hc: String)
+        extends Modifier(name)(
+          backgroundColor := bgc,
+          color := c,
+          PseudoClass.Hover(
+            backgroundColor := hc,
+          ),
+        )
+
+    object primary extends M("primary")(colorPrimary, colorPrimaryFont, colorPrimaryAccent); primary
+    object secondary extends M("secondary")(colorSecondary, colorSecondaryFont, colorSecondaryAccent); secondary
+    object error extends M("error")(colorError, colorErrorFont, s"darken($colorError, 5%)"); error
+
+  }; button
+
 }
 
 type DefaultStyleSheet = _DefaultStyleSheet
