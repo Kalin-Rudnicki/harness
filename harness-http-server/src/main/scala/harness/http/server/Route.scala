@@ -61,6 +61,15 @@ object Route {
         |</html>""".stripMargin,
     )
 
+  private def getFile(config: ServerConfig, after: List[String]): SHRIO[Scope, HttpResponse] = {
+    val path = s"${config.resDir}${after.map(p => s"/$p").mkString}"
+
+    if (config.useJarResource)
+      HttpResponse.jarResourceOrNotFound(path)
+    else
+      Path(path).flatMap(HttpResponse.fileOrNotFound(_))
+  }
+
   /**
     * {res} : resource dir, can be set via `--res-dir=VALUE`
     *
@@ -88,18 +97,10 @@ object Route {
       },
       HttpMethod.GET /: "res" /: Route.oneOf(
         "favicon.ico".implement { _ =>
-          for {
-            resDir <- Path(config.resDir)
-            file <- resDir.child("favicon.ico")
-            response <- HttpResponse.fileOrNotFound(file)
-          } yield response
+          getFile(config, "favicon.ico" :: Nil)
         },
         ("js" / RouteMatcher.**).implement { routes =>
-          for {
-            resDir <- Path(config.resDir)
-            file <- resDir.child(("js" :: routes).mkString("/"))
-            response <- HttpResponse.fileOrFail(file)
-          } yield response
+          getFile(config, "js" :: routes)
         },
       ),
       HttpMethod.GET.implement { _ => ZIO.succeed(HttpResponse.redirect("/page")) },

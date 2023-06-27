@@ -38,7 +38,7 @@ abstract class RouteSpec[
 
   val route: ServerConfig => Route[ServerEnv & ReqEnv]
   private final lazy val evalRoute: Route[ServerEnv & ReqEnv] =
-    route(ServerConfig(None, None, "res"))
+    route(ServerConfig(None, "res", true, None))
 
   lazy val logLevel: Logger.LogLevel =
     Logger.LogLevel.Warning
@@ -111,8 +111,15 @@ abstract class RouteSpec[
         response <- httpRequest(request)
         is = java.io.PipedInputStream()
         os = java.io.PipedOutputStream(is)
-        _ <- ZIO.hAttempt(response.write(os))
-        string <- ZIO.hAttempt(String(is.readNBytes(is.available())))
+        len <- HttpResponse.Return.`return`(
+          response.`return`,
+          os,
+          _ => ZIO.unit,
+        )
+        _ <- ZIO.when(len > Int.MaxValue) {
+          ZIO.fail(HError.???("handling response string larger than max int"))
+        }
+        string <- ZIO.hAttempt(String(is.readNBytes(len.toInt)))
       } yield string
 
     def jsonResponse[A: JsonDecoder](request: HttpRequest): HRIO[HttpEnv, A] =

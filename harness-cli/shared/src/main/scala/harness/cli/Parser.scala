@@ -174,13 +174,20 @@ trait Parser[T] { self =>
     * If `self` fails with only missing params, pass with `dflt`.<br>
     * Otherwise, fail.
     */
-  final def default[T2 >: T](dflt: => T2, showDefaultInHelpExtraMessage: Boolean = false): Parser[T2] =
+  final def default[T2 >: T](dflt: => T2, showDefaultInHelpExtraMessage: Defaultable.Optional[String] = Defaultable.None): Parser[T2] =
     self.buildF(_).map { buildResult =>
       Parser
         .BuildResult(
           buildResult.usedParams,
           buildResult.helpMessage,
-          HelpMessage.defaultable(buildResult.helpExtraMessage, Option.when(showDefaultInHelpExtraMessage)(dflt.toString)),
+          HelpMessage.defaultable(
+            buildResult.helpExtraMessage,
+            showDefaultInHelpExtraMessage match {
+              case Defaultable.Auto      => dflt.toString.some
+              case Defaultable.Some(msg) => msg.some
+              case Defaultable.None      => None
+            },
+          ),
           buildResult.parse,
         )
         .mapArgsAndResult {
@@ -585,7 +592,7 @@ object Parser {
       shortParam,
       helpHint,
       helpExtraHint,
-    ).default(!ifPresent, true)
+    ).default(!ifPresent, Defaultable.Auto)
 
   /**
     * If present, returns `ifPresent`, otherwise, fails.
@@ -711,6 +718,8 @@ object Parser {
   def firstOf[T](parser0: Parser[T], parser1: Parser[T], parserN: Parser[T]*): Parser[T] =
     (parser1 :: parserN.toList).foldLeft(parser0.indentedHelpMessage) { (l, r) => l <|| r.indentedHelpMessage }
 
+  def helpMessageBreak: Parser[Unit] =
+    Parser.helpMessage("" :: Nil, Nil, Nil)
   def helpMessage(left: List[String], right: List[String], rightExtra: List[String]): Parser[Unit] = { usedParams =>
     Parser
       .BuildResult(
@@ -726,6 +735,10 @@ object Parser {
       )
       .asRight
   }
+
+  def helpMessageSection[T](section: String, breakBefore: Boolean)(child: Parser[T]): Parser[T] =
+    if (breakBefore) Parser.helpMessageBreak && child.sectionHelpMessage(section)
+    else child.sectionHelpMessage(section)
 
   // =====| Helpers |=====
 

@@ -124,14 +124,14 @@ object Executable {
           Defaultable.Some(ShortName.unsafe('t')),
           helpHint = List("Disregard log messages below this level"),
         )
-        .default(Logger.LogLevel.Info, true) &&
+        .default(Logger.LogLevel.Info, Defaultable.Auto) &&
       Parser
         .value[ColorMode](
           LongName.unsafe("color-mode"),
           Defaultable.Some(ShortName.unsafe('c')),
           helpHint = List("Default logger colorization"),
         )
-        .default(ColorMode.Extended, true) &&
+        .default(ColorMode.Extended, Defaultable.Auto) &&
       Parser
         .flag(
           LongName.unsafe("dev"),

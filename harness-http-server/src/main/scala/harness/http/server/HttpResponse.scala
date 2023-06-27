@@ -3,7 +3,7 @@ package harness.http.server
 import harness.core.*
 import harness.web.*
 import harness.zio.*
-import java.io.OutputStream
+import java.io.{InputStream, OutputStream}
 import zio.*
 import zio.json.JsonEncoder
 
@@ -13,8 +13,7 @@ object HttpResponse {
   case object NotFound extends HttpResponse
   final case class Found private[HttpResponse] (
       code: HttpCode,
-      length: Long,
-      write: OutputStream => Unit,
+      `return`: HttpResponse.Return,
       headers: Map[String, String],
       cookies: List[Cookie],
   ) extends HttpResponse { self =>
@@ -40,6 +39,42 @@ object HttpResponse {
 
   }
 
+  sealed trait Return
+  object Return {
+
+    case object ReturnNothing extends Return
+    final case class ReturnString(string: String) extends Return
+    final case class ReturnInputStreamKnownSize(is: InputStream, size: Long) extends Return
+    final case class ReturnInputStreamUnknownSize(is: InputStream) extends Return
+
+    def `return`(r: Return, responseBody: OutputStream, _sendResponseHeaders: Long => HTask[Unit]): HRIO[Logger & Telemetry, Long] = {
+      inline def sendResponseHeaders(length: Long): HTask[Long] =
+        _sendResponseHeaders(length).as(length)
+
+      (r match {
+        case HttpResponse.Return.ReturnNothing =>
+          sendResponseHeaders(0L)
+        case HttpResponse.Return.ReturnString(string) =>
+          val bytes = string.getBytes
+          sendResponseHeaders(bytes.length) <*
+            ZIO.hAttempt(responseBody.write(bytes)).mapError(HError.SystemFailure("Unable to write response body", _))
+        case HttpResponse.Return.ReturnInputStreamKnownSize(is, size) =>
+          sendResponseHeaders(size) <*
+            ZIO.hAttempt(is.transferTo(responseBody)).mapError(HError.SystemFailure("Unable to write response body", _)).unit
+        case HttpResponse.Return.ReturnInputStreamUnknownSize(is) =>
+          for {
+            bytes <- ZIO.hAttempt(is.readAllBytes()).mapError(HError.SystemFailure("Unable to read response body from InputStream", _))
+            _ <- ZIO.when(bytes.length == Int.MaxValue) {
+              Logger.log.warning("Reading InputStream used max-bytes")
+            }
+            len <- sendResponseHeaders(bytes.length)
+            _ <- ZIO.hAttempt(responseBody.write(bytes)).mapError(HError.SystemFailure("Unable to write response body", _))
+          } yield len
+      }).trace("Returning HTTP response body", "type" -> r.getClass.getSimpleName)
+    }
+
+  }
+
   object earlyReturn {
 
     def apply(response: HttpResponse): IO[EarlyReturn, Nothing] =
@@ -60,8 +95,7 @@ object HttpResponse {
   def apply(value: String, code: HttpCode = HttpCode.`200`): HttpResponse.Found =
     Found(
       code,
-      value.length,
-      os => os.write(value.getBytes),
+      HttpResponse.Return.ReturnString(value),
       Map.empty,
       Nil,
     )
@@ -75,13 +109,12 @@ object HttpResponse {
   def redirect(location: String, code: HttpCode = HttpCode.`301`): HttpResponse.Found =
     Found(
       code,
-      0,
-      { _ => },
+      HttpResponse.Return.ReturnNothing,
       Map("Location" -> location),
       Nil,
     )
 
-  def genericFile(path: Path, code: HttpCode = HttpCode.`200`)(onDNE: => SHRIO[Scope, HttpResponse]): SHRIO[Scope, HttpResponse] =
+  private def genericFile(path: Path, code: HttpCode = HttpCode.`200`)(onDNE: => SHRIO[Scope, HttpResponse]): SHRIO[Scope, HttpResponse] =
     path.exists.flatMap {
       case true =>
         for {
@@ -89,8 +122,7 @@ object HttpResponse {
           inputStream <- path.inputStream
         } yield HttpResponse.Found(
           code = code,
-          length = length,
-          write = inputStream.transferTo,
+          `return` = HttpResponse.Return.ReturnInputStreamKnownSize(inputStream, length),
           headers = Map.empty,
           cookies = Nil,
         )
@@ -103,7 +135,28 @@ object HttpResponse {
   def fileOrFail(path: Path, code: HttpCode = HttpCode.`200`): SHRIO[Scope, HttpResponse] =
     genericFile(path, code) { ZIO.fail(HError.UserError("No such file", s"No file @ ${path.pathName}").withHTTPCode(HttpCode.`404`)) }
 
-  // TODO (KR) : jar resource
+  private def genericJarResource(path: String, code: HttpCode = HttpCode.`200`)(onDNE: SHRIO[Scope, HttpResponse]): SHRIO[Scope, HttpResponse] =
+    ZIO
+      .hAttempt { Option(this.getClass.getResourceAsStream(path)) }
+      .mapError(HError.SystemFailure(s"Error getting jar resource: $path", _))
+      .flatMap {
+        case Some(resource) =>
+          ZIO.succeed(
+            HttpResponse.Found(
+              code = code,
+              `return` = HttpResponse.Return.ReturnInputStreamUnknownSize(resource),
+              headers = Map.empty,
+              cookies = Nil,
+            ),
+          )
+        case None => onDNE
+      }
+
+  def jarResourceOrNotFound(path: String, code: HttpCode = HttpCode.`200`): SHRIO[Scope, HttpResponse] =
+    genericJarResource(path, code)(ZIO.succeed(HttpResponse.NotFound))
+
+  def jarResourceOrFail(path: String, code: HttpCode = HttpCode.`200`): SHRIO[Scope, HttpResponse] =
+    genericJarResource(path, code) { ZIO.fail(HError.UserError("No such file", s"No jar resource @ $path").withHTTPCode(HttpCode.`404`)) }
 
   // =====| From HTTP Code |=====
 

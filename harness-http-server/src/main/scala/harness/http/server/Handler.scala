@@ -38,7 +38,7 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
           case Left(earlyReturn: EarlyReturn) => Logger.log.debug("Received early return value").as(earlyReturn.response.asRight)
           case other                          => ZIO.succeed(other)
         }
-        foundResponse <-
+        foundResponse: HttpResponse.Found <-
           responseOrError match {
             case Right(found: HttpResponse.Found) => ZIO.succeed(found)
             case Right(HttpResponse.NotFound)     => ZIO.succeed(HttpResponse.fromHttpCode.`404`)
@@ -67,8 +67,11 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
               foundResponse.cookies.reverse.foreach { c => headers.add("Set-Cookie", c.cookieString) }
             }
             .mapError(HError.SystemFailure("Unable to write response cookies", _))
-        _ <- ZIO.hAttempt(exchange.sendResponseHeaders(foundResponse.code.code, foundResponse.length)).mapError(HError.SystemFailure("Unable to write response headers", _))
-        _ <- ZIO.hAttempt(foundResponse.write(responseBody)).mapError(HError.SystemFailure("Unable to write response body", _))
+        _ <- HttpResponse.Return.`return`(
+          foundResponse.`return`,
+          responseBody,
+          bodyLength => ZIO.hAttempt(exchange.sendResponseHeaders(foundResponse.code.code, bodyLength)).mapError(HError.SystemFailure("Unable to write response headers", _)),
+        )
       } yield ()
 
     Unsafe.unsafe { implicit unsafe =>
