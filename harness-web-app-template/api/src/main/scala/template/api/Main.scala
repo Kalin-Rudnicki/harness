@@ -8,17 +8,20 @@ import harness.sql.query.Transaction
 import harness.web.*
 import harness.zio.*
 import template.api.routes as R
+import template.api.service.storage.*
 import zio.*
 
 object Main extends ExecutableApp {
 
-  type ServerEnv = JDBCConnectionPool & Transaction
+  type ServerEnv = JDBCConnectionPool & Transaction & SessionStorage & UserStorage
   type ReqEnv = JDBCConnection
 
   // This layer will be evaluated once when the server starts
   val serverLayer: SHRLayer[Scope, ServerEnv] =
     ZLayer.fromZIO { JDBCConnectionPool(ConnectionFactory("jdbc:postgresql:template", "kalin", "psql-pass"), 4, 16, Duration.fromSeconds(60)) } ++
-      ZLayer.succeed(Transaction.Live)
+      ZLayer.succeed(Transaction.Live) ++
+      SessionStorage.liveLayer ++
+      UserStorage.liveLayer
 
   // This layer will be evaluated for each HTTP request that the server receives
   val reqLayer: SHRLayer[ServerEnv & Scope, ReqEnv] =

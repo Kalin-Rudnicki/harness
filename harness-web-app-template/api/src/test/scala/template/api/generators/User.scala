@@ -1,13 +1,14 @@
 package template.api.generators
 
-import harness.sql.*
-import harness.sql.query.Transaction
 import harness.http.server.HttpRequest
 import harness.http.server.test.*
+import harness.sql.*
+import harness.sql.query.Transaction
 import harness.zio.*
 import org.mindrot.jbcrypt.BCrypt
 import template.api.*
-import template.api.db.{model as M, queries as Q}
+import template.api.db.model as M
+import template.api.service.storage.*
 import template.model as D
 import zio.*
 import zio.test.*
@@ -29,12 +30,12 @@ object User {
       email = s"${firstName.toLowerCase}.${lastName.toLowerCase}@${domain.toLowerCase}.com",
     )
 
-  val insertedUserGen: Gen[JDBCConnection & Logger & Telemetry & Sized, D.user.User] =
+  val insertedUserGen: Gen[UserStorage & JDBCConnection & Logger & Telemetry & Sized, D.user.User] =
     signUpGen.flatMap { signUp =>
       Gen.fromZIO {
         val encryptedPassword = BCrypt.hashpw(signUp.password, BCrypt.gensalt)
         val user = new M.User.Identity(M.User.Id.gen, signUp.firstName, signUp.lastName, signUp.username, signUp.username.toLowerCase, encryptedPassword, signUp.email)
-        Q.User.insert(user).single.as(D.user.User(user.id.toUUID, user.firstName, user.lastName, user.username, user.email)).orDie
+        UserStorage.insert(user).as(D.user.User(user.id.toUUID, user.firstName, user.lastName, user.username, user.email)).orDie
       }
     }
 
