@@ -1,6 +1,8 @@
 package harness.archive.api.routes
 
 import harness.archive.api.db.{model as M, queries as Q}
+import harness.archive.api.service.storage.*
+import harness.archive.api.util.*
 import harness.archive.model as D
 import harness.core.*
 import harness.http.server.{given, *}
@@ -12,17 +14,17 @@ import zio.*
 
 object Log {
 
-  val routes: Route[JDBCConnection & Transaction] =
+  val routes: Route[AppStorage & LogStorage & JDBCConnection & Transaction] =
     "log" /: Route.oneOf(
       (HttpMethod.POST / "upload").implement { _ =>
         Transaction.inTransaction {
           for {
             // TODO (KR) :
-            _ <- Helpers.warnUserPermissions
-            // dbUser <- Helpers.userFromSession
+            _ <- Misc.warnUserPermissions
+            // dbUser <- SessionUtils.userFromSession
 
             body <- HttpRequest.jsonBody[Chunk[D.log.Upload]]
-            appNameMap <- Helpers.getOrCreateApps(body.map(_.appName).toSet)
+            appNameMap <- Misc.getOrCreateApps(body.map(_.appName).toSet)
             dbLogs = body.map { log =>
               val app = appNameMap(log.appName)
               new M.Log.Identity(
@@ -33,10 +35,10 @@ object Log {
                 log.context,
                 log.dateTime,
                 log.dateTime.toInstant.toEpochMilli,
-                Helpers.keepUntilEpochMillis(app.logDurationMap, log.logLevel, log.dateTime),
+                Misc.keepUntilEpochMillis(app.logDurationMap, log.logLevel, log.dateTime),
               )
             }
-            _ <- Q.Log.insert.batched(dbLogs).unit
+            _ <- LogStorage.insertAll(dbLogs)
           } yield HttpResponse.fromHttpCode.Ok
         }
       },
@@ -44,13 +46,13 @@ object Log {
         Transaction.inTransaction {
           for {
             // TODO (KR) :
-            _ <- Helpers.warnUserPermissions
-            // dbUser <- Helpers.userFromSession
+            _ <- Misc.warnUserPermissions
+            // dbUser <- SessionUtils.userFromSession
 
             appName <- HttpRequest.query.get[String]("app-name")
-            app <- Helpers.appByName(appName)
-            dbLogs <- Q.Log.byAppId(app.id).chunk
-          } yield HttpResponse.encodeJson(dbLogs.map(Helpers.convert.log))
+            app <- Misc.appByName(appName)
+            dbLogs <- LogStorage.byAppId(app.id)
+          } yield HttpResponse.encodeJson(dbLogs.map(DbToDomain.log))
         }
       },
     )

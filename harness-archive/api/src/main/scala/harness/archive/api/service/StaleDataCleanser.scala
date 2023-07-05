@@ -1,7 +1,8 @@
 package harness.archive.api.service
 
 import cats.data.NonEmptyList
-import harness.archive.api.db.{model as M, queries as Q}
+import harness.archive.api.db.model as M
+import harness.archive.api.service.storage.*
 import harness.core.*
 import harness.sql.{JDBCConnection, JDBCConnectionPool}
 import harness.sql.query.Transaction
@@ -10,7 +11,7 @@ import zio.*
 
 trait StaleDataCleanser {
 
-  def startFiber: HRIO[JDBCConnectionPool & Transaction & Logger & Telemetry, Fiber.Runtime[HError, Unit]]
+  def startFiber: HRIO[LogStorage & TraceStorage & JDBCConnectionPool & Transaction & Logger & Telemetry, Fiber.Runtime[HError, Unit]]
 
 }
 object StaleDataCleanser {
@@ -19,14 +20,14 @@ object StaleDataCleanser {
   //           : Another option would be to query db for how long to wait for
   final class Live(backoff: NonEmptyList[Duration]) extends StaleDataCleanser {
 
-    private def executeClear: HRIO[JDBCConnection & Transaction & Logger & Telemetry, Boolean] =
+    private def executeClear: HRIO[LogStorage & TraceStorage & JDBCConnection & Transaction & Logger & Telemetry, Boolean] =
       Transaction.inTransaction {
         for {
           now <- Clock.currentDateTime
           nowEpoch = now.toInstant.toEpochMilli
           _ <- Logger.log.info(s"Running cleanup @ $now")
-          numLogsDeleted <- Q.Log.deleteOutdated(nowEpoch).execute
-          numTracesDeleted <- Q.Log.deleteOutdated(nowEpoch).execute
+          numLogsDeleted <- LogStorage.deleteOutdated(nowEpoch)
+          numTracesDeleted <- TraceStorage.deleteOutdated(nowEpoch)
           clearedAnyRecords = numLogsDeleted > 0 || numTracesDeleted > 0
           _ <-
             if (clearedAnyRecords) Logger.log.info(s"Deleted ${numLogsDeleted.pluralizeOn("log")} and ${numTracesDeleted.pluralizeOn("trace")}")
@@ -34,7 +35,7 @@ object StaleDataCleanser {
         } yield clearedAnyRecords
       }
 
-    private def rec(waitNel: NonEmptyList[Duration]): HRIO[JDBCConnectionPool & Transaction & Logger & Telemetry, Unit] =
+    private def rec(waitNel: NonEmptyList[Duration]): HRIO[LogStorage & TraceStorage & JDBCConnectionPool & Transaction & Logger & Telemetry, Unit] =
       for {
         _ <- Logger.log.debug(s"Sleeping for ${waitNel.head.prettyPrint}")
         _ <- Clock.sleep(waitNel.head)
@@ -46,14 +47,14 @@ object StaleDataCleanser {
           else rec(NonEmptyList.fromList(waitNel.tail).getOrElse(waitNel))
       } yield ()
 
-    override def startFiber: HRIO[JDBCConnectionPool & Transaction & Logger & Telemetry, Fiber.Runtime[HError, Unit]] =
+    override def startFiber: HRIO[LogStorage & TraceStorage & JDBCConnectionPool & Transaction & Logger & Telemetry, Fiber.Runtime[HError, Unit]] =
       rec(backoff).fork
 
   }
 
   // =====|  |=====
 
-  def startFiber: HRIO[StaleDataCleanser & JDBCConnectionPool & Transaction & Logger & Telemetry, Fiber.Runtime[HError, Unit]] =
+  def startFiber: HRIO[StaleDataCleanser & LogStorage & TraceStorage & JDBCConnectionPool & Transaction & Logger & Telemetry, Fiber.Runtime[HError, Unit]] =
     ZIO.serviceWithZIO[StaleDataCleanser](_.startFiber)
 
   // =====|  |=====

@@ -13,7 +13,8 @@ import zio.*
 
 object Main extends ExecutableApp {
 
-  type ServerEnv = JDBCConnectionPool & Transaction & SessionStorage & UserStorage
+  type StorageEnv = SessionStorage & UserStorage
+  type ServerEnv = JDBCConnectionPool & Transaction & StorageEnv
   type ReqEnv = JDBCConnection
 
   // This layer will be evaluated once when the server starts

@@ -1,10 +1,9 @@
-package template.api.service.storage
+package harness.archive.api.service.storage
 
 import harness.sql.*
 import harness.sql.query.{given, *}
 import harness.zio.*
-import template.api.db.model.User
-import template.api.db.model as M
+import harness.archive.api.db.model as M
 import zio.*
 
 trait UserStorage {

@@ -1,6 +1,8 @@
 package harness.archive.api.routes
 
-import harness.archive.api.db.{model as M, queries as Q}
+import harness.archive.api.db.model as M
+import harness.archive.api.service.storage.*
+import harness.archive.api.util.*
 import harness.archive.model as D
 import harness.core.*
 import harness.http.server.{given, *}
@@ -12,17 +14,17 @@ import zio.*
 
 object Telemetry {
 
-  val routes: Route[JDBCConnection & Transaction] =
+  val routes: Route[AppStorage & TraceStorage & JDBCConnection & Transaction] =
     "telemetry" /: Route.oneOf(
       (HttpMethod.POST / "upload").implement { _ =>
         Transaction.inTransaction {
           for {
             // TODO (KR) :
-            _ <- Helpers.warnUserPermissions
-            // dbUser <- Helpers.userFromSession
+            _ <- Misc.warnUserPermissions
+            // dbUser <- SessionUtils.userFromSession
 
             body <- HttpRequest.jsonBody[Chunk[D.telemetry.Upload]]
-            appNameMap <- Helpers.getOrCreateApps(body.map(_.appName).toSet)
+            appNameMap <- Misc.getOrCreateApps(body.map(_.appName).toSet)
             dbTraces = body.map { trace =>
               val app = appNameMap(trace.appName)
               new M.Trace.Identity(
@@ -37,10 +39,10 @@ object Telemetry {
                 trace.logContext,
                 trace.startDateTime.toInstant.toEpochMilli,
                 trace.endDateTime.toInstant.toEpochMilli,
-                Helpers.keepUntilEpochMillis(app.traceDurationMap, trace.logLevel, trace.endDateTime),
+                Misc.keepUntilEpochMillis(app.traceDurationMap, trace.logLevel, trace.endDateTime),
               )
             }
-            _ <- Q.Trace.insert.batched(dbTraces).unit
+            _ <- TraceStorage.insertAll(dbTraces)
           } yield HttpResponse.fromHttpCode.Ok
         }
       },
@@ -48,13 +50,13 @@ object Telemetry {
         Transaction.inTransaction {
           for {
             // TODO (KR) :
-            _ <- Helpers.warnUserPermissions
-            // dbUser <- Helpers.userFromSession
+            _ <- Misc.warnUserPermissions
+            // dbUser <- SessionUtils.userFromSession
 
             appName <- HttpRequest.query.get[String]("app-name")
-            app <- Helpers.appByName(appName)
-            dbTraces <- Q.Trace.byAppId(app.id).chunk
-          } yield HttpResponse.encodeJson(dbTraces.map(Helpers.convert.trace))
+            app <- Misc.appByName(appName)
+            dbTraces <- TraceStorage.byAppId(app.id)
+          } yield HttpResponse.encodeJson(dbTraces.map(DbToDomain.trace))
         }
       },
     )
