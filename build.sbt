@@ -275,7 +275,7 @@ lazy val `harness-archive-client` =
     .in(file("harness-archive/client"))
     .settings(
       name := "harness-archive-client",
-      publish / skip := true,
+      publishSettings,
       miscSettings,
       testSettings,
     )
@@ -286,7 +286,7 @@ lazy val `harness-archive-model` =
     .in(file("harness-archive/model"))
     .settings(
       name := "harness-archive-model",
-      publish / skip := true,
+      publishSettings,
       miscSettings,
       testSettings,
     )
