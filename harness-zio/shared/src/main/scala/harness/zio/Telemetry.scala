@@ -80,8 +80,21 @@ object Telemetry {
       success: Boolean,
       telemetryContext: Map[String, String],
       logContext: Map[String, String],
-  ) {
+  ) { self =>
+
     def duration: Duration = java.time.Duration.between(startDateTime, endDateTime)
+
+    def toLoggerEvent: Logger.Event =
+      Logger.Event.AtLogLevel(
+        self.logLevel,
+        { () =>
+          Logger.Event.Output(
+            self.telemetryContext + ("success" -> self.success.toString),
+            s"TELEMETRY - (${self.label}) [${self.duration.prettyPrint}]${if (self.success) "" else " *** FAIL ***"}",
+          )
+        },
+      )
+
   }
   object Trace {
     implicit val jsonCodec: JsonCodec[Trace] = DeriveJsonCodec.gen
@@ -97,19 +110,7 @@ object Telemetry {
   val log: Telemetry =
     new Telemetry {
       override def trace(event: Telemetry.Trace): URIO[Logger, Boolean] =
-        Logger
-          .execute {
-            Logger.Event.AtLogLevel(
-              event.logLevel,
-              { () =>
-                Logger.Event.Output(
-                  event.telemetryContext + ("success" -> event.success.toString),
-                  s"TELEMETRY - (${event.label}) [${event.duration.prettyPrint}]${if (event.success) "" else " *** FAIL ***"}",
-                )
-              },
-            )
-          }
-          .as(true)
+        Logger.execute { event.toLoggerEvent }.as(true)
     }
 
 }

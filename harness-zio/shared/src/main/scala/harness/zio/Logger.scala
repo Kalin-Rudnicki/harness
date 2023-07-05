@@ -72,6 +72,11 @@ object Logger { self =>
       defaultColorMode = defaultColorMode,
     )
 
+  def withSources(source0: Logger.Source, sourceN: Logger.Source*): URLayer[Logger, Logger] =
+    ZLayer.fromZIO {
+      ZIO.serviceWith[Logger](logger => logger.copy(sources = logger.sources ::: (source0 :: sourceN.toList)))
+    }
+
   val none: Logger = Logger.default(sources = Nil, defaultMinLogTolerance = Logger.LogLevel.Never)
 
   // =====| API |=====

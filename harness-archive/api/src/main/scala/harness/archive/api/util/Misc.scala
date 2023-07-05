@@ -1,6 +1,6 @@
 package harness.archive.api.util
 
-import harness.archive.api.db.{model as M, queries as Q}
+import harness.archive.api.db.model as M
 import harness.archive.api.service.storage.*
 import harness.archive.model as D
 import harness.core.*

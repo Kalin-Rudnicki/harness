@@ -12,17 +12,10 @@ object TestMain extends ExecutableApp {
     Executable
       .withParser(Parser.unit)
       .withLayer {
-        HttpClient.defaultLayer.map { env =>
-          ZEnvironment(
-            Logger.default(
-              sources = List(
-                Logger.Source.const(new ArchiveTarget("my-app", "http://localhost:3001", env.get[HttpClient.ClientT]), Logger.LogLevel.Trace.some, None),
-                Logger.Source.stdOut(None, None),
-              ),
-              defaultMinLogTolerance = Logger.LogLevel.Debug,
-            ),
-          )
-        }
+        HttpClient.defaultLayer >>>
+          ArchiveSpec.layer("my-app", "http://localhost:3001") >>>
+          (ArchiveLoggerTarget.loggerLayerWithSource(Logger.LogLevel.Trace.some, None) ++
+            ArchiveTelemetry.layer)
       }
       .withEffect {
         for {
@@ -33,6 +26,7 @@ object TestMain extends ExecutableApp {
           _ <- Logger.log.info("INFO", "round" -> 2)
           _ <- Logger.log.debug("DEBUG", "round" -> 2)
           _ <- Logger.log.trace("TRACE", "round" -> 2)
+          _ <- Clock.sleep(2.seconds).trace("waiting...", "round" -> 3)
         } yield ()
       }
 
