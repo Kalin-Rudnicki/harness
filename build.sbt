@@ -8,7 +8,7 @@ git.gitTagToVersionNumber := { tag =>
   else None
 }
 
-val Scala_3 = "3.2.2"
+val Scala_3 = "3.3.0"
 
 val MyOrg = "io.github.kalin-rudnicki"
 val githubUsername = "Kalin-Rudnicki"

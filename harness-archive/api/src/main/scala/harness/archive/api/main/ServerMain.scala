@@ -1,4 +1,4 @@
-package harness.archive.api
+package harness.archive.api.main
 
 import cats.data.NonEmptyList
 import harness.archive.api.db.model as M
@@ -14,10 +14,10 @@ import harness.web.*
 import harness.zio.*
 import zio.*
 
-object Main extends ExecutableApp {
+object ServerMain {
 
   type StorageEnv = SessionStorage & UserStorage & AppStorage & LogStorage & TraceStorage
-  type ServerEnv = StaleDataCleanser & JDBCConnectionPool & Transaction & StorageEnv
+  type ServerEnv = JDBCConnectionPool & Transaction & StorageEnv
   type ReqEnv = JDBCConnection
 
   private val storageLayer: ULayer[StorageEnv] =
@@ -29,10 +29,9 @@ object Main extends ExecutableApp {
 
   // This layer will be evaluated once when the server starts
   val serverLayer: SHRLayer[Scope, ServerEnv] =
-    ZLayer.fromZIO { JDBCConnectionPool(ConnectionFactory("jdbc:postgresql:archive", "kalin", "psql-pass"), 4, 16, Duration.fromSeconds(60)) } ++
+    Shared.poolLayer ++
       ZLayer.succeed(Transaction.Live) ++
-      storageLayer ++
-      StaleDataCleanser.live(1.minute, 1.minute, 1.minute, 5.minutes, 15.minutes)
+      storageLayer
 
   // This layer will be evaluated for each HTTP request that the server receives
   val reqLayer: SHRLayer[ServerEnv & Scope, ReqEnv] =
@@ -59,13 +58,12 @@ object Main extends ExecutableApp {
       .withPool(tables)
       .mapError(HError.SystemFailure("Failed to execute schema diff", _))
 
-  override val executable: Executable =
+  val executable: Executable =
     Executable
       .withParser(ServerConfig.parser)
       .withLayer[ServerEnv](serverLayer)
       .withEffect { config =>
         schemaDiff *>
-          StaleDataCleanser.startFiber *>
           Server.start[ServerEnv, ReqEnv](config, reqLayer) { routes(config) }
       }
 

@@ -41,34 +41,7 @@ trait Executable { self =>
     self(args.toList)
 
 }
-object Executable {
-
-  // =====| Builders |=====
-
-  def withParser[ParseT](parser: Parser[ParseT]): Builder1[ParseT] = Builder1(parser.finalized)
-
-  final class Builder1[ParseT] private[Executable] (parser: FinalizedParser[ParseT]) {
-
-    def withLayer[R: EnvironmentTag](layer: ParseT => SHRLayer[Scope, R]): Builder2[ParseT, R] = Builder2(parser, layer)
-    inline def withLayer[R: EnvironmentTag](layer: => SHRLayer[Scope, R]): Builder2[ParseT, R] = this.withLayer { _ => layer }
-
-    inline def withEffect(effect: ParseT => SHRIO[Scope, Any]): Executable = this.withLayer(ZLayer.empty).withEffect(effect)
-    inline def withEffect(effect: => SHRIO[Scope, Any]): Executable = this.withEffect { _ => effect }
-
-  }
-
-  final class Builder2[ParseT, R: EnvironmentTag] private[Executable] (parser: FinalizedParser[ParseT], layer: ParseT => SHRLayer[Scope, R]) {
-
-    def withEffect(effect: ParseT => SHRIO[R & Scope, Any]): Executable = { args =>
-      Executable.finalizedResultToExecutableResult(parser.parse(args)) match {
-        case Executable.Result.Success(parseT) => ZIO.scoped { effect(parseT).provideSomeLayer(layer(parseT)) }
-        case Executable.Result.Help(message)   => Logger.log.info(message)
-        case Executable.Result.Fail(error)     => ZIO.fail(error)
-      }
-    }
-    inline def withEffect(effect: => SHRIO[R & Scope, Any]): Executable = this.withEffect { _ => effect }
-
-  }
+object Executable extends ExecutableBuilders.Builder1 {
 
   def fromSubCommands(opts: (String, Executable)*): Executable = {
     val map: Map[String, Executable] = opts.toMap
@@ -86,7 +59,7 @@ object Executable {
 
   // =====| Types |=====
 
-  private sealed trait Result[+T] {
+  sealed trait Result[+T] {
 
     final def map[T2](f: T => T2): Result[T2] =
       this match {
@@ -103,7 +76,7 @@ object Executable {
       }
 
   }
-  private object Result {
+  object Result {
     final case class Success[+T](value: T) extends Result[T]
     final case class Help(message: String) extends Result[Nothing]
     final case class Fail(error: HError) extends Result[Nothing]
@@ -159,7 +132,7 @@ object Executable {
       case Right(value) => Result.Success(value)
     }
 
-  private def finalizedResultToExecutableResult[T](result: FinalizedParser.Result[T]): Executable.Result[T] =
+  def finalizedResultToExecutableResult[T](result: FinalizedParser.Result[T]): Executable.Result[T] =
     result match {
       case FinalizedParser.Result.Success(value)            => Result.Success(value)
       case FinalizedParser.Result.Help(_, message)          => Result.Help(message.format())
@@ -198,5 +171,47 @@ object Executable {
 
     loop(args, Nil)
   }
+
+}
+
+object ExecutableBuilders {
+
+  class Builder3[P, R: EnvironmentTag](
+      parser: Parser[P],
+      layer: P => SHRLayer[Scope, R],
+  ) {
+
+    final def withEffect(effect: P => SHRIO[R & Scope, Any]): Executable = { args =>
+      Executable.finalizedResultToExecutableResult(parser.finalized.parse(args)) match {
+        case Executable.Result.Success(parseT) =>
+          ZIO.scoped {
+            effect(parseT).provideSomeLayer(layer(parseT))
+          }
+        case Executable.Result.Help(message) => Logger.log.info(message)
+        case Executable.Result.Fail(error)   => ZIO.fail(error)
+      }
+    }
+
+    final def withEffect(effect: => SHRIO[R & Scope, Any]): Executable = this.withEffect { _ => effect }
+
+  }
+
+  class Builder2[P](
+      parser: Parser[P],
+  ) extends Builder3[P, Any](parser, _ => ZLayer.empty) {
+
+    final def withLayer[R: EnvironmentTag](layer: P => SHRLayer[Scope, R]): Builder3[P, R] = new Builder3(parser, layer)
+
+    final def withLayer[R: EnvironmentTag](layer: => SHRLayer[Scope, R]): Builder3[P, R] = this.withLayer { _ => layer }
+
+  }
+
+  class Builder1 extends Builder2[Unit](Parser.unit) {
+
+    final def withParser[P](parser: Parser[P]): Builder2[P] = new Builder2(parser)
+
+  }
+
+  // TODO (KR) : Add functionality for specifying how [ these args -- a b c ] are parsed
 
 }
