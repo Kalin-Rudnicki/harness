@@ -39,11 +39,10 @@ object SignUp {
 
   val page: Page =
     Page.builder
-      .fetchStateOrRedirect[Env] {
-        Api.user.fromSessionTokenOptional.map {
-          case Some(_) => Url("page", "home")().asLeft
-          case None    => Env("", "", "", Env.Passwords("", ""), "").asRight
-        }
+      .fetchState[Env] {
+        for {
+          _ <- Api.user.redirectToHomeIfLoggedIn
+        } yield Env("", "", "", Env.Passwords("", ""), "")
       }
       .constTitle("Sign Up")
       .body {

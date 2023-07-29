@@ -15,11 +15,10 @@ object Home {
 
   val page: Page =
     Page.builder
-      .fetchStateOrRedirect {
-        Api.user.fromSessionTokenOptional.map {
-          case Some(user) => Env(user).asRight
-          case None       => Url("page", "login")().asLeft
-        }
+      .fetchState {
+        for {
+          user <- Api.user.fromSessionTokenOrRedirectToLogin
+        } yield Env(user)
       }
       .constTitle("Home")
       .body {

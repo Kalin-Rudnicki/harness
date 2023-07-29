@@ -4,6 +4,7 @@ import harness.archive.model as D
 import harness.http.client.{HttpClient, HttpRequest}
 import harness.webUI.*
 import harness.zio.*
+import zio.*
 
 object Api {
 
@@ -23,6 +24,18 @@ object Api {
         .response
         .jsonBody[Option[D.user.User]]
 
+    def fromSessionTokenOrRedirectToLogin: HRIO[HttpClient.ClientT & Logger & Telemetry, D.user.User] =
+      fromSessionTokenOptional.flatMap {
+        case Some(user) => ZIO.succeed(user)
+        case None       => ZIO.fail(Page.PageLoadRedirect(Url("page", "login")()))
+      }
+
+    def redirectToHomeIfLoggedIn: HRIO[HttpClient.ClientT & Logger & Telemetry, Unit] =
+      fromSessionTokenOptional.flatMap {
+        case Some(_) => ZIO.fail(Page.PageLoadRedirect(Url("page", "home")()))
+        case None => ZIO.unit
+      }
+    
     def signUp(d: D.user.SignUp): HRIO[HttpClient.ClientT & Logger & Telemetry, Unit] =
       HttpRequest
         .post("/api/user/sign-up")

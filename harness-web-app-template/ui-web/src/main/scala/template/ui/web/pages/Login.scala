@@ -14,11 +14,10 @@ object Login {
 
   val page: Page =
     Page.builder
-      .fetchStateOrRedirect[D.user.Login] {
-        Api.user.fromSessionTokenOptional.map {
-          case Some(_) => Url("page", "home")().asLeft
-          case None    => D.user.Login("", "").asRight
-        }
+      .fetchState[D.user.Login] {
+        for {
+          _ <- Api.user.redirectToHomeIfLoggedIn
+        } yield D.user.Login("", "")
       }
       .constTitle("Login")
       .body {

@@ -1,9 +1,9 @@
 package harness.archive.ui.web.pages
 
-import harness.archive.model as D
-import harness.archive.ui.web.helpers.*
 import cats.data.EitherNel
 import cats.syntax.either.*
+import harness.archive.model as D
+import harness.archive.ui.web.helpers.*
 import harness.webUI.*
 import harness.webUI.vdom.{given, *}
 import harness.webUI.widgets.*
@@ -14,11 +14,10 @@ object Login {
 
   val page: Page =
     Page.builder
-      .fetchStateOrRedirect[D.user.Login] {
-        Api.user.fromSessionTokenOptional.map {
-          case Some(_) => Url("page", "home")().asLeft
-          case None    => D.user.Login("", "").asRight
-        }
+      .fetchState[D.user.Login] {
+        for {
+          _ <- Api.user.redirectToHomeIfLoggedIn
+        } yield D.user.Login("", "")
       }
       .constTitle("Login")
       .body {
