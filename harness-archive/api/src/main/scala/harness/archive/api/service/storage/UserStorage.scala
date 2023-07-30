@@ -1,35 +1,36 @@
 package harness.archive.api.service.storage
 
+import harness.archive.api.db.model as M
 import harness.sql.*
 import harness.sql.query.{given, *}
 import harness.zio.*
-import harness.archive.api.db.model as M
 import zio.*
 
 trait UserStorage {
-  def insert(user: M.User.Identity): HRIO[JDBCConnection & Logger & Telemetry, Unit]
-  def byUsername(username: String): HRIO[JDBCConnection & Logger & Telemetry, Option[M.User.Identity]]
+  def insert(user: M.User.Identity): HRIO[Logger & Telemetry, Unit]
+  def byUsername(username: String): HRIO[Logger & Telemetry, Option[M.User.Identity]]
 }
 object UserStorage {
 
   // =====| API |=====
 
-  def insert(user: M.User.Identity): HRIO[UserStorage & JDBCConnection & Logger & Telemetry, Unit] =
+  def insert(user: M.User.Identity): HRIO[UserStorage & Logger & Telemetry, Unit] =
     ZIO.serviceWithZIO[UserStorage](_.insert(user))
-  def byUsername(username: String): HRIO[UserStorage & JDBCConnection & Logger & Telemetry, Option[M.User.Identity]] =
+  def byUsername(username: String): HRIO[UserStorage & Logger & Telemetry, Option[M.User.Identity]] =
     ZIO.serviceWithZIO[UserStorage](_.byUsername(username))
 
   // =====| Live |=====
 
-  val liveLayer: ULayer[UserStorage] = ZLayer.succeed(new Live)
-  
-  final class Live extends UserStorage {
+  val liveLayer: URLayer[JDBCConnection, UserStorage] =
+    ZLayer.fromFunction(new Live(_))
 
-    override def insert(user: M.User.Identity): HRIO[JDBCConnection & Logger & Telemetry, Unit] =
-      Q.insert(user).single
+  final class Live(con: JDBCConnection) extends UserStorage {
 
-    override def byUsername(username: String): HRIO[JDBCConnection & Logger & Telemetry, Option[M.User.Identity]] =
-      Q.byUsername(username).option
+    override def insert(user: M.User.Identity): HRIO[Logger & Telemetry, Unit] =
+      con.use { Q.insert(user).single }
+
+    override def byUsername(username: String): HRIO[Logger & Telemetry, Option[M.User.Identity]] =
+      con.use { Q.byUsername(username).option }
 
     // =====| Queries |=====
 

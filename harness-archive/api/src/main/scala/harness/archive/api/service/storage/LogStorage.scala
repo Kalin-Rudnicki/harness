@@ -2,43 +2,43 @@ package harness.archive.api.service.storage
 
 import harness.archive.api.db.model as M
 import harness.sql.*
-import harness.sql.query.{*, given}
+import harness.sql.query.{given, *}
 import harness.zio.*
 import zio.*
 
 trait LogStorage {
-  def insertAll(logs: Chunk[M.Log.Identity]): HRIO[JDBCConnection & Logger & Telemetry, Unit]
-  def byAppId(appId: M.App.Id): HRIO[JDBCConnection & Logger & Telemetry, Chunk[M.Log.Identity]]
-  def deleteOutdated(now: Long): HRIO[JDBCConnection & Logger & Telemetry, Int]
+  def insertAll(logs: Chunk[M.Log.Identity]): HRIO[Logger & Telemetry, Unit]
+  def byAppId(appId: M.App.Id): HRIO[Logger & Telemetry, Chunk[M.Log.Identity]]
+  def deleteOutdated(now: Long): HRIO[Logger & Telemetry, Int]
 }
 object LogStorage {
 
   // =====| API |=====
 
-  def insertAll(logs: Chunk[M.Log.Identity]): HRIO[LogStorage & JDBCConnection & Logger & Telemetry, Unit] =
+  def insertAll(logs: Chunk[M.Log.Identity]): HRIO[LogStorage & Logger & Telemetry, Unit] =
     ZIO.serviceWithZIO[LogStorage](_.insertAll(logs))
 
-  def byAppId(appId: M.App.Id): HRIO[LogStorage & JDBCConnection & Logger & Telemetry, Chunk[M.Log.Identity]] =
+  def byAppId(appId: M.App.Id): HRIO[LogStorage & Logger & Telemetry, Chunk[M.Log.Identity]] =
     ZIO.serviceWithZIO[LogStorage](_.byAppId(appId))
 
-  def deleteOutdated(now: Long): HRIO[LogStorage & JDBCConnection & Logger & Telemetry, Int] =
+  def deleteOutdated(now: Long): HRIO[LogStorage & Logger & Telemetry, Int] =
     ZIO.serviceWithZIO[LogStorage](_.deleteOutdated(now))
 
   // =====| Live |=====
 
-  val liveLayer: ULayer[LogStorage] = ZLayer.succeed(new Live)
-  
-  final class Live extends LogStorage {
+  val liveLayer: URLayer[JDBCConnection, LogStorage] =
+    ZLayer.fromFunction(new Live(_))
 
+  final class Live(con: JDBCConnection) extends LogStorage {
 
-    override def insertAll(logs: Chunk[M.Log.Identity]): HRIO[JDBCConnection & Logger & Telemetry, Unit] =
-      Q.insert.batched(logs).single
+    override def insertAll(logs: Chunk[M.Log.Identity]): HRIO[Logger & Telemetry, Unit] =
+      con.use { Q.insert.batched(logs).single }
 
-    override def byAppId(appId: M.App.Id): HRIO[JDBCConnection & Logger & Telemetry, Chunk[M.Log.Identity]] =
-      Q.byAppId(appId).chunk
+    override def byAppId(appId: M.App.Id): HRIO[Logger & Telemetry, Chunk[M.Log.Identity]] =
+      con.use { Q.byAppId(appId).chunk }
 
-    override def deleteOutdated(now: Long): HRIO[JDBCConnection & Logger & Telemetry, Int] =
-      Q.deleteOutdated(now).execute
+    override def deleteOutdated(now: Long): HRIO[Logger & Telemetry, Int] =
+      con.use { Q.deleteOutdated(now).execute }
 
     // =====| Queries |=====
 

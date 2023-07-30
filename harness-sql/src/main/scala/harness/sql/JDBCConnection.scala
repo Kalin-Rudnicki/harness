@@ -6,7 +6,12 @@ import harness.zio.*
 import java.sql.*
 import zio.*
 
-final class JDBCConnection(val jdbcConnection: java.sql.Connection)
+final class JDBCConnection(val jdbcConnection: java.sql.Connection) {
+
+  def use[R, A](zio: HRIO[R & JDBCConnection, A]): HRIO[R, A] =
+    zio.provideSomeEnvironment[R](_.add(this))
+
+}
 object JDBCConnection {
 
   val connectionFactoryLayer: HRLayer[ConnectionFactory & Logger & Scope, JDBCConnection] =

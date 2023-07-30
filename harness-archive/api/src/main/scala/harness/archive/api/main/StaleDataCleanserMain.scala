@@ -10,13 +10,10 @@ import zio.*
 object StaleDataCleanserMain {
 
   private type Env =
-    StaleDataCleanser & LogStorage & TraceStorage & JDBCConnectionPool & Transaction
+    StaleDataCleanser
 
   private val envLayer: SHRLayer[Scope, Env] =
-    Shared.poolLayer ++
-      LogStorage.liveLayer ++
-      TraceStorage.liveLayer ++
-      ZLayer.succeed(Transaction.Live) ++
+    Shared.poolLayer >>>
       StaleDataCleanser.live(1.minute, 1.minute, 1.minute, 5.minutes, 15.minutes)
 
   val executable: Executable =

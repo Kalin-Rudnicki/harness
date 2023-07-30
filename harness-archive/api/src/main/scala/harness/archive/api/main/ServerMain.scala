@@ -17,25 +17,25 @@ import zio.*
 object ServerMain {
 
   type StorageEnv = SessionStorage & UserStorage & AppStorage & LogStorage & TraceStorage
-  type ServerEnv = JDBCConnectionPool & Transaction & StorageEnv
-  type ReqEnv = JDBCConnection
+  type ServerEnv = JDBCConnectionPool & Transaction
+  type ReqEnv = JDBCConnection & StorageEnv
 
-  private val storageLayer: ULayer[StorageEnv] =
+  // This layer will be evaluated once when the server starts
+  val serverLayer: SHRLayer[Scope, ServerEnv] =
+    Shared.poolLayer ++
+      ZLayer.succeed(Transaction.Live)
+
+  val storageLayer: URLayer[JDBCConnection, StorageEnv] =
     SessionStorage.liveLayer ++
       UserStorage.liveLayer ++
       AppStorage.liveLayer ++
       LogStorage.liveLayer ++
       TraceStorage.liveLayer
 
-  // This layer will be evaluated once when the server starts
-  val serverLayer: SHRLayer[Scope, ServerEnv] =
-    Shared.poolLayer ++
-      ZLayer.succeed(Transaction.Live) ++
-      storageLayer
-
   // This layer will be evaluated for each HTTP request that the server receives
   val reqLayer: SHRLayer[ServerEnv & Scope, ReqEnv] =
-    JDBCConnection.poolLayer
+    JDBCConnection.poolLayer >+>
+      storageLayer
 
   val tables: Tables =
     Tables(

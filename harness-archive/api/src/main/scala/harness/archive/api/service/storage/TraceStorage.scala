@@ -7,37 +7,38 @@ import harness.zio.*
 import zio.*
 
 trait TraceStorage {
-  def insertAll(traces: Chunk[M.Trace.Identity]): HRIO[JDBCConnection & Logger & Telemetry, Unit]
-  def byAppId(appId: M.App.Id): HRIO[JDBCConnection & Logger & Telemetry, Chunk[M.Trace.Identity]]
-  def deleteOutdated(now: Long): HRIO[JDBCConnection & Logger & Telemetry, Int]
+  def insertAll(traces: Chunk[M.Trace.Identity]): HRIO[Logger & Telemetry, Unit]
+  def byAppId(appId: M.App.Id): HRIO[Logger & Telemetry, Chunk[M.Trace.Identity]]
+  def deleteOutdated(now: Long): HRIO[Logger & Telemetry, Int]
 }
 object TraceStorage {
 
   // =====| API |=====
 
-  def insertAll(traces: Chunk[M.Trace.Identity]): HRIO[TraceStorage & JDBCConnection & Logger & Telemetry, Unit] =
+  def insertAll(traces: Chunk[M.Trace.Identity]): HRIO[TraceStorage & Logger & Telemetry, Unit] =
     ZIO.serviceWithZIO[TraceStorage](_.insertAll(traces))
 
-  def byAppId(appId: M.App.Id): HRIO[TraceStorage & JDBCConnection & Logger & Telemetry, Chunk[M.Trace.Identity]] =
+  def byAppId(appId: M.App.Id): HRIO[TraceStorage & Logger & Telemetry, Chunk[M.Trace.Identity]] =
     ZIO.serviceWithZIO[TraceStorage](_.byAppId(appId))
 
-  def deleteOutdated(now: Long): HRIO[TraceStorage & JDBCConnection & Logger & Telemetry, Int] =
+  def deleteOutdated(now: Long): HRIO[TraceStorage & Logger & Telemetry, Int] =
     ZIO.serviceWithZIO[TraceStorage](_.deleteOutdated(now))
 
   // =====| Live |=====
 
-  val liveLayer: ULayer[TraceStorage] = ZLayer.succeed(new Live)
+  val liveLayer: URLayer[JDBCConnection, TraceStorage] =
+    ZLayer.fromFunction(new Live(_))
 
-  final class Live extends TraceStorage {
+  final class Live(con: JDBCConnection) extends TraceStorage {
 
-    override def insertAll(traces: Chunk[M.Trace.Identity]): HRIO[JDBCConnection & Logger & Telemetry, Unit] =
-      Q.insert.batched(traces).single
+    override def insertAll(traces: Chunk[M.Trace.Identity]): HRIO[Logger & Telemetry, Unit] =
+      con.use { Q.insert.batched(traces).single }
 
-    override def byAppId(appId: M.App.Id): HRIO[JDBCConnection & Logger & Telemetry, Chunk[M.Trace.Identity]] =
-      Q.byAppId(appId).chunk
+    override def byAppId(appId: M.App.Id): HRIO[Logger & Telemetry, Chunk[M.Trace.Identity]] =
+      con.use { Q.byAppId(appId).chunk }
 
-    override def deleteOutdated(now: Long): HRIO[JDBCConnection & Logger & Telemetry, Int] =
-      Q.deleteOutdated(now).execute
+    override def deleteOutdated(now: Long): HRIO[Logger & Telemetry, Int] =
+      con.use { Q.deleteOutdated(now).execute }
 
     // =====| Queries |=====
 

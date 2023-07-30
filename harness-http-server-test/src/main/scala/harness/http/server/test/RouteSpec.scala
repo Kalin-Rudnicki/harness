@@ -34,7 +34,7 @@ abstract class RouteSpec[
   val reqLayer: SHRLayer[ServerEnv & Scope, ReqEnv]
 
   // This layer will be evaluated for each HTTP request that the server receives
-  val reqLayerNoConnection: SHRLayer[ServerEnv & Scope, ReqEnv_NoConnection]
+  val reqLayerNoConnection: SHRLayer[ServerEnv & JDBCConnection & Scope, ReqEnv_NoConnection]
 
   val route: ServerConfig => Route[ServerEnv & ReqEnv]
   private final lazy val evalRoute: Route[ServerEnv & ReqEnv] =
@@ -96,7 +96,7 @@ abstract class RouteSpec[
         request <- CookieStorage.applyCookies(request)
         con <- ZIO.service[JDBCConnection]
         layer =
-          (reqLayerNoConnection ++ ZLayer.succeed(con)).asInstanceOf[SHRLayer[ServerEnv & Scope, ReqEnv]] ++
+          (ZLayer.succeed(con) >+> reqLayerNoConnection).asInstanceOf[SHRLayer[ServerEnv & Scope, ReqEnv]] ++
             ZLayer.succeed(request) ++
             ZLayer.succeed[Transaction](Transaction.UseSavepointForTransaction)
         response <- ZIO.scoped(route(request.method, request.path).provideSomeLayer(layer))

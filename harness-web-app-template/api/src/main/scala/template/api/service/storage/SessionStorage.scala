@@ -7,44 +7,45 @@ import template.api.db.model as M
 import zio.*
 
 trait SessionStorage {
-  def insert(session: M.Session.Identity): HRIO[JDBCConnection & Logger & Telemetry, Unit]
-  def sessionFromSessionToken(token: String): HRIO[JDBCConnection & Logger & Telemetry, Option[M.Session.Identity]]
-  def userFromSessionToken(token: String): HRIO[JDBCConnection & Logger & Telemetry, Option[M.User.Identity]]
-  def deleteById(id: M.Session.Id): HRIO[JDBCConnection & Logger & Telemetry, Unit]
+  def insert(session: M.Session.Identity): HRIO[Logger & Telemetry, Unit]
+  def sessionFromSessionToken(token: String): HRIO[Logger & Telemetry, Option[M.Session.Identity]]
+  def userFromSessionToken(token: String): HRIO[Logger & Telemetry, Option[M.User.Identity]]
+  def deleteById(id: M.Session.Id): HRIO[Logger & Telemetry, Unit]
 }
 object SessionStorage {
 
   // =====| API |=====
 
-  def insert(session: M.Session.Identity): HRIO[SessionStorage & JDBCConnection & Logger & Telemetry, Unit] =
+  def insert(session: M.Session.Identity): HRIO[SessionStorage & Logger & Telemetry, Unit] =
     ZIO.serviceWithZIO[SessionStorage](_.insert(session))
 
-  def sessionFromSessionToken(token: String): HRIO[SessionStorage & JDBCConnection & Logger & Telemetry, Option[M.Session.Identity]] =
+  def sessionFromSessionToken(token: String): HRIO[SessionStorage & Logger & Telemetry, Option[M.Session.Identity]] =
     ZIO.serviceWithZIO[SessionStorage](_.sessionFromSessionToken(token))
 
-  def userFromSessionToken(token: String): HRIO[SessionStorage & JDBCConnection & Logger & Telemetry, Option[M.User.Identity]] =
+  def userFromSessionToken(token: String): HRIO[SessionStorage & Logger & Telemetry, Option[M.User.Identity]] =
     ZIO.serviceWithZIO[SessionStorage](_.userFromSessionToken(token))
 
-  def deleteById(id: M.Session.Id): HRIO[SessionStorage & JDBCConnection & Logger & Telemetry, Unit] =
+  def deleteById(id: M.Session.Id): HRIO[SessionStorage & Logger & Telemetry, Unit] =
     ZIO.serviceWithZIO[SessionStorage](_.deleteById(id))
 
   // =====| Live |=====
 
-  val liveLayer: ULayer[SessionStorage] = ZLayer.succeed(new Live)
+  val liveLayer: URLayer[JDBCConnection, SessionStorage] =
+    ZLayer.fromFunction(new Live(_))
 
-  final class Live extends SessionStorage {
+  final class Live(con: JDBCConnection) extends SessionStorage {
 
-    override def insert(session: M.Session.Identity): HRIO[JDBCConnection & Logger & Telemetry, Unit] =
-      Q.insert(session).single
+    override def insert(session: M.Session.Identity): HRIO[Logger & Telemetry, Unit] =
+      con.use { Q.insert(session).single }
 
-    override def sessionFromSessionToken(token: String): HRIO[JDBCConnection & Logger & Telemetry, Option[M.Session.Identity]] =
-      Q.sessionFromSessionToken(token).option
+    override def sessionFromSessionToken(token: String): HRIO[Logger & Telemetry, Option[M.Session.Identity]] =
+      con.use { Q.sessionFromSessionToken(token).option }
 
-    override def userFromSessionToken(token: String): HRIO[JDBCConnection & Logger & Telemetry, Option[M.User.Identity]] =
-      Q.userFromSessionToken(token).option
+    override def userFromSessionToken(token: String): HRIO[Logger & Telemetry, Option[M.User.Identity]] =
+      con.use { Q.userFromSessionToken(token).option }
 
-    override def deleteById(id: M.Session.Id): HRIO[JDBCConnection & Logger & Telemetry, Unit] =
-      Q.deleteById(id).single
+    override def deleteById(id: M.Session.Id): HRIO[Logger & Telemetry, Unit] =
+      con.use { Q.deleteById(id).single }
 
     // =====| Queries |=====
 
