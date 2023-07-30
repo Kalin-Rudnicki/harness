@@ -8,11 +8,10 @@ import harness.zio.*
 import zio.*
 import zio.test.*
 
-abstract class CustomRouteSpec extends RouteSpec[ServerMain.ServerEnv, ServerMain.ReqEnv, ServerMain.StorageEnv] {
+abstract class CustomRouteSpec extends RouteSpec[ServerMain.ServerEnv, ServerMain.ReqEnv] {
 
   override final val serverLayer: SHRLayer[Scope, ServerMain.ServerEnv] = ServerMain.serverLayer
-  override final val reqLayer: SHRLayer[ServerMain.ServerEnv & Scope, ServerMain.ReqEnv] = ServerMain.reqLayer
-  override final val reqLayerNoConnection: SHRLayer[JDBCConnection, ReqEnv_NoConnection] = ServerMain.storageLayer
+  override final val reqLayer: SHRLayer[ServerMain.ServerEnv & JDBCConnection & Scope, ServerMain.ReqEnv] = ServerMain.reqLayer
   override final val route: ServerConfig => Route[ServerMain.ServerEnv & ServerMain.ReqEnv] = ServerMain.routes
 
   override def aspects: Chunk[TestAspectAtLeastR[Environment]] =

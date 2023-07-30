@@ -2,7 +2,7 @@ package harness.http.server.test
 
 import harness.core.HError
 import harness.http.server.*
-import harness.sql.JDBCConnection
+import harness.sql.{JDBCConnection, JDBCConnectionPool}
 import harness.sql.query.*
 import harness.zio.*
 import scala.util.NotGiven
@@ -11,82 +11,37 @@ import zio.json.JsonDecoder
 import zio.test.*
 
 abstract class RouteSpec[
-    SE <: Transaction: EnvironmentTag,
-    RE <: JDBCConnection: EnvironmentTag,
-    RE_NC: EnvironmentTag,
-](implicit
-    ev1: (RE_NC & JDBCConnection) <:< RE,
-    ev2: NotGiven[RE_NC <:< JDBCConnection],
-) extends ZIOSpec[HarnessEnv & Route[SE & RE] & TestEnvironment] {
+    SE <: JDBCConnectionPool: EnvironmentTag,
+    RE <: Transaction: EnvironmentTag,
+] extends ZIOSpec[HarnessEnv & Route[SE & RE] & TestEnvironment] {
+
+  // =====| Types |=====
 
   final type ServerEnv = SE
   final type ReqEnv = RE
-  final type ReqEnv_NoConnection = RE_NC
   final type ProvidedEnv = Route[ServerEnv & ReqEnv] & CookieStorage
   final type HttpEnv = HarnessEnv & ProvidedEnv & ServerEnv & JDBCConnection
 
-  final type TestSpec = Spec[Environment & ServerEnv & ReqEnv & CookieStorage & Scope, Any]
+  final type TestSpec = Spec[Environment & ServerEnv & JDBCConnection & CookieStorage & Scope, Any]
+
+  // =====| Abstract |=====
 
   // This layer will be evaluated once when the server starts
   val serverLayer: SHRLayer[Scope, ServerEnv]
 
-  // This layer will be evaluated for each test
-  val reqLayer: SHRLayer[ServerEnv & Scope, ReqEnv]
-
-  // This layer will be evaluated for each HTTP request that the server receives
-  val reqLayerNoConnection: SHRLayer[ServerEnv & JDBCConnection & Scope, ReqEnv_NoConnection]
+  // This layer will be evaluated for each http call
+  val reqLayer: SHRLayer[ServerEnv & JDBCConnection & Scope, ReqEnv]
 
   val route: ServerConfig => Route[ServerEnv & ReqEnv]
-  private final lazy val evalRoute: Route[ServerEnv & ReqEnv] =
-    route(ServerConfig(None, "res", true, None))
+
+  def routeSpec: TestSpec
+
+  // =====| Overridable |=====
 
   lazy val logLevel: Logger.LogLevel =
     Logger.LogLevel.Warning
 
-  final val harnessLayer: HTaskLayer[HarnessEnv] =
-    HarnessEnv.defaultLayer(logLevel)
-
-  override def bootstrap: ZLayer[Scope, Any, Environment] =
-    harnessLayer ++
-      ZLayer.succeed(evalRoute) ++
-      testEnvironment
-
-  final val runInTransaction: TestAspectAtLeastR[JDBCConnection & Logger & Telemetry] =
-    new TestAspectAtLeastR[JDBCConnection & Logger & Telemetry] {
-
-      private def modifySpec[R <: JDBCConnection & Logger & Telemetry, E](rPath: List[String], spec: Spec[R, E]): Spec[R, E] =
-        Spec {
-          spec.caseValue match {
-            case Spec.ExecCase(exec, spec)     => Spec.ExecCase(exec, modifySpec(rPath, spec))
-            case Spec.LabeledCase(label, spec) => Spec.LabeledCase(label, modifySpec(label :: rPath, spec))
-            case Spec.ScopedCase(scoped)       => Spec.ScopedCase(scoped.map(modifySpec(rPath, _)))
-            case Spec.MultipleCase(specs)      => Spec.MultipleCase(specs.map(modifySpec(rPath, _)))
-            case Spec.TestCase(test, annotations) =>
-              Spec.TestCase(
-                Logger.addContext("test-path" -> rPath.reverse.map(n => s"\"$n\"").mkString("[", "/", "]")) {
-                  ZIO
-                    .acquireReleaseWith { Transaction.raw.begin().unit.orDie }
-                    .apply { _ => Transaction.raw.rollback().unit.orDie }
-                    .apply { _ => test }
-                },
-                annotations,
-              )
-          }
-        }
-
-      override def some[R <: JDBCConnection & Logger & Telemetry, E](spec: Spec[R, E])(implicit trace: Trace): Spec[R, E] =
-        modifySpec(Nil, spec)
-
-    }
-
-  def routeSpec: TestSpec
-
-  override final def spec: Spec[Environment & Scope, Any] =
-    (routeSpec @@ runInTransaction)
-      .provideSomeLayer[Environment & ServerEnv & Scope] { CookieStorage.emptyLayer ++ reqLayer }
-      .provideSomeLayerShared[Environment & Scope] { serverLayer }
-
-  // =====|  |=====
+  // =====| API |=====
 
   object httpRequest {
 
@@ -94,12 +49,12 @@ abstract class RouteSpec[
       for {
         route <- ZIO.service[Route[ServerEnv & ReqEnv]]
         request <- CookieStorage.applyCookies(request)
-        con <- ZIO.service[JDBCConnection]
-        layer =
-          (ZLayer.succeed(con) >+> reqLayerNoConnection).asInstanceOf[SHRLayer[ServerEnv & Scope, ReqEnv]] ++
-            ZLayer.succeed(request) ++
-            ZLayer.succeed[Transaction](Transaction.UseSavepointForTransaction)
-        response <- ZIO.scoped(route(request.method, request.path).provideSomeLayer(layer))
+        response <- ZIO.scoped(
+          route(request.method, request.path)
+            .provideSomeLayer[HttpEnv & Scope](
+              reqLayer ++ Transaction.savepointLayer ++ ZLayer.succeed(request),
+            ),
+        )
         response <- response match {
           case HttpResponse.NotFound        => ZIO.fail(HError.UserError("404 - Not Found"))
           case response: HttpResponse.Found => CookieStorage.update(response.cookies).as(response)
@@ -131,5 +86,55 @@ abstract class RouteSpec[
       }
 
   }
+
+  // =====| Implement |=====
+
+  override def bootstrap: ZLayer[Scope, Any, Environment] =
+    harnessLayer ++
+      ZLayer.succeed(evalRoute) ++
+      testEnvironment
+
+  override final def spec: Spec[Environment & Scope, Any] =
+    (routeSpec @@ runInTransaction)
+      .provideSomeLayer[Environment & ServerEnv & Scope] {
+        CookieStorage.emptyLayer ++ JDBCConnection.poolLayer
+      }
+      .provideSomeLayerShared[Environment & Scope] { serverLayer }
+
+  // =====| Helpers |=====
+
+  private final lazy val evalRoute: Route[ServerEnv & ReqEnv] =
+    route(ServerConfig(None, "res", true, None))
+
+  final val harnessLayer: HTaskLayer[HarnessEnv] =
+    HarnessEnv.defaultLayer(logLevel)
+
+  final val runInTransaction: TestAspectAtLeastR[JDBCConnection & Logger & Telemetry] =
+    new TestAspectAtLeastR[JDBCConnection & Logger & Telemetry] {
+
+      private def modifySpec[R <: JDBCConnection & Logger & Telemetry, E](rPath: List[String], spec: Spec[R, E]): Spec[R, E] =
+        Spec {
+          spec.caseValue match {
+            case Spec.ExecCase(exec, spec)     => Spec.ExecCase(exec, modifySpec(rPath, spec))
+            case Spec.LabeledCase(label, spec) => Spec.LabeledCase(label, modifySpec(label :: rPath, spec))
+            case Spec.ScopedCase(scoped)       => Spec.ScopedCase(scoped.map(modifySpec(rPath, _)))
+            case Spec.MultipleCase(specs)      => Spec.MultipleCase(specs.map(modifySpec(rPath, _)))
+            case Spec.TestCase(test, annotations) =>
+              Spec.TestCase(
+                Logger.addContext("test-path" -> rPath.reverse.map(n => s"\"$n\"").mkString("[", "/", "]")) {
+                  ZIO
+                    .acquireReleaseWith { Transaction.raw.begin().unit.orDie }
+                    .apply { _ => Transaction.raw.rollback().unit.orDie }
+                    .apply { _ => test }
+                },
+                annotations,
+              )
+          }
+        }
+
+      override def some[R <: JDBCConnection & Logger & Telemetry, E](spec: Spec[R, E])(implicit trace: Trace): Spec[R, E] =
+        modifySpec(Nil, spec)
+
+    }
 
 }

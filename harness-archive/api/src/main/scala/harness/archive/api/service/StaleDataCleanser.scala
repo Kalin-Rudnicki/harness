@@ -20,7 +20,7 @@ object StaleDataCleanser {
   //           : Another option would be to query db for how long to wait for
   final class Live(
       backoff: NonEmptyList[Duration],
-      storageLayer: HRLayer[Scope & Logger, JDBCConnection & Transaction & LogStorage & TraceStorage],
+      storageLayer: HRLayer[Scope & Logger, Transaction & LogStorage & TraceStorage],
   ) extends StaleDataCleanser {
 
     private def executeClear: HRIO[LogStorage & TraceStorage & Logger & Telemetry, Boolean] =
@@ -36,7 +36,7 @@ object StaleDataCleanser {
           else Logger.log.debug("No records cleared")
       } yield clearedAnyRecords
 
-    private def executeClearInTransaction: HRIO[LogStorage & TraceStorage & JDBCConnection & Transaction & Logger & Telemetry, Boolean] =
+    private def executeClearInTransaction: HRIO[LogStorage & TraceStorage & Transaction & Logger & Telemetry, Boolean] =
       Transaction.inTransaction { executeClear }
 
     private def rec(waitNel: NonEmptyList[Duration]): HRIO[Logger & Telemetry, Unit] =
@@ -70,8 +70,7 @@ object StaleDataCleanser {
       Live(
         backoff,
         (ZLayer.succeedEnvironment(poolLayer) >>> JDBCConnection.poolLayer) >+>
-          (LogStorage.liveLayer ++ TraceStorage.liveLayer) ++
-          ZLayer.succeed(Transaction.Live),
+          (Transaction.liveLayer ++ LogStorage.liveLayer ++ TraceStorage.liveLayer),
       ),
     )
   def live(backoff0: Duration, backoffN: Duration*): URLayer[JDBCConnectionPool, StaleDataCleanser] = StaleDataCleanser.live(NonEmptyList(backoff0, backoffN.toList))

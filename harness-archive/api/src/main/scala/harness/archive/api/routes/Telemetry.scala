@@ -14,7 +14,7 @@ import zio.*
 
 object Telemetry {
 
-  val routes: Route[AppStorage & TraceStorage & JDBCConnection & Transaction] =
+  val routes: Route[AppStorage & TraceStorage & Transaction] =
     "telemetry" /: Route.oneOf(
       (HttpMethod.POST / "upload").implement { _ =>
         Transaction.inTransaction {

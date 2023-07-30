@@ -30,7 +30,7 @@ object User {
       email = s"${firstName.toLowerCase}.${lastName.toLowerCase}@${domain.toLowerCase}.com",
     )
 
-  val insertedUserGen: Gen[UserStorage & JDBCConnection & Logger & Telemetry & Sized, D.user.User] =
+  val insertedUserGen: Gen[UserStorage & Logger & Telemetry & Sized, D.user.User] =
     signUpGen.flatMap { signUp =>
       Gen.fromZIO {
         val encryptedPassword = BCrypt.hashpw(signUp.password, BCrypt.gensalt)
@@ -39,7 +39,7 @@ object User {
       }
     }
 
-  def signedInUserGen[SE <: Transaction, RE <: JDBCConnection](routeSpec: RouteSpec[SE, RE, _]): Gen[routeSpec.HttpEnv & Sized, D.user.User] =
+  def signedInUserGen[SE <: JDBCConnectionPool, RE <: Transaction](routeSpec: RouteSpec[SE, RE]): Gen[routeSpec.HttpEnv & Sized, D.user.User] =
     for {
       signUp <- signUpGen
       _ <- Gen.fromZIO { routeSpec.httpRequest(HttpRequest.builder.post("api", "user", "sign-up").jsonBody(signUp)).orDie }

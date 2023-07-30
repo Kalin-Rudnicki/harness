@@ -35,10 +35,10 @@ object Misc {
       ),
     )
 
-  def appByName(appName: String): HRIO[AppStorage & JDBCConnection & Logger & Telemetry & HttpRequest, M.App.Identity] =
+  def appByName(appName: String): HRIO[AppStorage & Logger & Telemetry & HttpRequest, M.App.Identity] =
     AppStorage.byName(appName).someOrFail(HError.UserError(s"No such app with name '$appName'"))
 
-  def getOrCreateApp(appName: String): HRIO[AppStorage & JDBCConnection & Logger & Telemetry & HttpRequest, M.App.Identity] =
+  def getOrCreateApp(appName: String): HRIO[AppStorage & Logger & Telemetry & HttpRequest, M.App.Identity] =
     AppStorage.byName(appName).flatMap {
       case Some(app) => ZIO.succeed(app)
       case None =>
@@ -46,7 +46,7 @@ object Misc {
         AppStorage.insert(dbApp).as(dbApp)
     }
 
-  def getOrCreateApps(appNames: Set[String]): HRIO[AppStorage & JDBCConnection & Logger & Telemetry & HttpRequest, Map[String, M.App.Identity]] =
+  def getOrCreateApps(appNames: Set[String]): HRIO[AppStorage & Logger & Telemetry & HttpRequest, Map[String, M.App.Identity]] =
     for {
       existingApps <- AppStorage.selectAll
       existingAppMap = existingApps.map(a => (a.name, a)).toMap

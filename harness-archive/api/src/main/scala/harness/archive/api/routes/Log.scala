@@ -14,7 +14,7 @@ import zio.*
 
 object Log {
 
-  val routes: Route[AppStorage & LogStorage & JDBCConnection & Transaction] =
+  val routes: Route[AppStorage & LogStorage & Transaction] =
     "log" /: Route.oneOf(
       (HttpMethod.POST / "upload").implement { _ =>
         Transaction.inTransaction {

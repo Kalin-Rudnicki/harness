@@ -17,7 +17,7 @@ object User {
 
   private val isSecure: Boolean = false
 
-  val routes: Route[UserStorage & SessionStorage & JDBCConnection & Transaction] =
+  val routes: Route[UserStorage & SessionStorage & Transaction] =
     "user" /: Route.oneOf(
       (HttpMethod.GET / "from-session-token").implement { _ =>
         Transaction.inTransaction {

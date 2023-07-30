@@ -13,22 +13,22 @@ import zio.*
 
 object Main extends ExecutableApp {
 
-  type StorageEnv = SessionStorage & UserStorage
-  type ServerEnv = JDBCConnectionPool & Transaction
-  type ReqEnv = JDBCConnection & StorageEnv
+  type StorageEnv = Transaction & SessionStorage & UserStorage
+  type ServerEnv = JDBCConnectionPool
+  type ReqEnv = StorageEnv
 
   // This layer will be evaluated once when the server starts
   val serverLayer: SHRLayer[Scope, ServerEnv] =
-    ZLayer.fromZIO { JDBCConnectionPool(ConnectionFactory("jdbc:postgresql:template", "kalin", "psql-pass"), 4, 16, Duration.fromSeconds(60)) } ++
-      ZLayer.succeed(Transaction.Live)
+    ZLayer.fromZIO { JDBCConnectionPool(ConnectionFactory("jdbc:postgresql:template", "kalin", "psql-pass"), 4, 16, Duration.fromSeconds(60)) }
 
   val storageLayer: URLayer[JDBCConnection, StorageEnv] =
-    SessionStorage.liveLayer ++
+    Transaction.liveLayer ++
+      SessionStorage.liveLayer ++
       UserStorage.liveLayer
 
   // This layer will be evaluated for each HTTP request that the server receives
-  val reqLayer: SHRLayer[ServerEnv & Scope, ReqEnv] =
-    JDBCConnection.poolLayer >+> storageLayer
+  val reqLayer: SHRLayer[ServerEnv & JDBCConnection & Scope, ReqEnv] =
+    storageLayer
 
   val tables: Tables =
     Tables(
@@ -49,7 +49,7 @@ object Main extends ExecutableApp {
         PostgresMeta.schemaDiff
           .withPool(tables)
           .mapError(HError.SystemFailure("Failed to execute schema diff", _)) *>
-          Server.start[ServerEnv, ReqEnv](config, reqLayer) { routes(config) }
+          Server.start[ServerEnv, ReqEnv](config, JDBCConnection.poolLayer >>> reqLayer) { routes(config) }
       }
 
 }

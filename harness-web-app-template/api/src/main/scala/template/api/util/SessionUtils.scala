@@ -16,8 +16,8 @@ object SessionUtils {
   val SessionToken: String = "Template-Session-Token"
 
   private def withSessionTokenOptional[T](
-      f: String => HRIO[SessionStorage & JDBCConnection & Logger & Telemetry, Option[T]],
-  ): HRIO[SessionStorage & JDBCConnection & Logger & Telemetry & HttpRequest, Option[T]] =
+      f: String => HRIO[SessionStorage & Logger & Telemetry, Option[T]],
+  ): HRIO[SessionStorage & Logger & Telemetry & HttpRequest, Option[T]] =
     HttpRequest.cookie.find[String](SessionUtils.SessionToken).flatMap {
       case Some(tok) =>
         f(tok).flatMap {
@@ -30,18 +30,18 @@ object SessionUtils {
       case None => ZIO.none
     }
 
-  val sessionFromSessionTokenOptional: HRIO[SessionStorage & JDBCConnection & Logger & Telemetry & HttpRequest, Option[M.Session.Identity]] =
+  val sessionFromSessionTokenOptional: HRIO[SessionStorage & Logger & Telemetry & HttpRequest, Option[M.Session.Identity]] =
     withSessionTokenOptional(SessionStorage.sessionFromSessionToken)
 
-  val sessionFromSessionToken: HRIO[SessionStorage & JDBCConnection & Logger & Telemetry & HttpRequest, M.Session.Identity] =
+  val sessionFromSessionToken: HRIO[SessionStorage & Logger & Telemetry & HttpRequest, M.Session.Identity] =
     sessionFromSessionTokenOptional.someOrFail {
       HError.UserError(s"Unauthorized: Specify cookie '$SessionToken'").withHTTPCode(HttpCode.`401`)
     }
 
-  val userFromSessionTokenOptional: HRIO[SessionStorage & JDBCConnection & Logger & Telemetry & HttpRequest, Option[M.User.Identity]] =
+  val userFromSessionTokenOptional: HRIO[SessionStorage & Logger & Telemetry & HttpRequest, Option[M.User.Identity]] =
     withSessionTokenOptional(SessionStorage.userFromSessionToken)
 
-  val userFromSessionToken: HRIO[SessionStorage & JDBCConnection & Logger & Telemetry & HttpRequest, M.User.Identity] =
+  val userFromSessionToken: HRIO[SessionStorage & Logger & Telemetry & HttpRequest, M.User.Identity] =
     userFromSessionTokenOptional.someOrFail {
       HError.UserError(s"Unauthorized: Specify cookie '$SessionToken'").withHTTPCode(HttpCode.`401`)
     }
