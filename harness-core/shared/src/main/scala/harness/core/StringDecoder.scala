@@ -59,16 +59,16 @@ object StringDecoder {
 
   implicit val uuid: StringDecoder[UUID] =
     fromTryF("uuid", UUID.fromString)
-  
+
   implicit val duration: StringDecoder[Duration] =
     fromTryF("duration", Duration.parse)
-  
+
   def list[T](sep: String)(implicit tDecoder: StringDecoder[T]): StringDecoder[List[T]] =
     _.split(sep).toList.parTraverse(tDecoder.decodeAccumulating)
 
   implicit def list[T: StringDecoder]: StringDecoder[List[T]] =
     list[T](",")
-  
+
   private object temporal {
     val numsOneTwo = "(\\d{1,2})"
     val numsTwo = "(\\d{2})"
@@ -129,13 +129,17 @@ object StringDecoder {
     def attemptTime(time: => LocalTime): EitherNel[String, LocalTime] =
       Try(time).toEither.leftMap(_.getMessage).toEitherNel
 
+    def pmTime(hour: Int): Int =
+      if (hour == 12) 0
+      else hour + 12
+
     str match {
       case hourMinute(hour, minute)                 => attemptTime(LocalTime.of(hour.toInt, minute.toInt))
       case hourMinuteAM(hour, minute)               => attemptTime(LocalTime.of(hour.toInt, minute.toInt))
-      case hourMinutePM(hour, minute)               => attemptTime(LocalTime.of(hour.toInt + 12, minute.toInt))
+      case hourMinutePM(hour, minute)               => attemptTime(LocalTime.of(pmTime(hour.toInt), minute.toInt))
       case hourMinuteSecond(hour, minute, second)   => attemptTime(LocalTime.of(hour.toInt, minute.toInt, second.toInt))
       case hourMinuteSecondAM(hour, minute, second) => attemptTime(LocalTime.of(hour.toInt, minute.toInt, second.toInt))
-      case hourMinuteSecondPM(hour, minute, second) => attemptTime(LocalTime.of(hour.toInt + 12, minute.toInt, second.toInt))
+      case hourMinuteSecondPM(hour, minute, second) => attemptTime(LocalTime.of(pmTime(hour.toInt), minute.toInt, second.toInt))
       case _                                        => s"Malformatted time '$str'".leftNel
     }
   }
