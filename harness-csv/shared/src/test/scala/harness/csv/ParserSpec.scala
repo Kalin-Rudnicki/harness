@@ -5,7 +5,7 @@ import harness.test.*
 import zio.test.*
 import zio.test.Assertion.*
 
-object ParserSpec extends DefaultHarnessSpec {
+object ParserSpec extends PlainHarnessSpec {
 
   private def passingTest(name: String)(csv: String, exp: List[List[Option[String]]]): TestSpec =
     test(name) {

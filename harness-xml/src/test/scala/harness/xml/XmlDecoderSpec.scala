@@ -6,7 +6,7 @@ import scala.xml.XML
 import zio.test.*
 import zio.test.Assertion.*
 
-object XmlDecoderSpec extends DefaultHarnessSpec {
+object XmlDecoderSpec extends PlainHarnessSpec {
 
   private final case class Company(
       name: String,

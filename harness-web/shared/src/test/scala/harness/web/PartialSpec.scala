@@ -1,14 +1,14 @@
 package harness.web
 
 import cats.syntax.option.*
-import harness.test.DefaultHarnessSpec
+import harness.test.PlainHarnessSpec
 import scala.reflect.ClassTag
 import zio.json.*
 import zio.json.ast.Json
 import zio.test.*
 import zio.test.Assertion.*
 
-object PartialSpec extends DefaultHarnessSpec {
+object PartialSpec extends PlainHarnessSpec {
 
   // =====| Types |=====
 

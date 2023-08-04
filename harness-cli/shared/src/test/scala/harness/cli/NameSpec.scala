@@ -2,13 +2,13 @@ package harness.cli
 
 import cats.syntax.option.*
 import harness.test.AssertionHelpers.*
-import harness.test.DefaultHarnessSpec
+import harness.test.PlainHarnessSpec
 import scala.reflect.ClassTag
 import zio.*
 import zio.test.*
 import zio.test.Assertion.*
 
-object NameSpec extends DefaultHarnessSpec {
+object NameSpec extends PlainHarnessSpec {
 
   private val longName: TestSpec = {
     val applySucceeds: TestSpec = {

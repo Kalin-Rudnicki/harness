@@ -3,11 +3,11 @@ package harness.cli
 import cats.data.{Ior, NonEmptyList}
 import cats.syntax.option.*
 import harness.test.AssertionHelpers.*
-import harness.test.DefaultHarnessSpec
+import harness.test.PlainHarnessSpec
 import zio.test.*
 import zio.test.Assertion.*
 
-object ParserSpec extends DefaultHarnessSpec {
+object ParserSpec extends PlainHarnessSpec {
 
   private def parserSuite[T](name: String)(parser: Parser[T])(
       tests: (FinalizedParser[T] ?=> TestSpec)*,

@@ -5,7 +5,7 @@ import harness.test.*
 import zio.test.*
 import zio.test.Assertion.*
 
-object DecoderSpec extends DefaultHarnessSpec {
+object DecoderSpec extends PlainHarnessSpec {
 
   private def passingTest[T: CsvDecoder](name: String)(csv: String, exp: List[T]): TestSpec =
     test(name) {

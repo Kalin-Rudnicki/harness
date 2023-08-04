@@ -1,10 +1,10 @@
 package harness.core
 
-import harness.test.DefaultHarnessSpec
+import harness.test.PlainHarnessSpec
 import zio.test.*
 import zio.test.Assertion.*
 
-object StringOpsSpec extends DefaultHarnessSpec {
+object StringOpsSpec extends PlainHarnessSpec {
 
   private def makeTest(input: String, convert: String => String, exp: => String): TestSpec =
     test(s"'$input' -> '$exp'")(assert(convert(input))(equalTo(exp)))

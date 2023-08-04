@@ -3,11 +3,11 @@ package harness.core
 import cats.data.NonEmptyList
 import cats.syntax.option.*
 import cats.syntax.traverse.*
-import harness.test.DefaultHarnessSpec
+import harness.test.PlainHarnessSpec
 import zio.test.*
 import zio.test.Assertion.*
 
-object VersionSpec extends DefaultHarnessSpec {
+object VersionSpec extends PlainHarnessSpec {
 
   private def makePassingParseTest(string: String)(hasVPrefix: Boolean, suffix: Option[String], num0: Int, numN: Int*): TestSpec =
     test(string) {

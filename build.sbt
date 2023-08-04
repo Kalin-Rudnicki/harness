@@ -66,6 +66,8 @@ lazy val `harness-root` =
     .aggregate(
       `harness-test`.js,
       `harness-test`.jvm,
+      `harness-zio-test`.js,
+      `harness-zio-test`.jvm,
       `harness-core`.js,
       `harness-core`.jvm,
       `harness-csv`.js,
@@ -100,6 +102,16 @@ lazy val `harness-test` =
         "dev.zio" %%% "zio-test-sbt" % "2.0.0",
       ),
     )
+
+lazy val `harness-zio-test` =
+  crossProject(JSPlatform, JVMPlatform)
+    .in(file("harness-zio-test"))
+    .settings(
+      name := "harness-zio-test",
+      publishSettings,
+      miscSettings,
+    )
+    .dependsOn(`harness-zio`, `harness-test`)
 
 lazy val `harness-core` =
   crossProject(JSPlatform, JVMPlatform)
@@ -166,6 +178,9 @@ lazy val `harness-zio` =
         "dev.zio" %%% "zio" % "2.0.0",
         "dev.zio" %%% "zio-json" % "0.3.0",
       ),
+    )
+    .jvmSettings(
+      Test / fork := true,
     )
     .dependsOn(`harness-cli` % "test->test;compile->compile")
 

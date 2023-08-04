@@ -4,7 +4,7 @@ import harness.test.*
 import harness.webUI.style.ColorPalate.implicits.default
 import zio.test.*
 
-object StyleSheetSpec extends DefaultHarnessSpec {
+object StyleSheetSpec extends PlainHarnessSpec {
 
   override def spec: TestSpec =
     suite("StyleSheetSpec")(

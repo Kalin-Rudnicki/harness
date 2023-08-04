@@ -1,22 +1,48 @@
 package harness.zio
 
+import cats.data.NonEmptyList
+import cats.syntax.either.*
+import cats.syntax.option.*
 import harness.cli.Parser
 import zio.*
+import zio.json.*
+import zio.json.ast.Json
 
 object TestMain extends ExecutableApp {
 
+  final case class Ex(
+      a: Int,
+      b: Option[Int],
+  )
+  object Ex {
+    implicit val jsonCodec: JsonCodec[Ex] = DeriveJsonCodec.gen
+  }
+
+  private def runTest(path: String*): URIO[Config & Logger, Unit] =
+    (for {
+      _ <- Logger.log.info("")
+      v <- Config.read[Ex](path*)
+      _ <- Logger.log.info(v)
+    } yield ()).collapseCause.catchAll(e => Logger.log.info(e.fullInternalMessage))
+
   override val executable: Executable =
-    Executable.withParser(Parser.unit).withEffect {
-      for {
-        _ <- Logger.log.info("=====| TestMain |=====")
-        _ <- ZIO.unit.trace("effect-1")
-        _ <- Clock.sleep(Duration.fromSeconds(2)).trace("effect-2", Logger.LogLevel.Important, "effect-type" -> "query")
-        _ <- Clock.sleep(Duration.fromNanos(2500000)).trace("effect-3")
-        _ <- ZIO.fail("").trace("effect-4", Logger.LogLevel.Debug, "should-pass" -> false).either
-        _ <- Logger.log.info(java.time.Duration.ofHours(1).toNanos)
-        _ <- ZIO.acquireRelease(ZIO.unit) { _ => Logger.log.info("CLOSE") }
-        _ <- Clock.sleep(1.minute)
-      } yield ()
-    }
+    Executable
+      .withParser(Parser.unit)
+      .withLayer {
+        Config.fromJsonLayer(
+          Json.Obj(
+            "case-1" -> Ex(1, 2.some).toJsonAST.toOption.get,
+            "case-2" -> Ex(1, None).toJsonAST.toOption.get,
+          ),
+        )
+      }
+      .withEffect {
+        for {
+          _ <- Logger.log.info("=====| TestMain |=====")
+          _ <- runTest("case-1")
+          _ <- runTest("case-2")
+          _ <- runTest("case-3")
+        } yield ()
+      }
 
 }

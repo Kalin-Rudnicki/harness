@@ -5,11 +5,11 @@ import cats.syntax.option.*
 import cats.syntax.traverse.*
 import harness.sql.query.*
 import harness.test.AssertionHelpers.*
-import harness.test.DefaultHarnessSpec
+import harness.test.PlainHarnessSpec
 import zio.test.*
 import zio.test.Assertion.*
 
-object FragmentSpec extends DefaultHarnessSpec {
+object FragmentSpec extends PlainHarnessSpec {
 
   private def makeTest(name: String)(_frag: => Fragment)(expSql: String): TestSpec =
     test(name) {

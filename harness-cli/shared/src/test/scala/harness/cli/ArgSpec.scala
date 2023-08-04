@@ -4,7 +4,7 @@ import harness.test.*
 import zio.test.*
 import zio.test.Assertion.*
 
-object ArgSpec extends DefaultHarnessSpec {
+object ArgSpec extends PlainHarnessSpec {
 
   private val parseSucceeds: TestSpec = {
     def makeTest(input: String)(expArgs: Arg*): TestSpec =

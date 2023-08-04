@@ -15,7 +15,7 @@ final class Config(private val json: Json) { self =>
     @tailrec
     def loop(jsonPath: List[String], json: Json, rSeenJsonPath: List[String]): HTask[A] = {
       inline def fail(msg: String): HTask[Nothing] =
-        ZIO.fail(HError.UserError(s"Unable to decode at path ${rSeenJsonPath.reverse.mkString("[", ".", "]")}: $msg"))
+        ZIO.fail(HError.InternalDefect(s"Unable to decode at path ${rSeenJsonPath.reverse.mkString("[", ".", "]")}: $msg"))
 
       jsonPath match {
         case head :: tail =>
@@ -28,7 +28,8 @@ final class Config(private val json: Json) { self =>
             case _ => fail(s"Expected object with key '$head', but found $json")
           }
         case Nil =>
-          decoder.fromJsonAST(json) match {
+          // NOTE : `fromJsonAST` is not used, because ZIO json doesnt properly decode missing values to None with that function
+          decoder.decodeJson(json.toString) match {
             case Right(value) => ZIO.succeed(value)
             case Left(error)  => fail(error)
           }
@@ -73,6 +74,9 @@ object Config {
 
   val emptyLayer: ULayer[Config] =
     ZLayer.succeed(Config.empty)
+
+  def fromJsonLayer(json: Json): ULayer[Config] =
+    ZLayer.succeed(Config(json))
 
   def fromPathLayer(path: Path): HTaskLayer[Config] =
     ZLayer.fromZIO { Config.fromPath(path) }
