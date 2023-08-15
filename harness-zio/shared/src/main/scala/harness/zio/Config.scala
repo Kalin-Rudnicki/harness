@@ -15,7 +15,7 @@ final class Config(private val json: Json) { self =>
     @tailrec
     def loop(jsonPath: List[String], json: Json, rSeenJsonPath: List[String]): HTask[A] = {
       inline def fail(msg: String): HTask[Nothing] =
-        ZIO.fail(HError.InternalDefect(s"Unable to decode at path ${rSeenJsonPath.reverse.mkString("[", ".", "]")}: $msg"))
+        ZIO.fail(HError.InternalDefect(s"Unable to decode at path ${rSeenJsonPath.reverse.mkString("[", ".", "]")}: $msg\njson:\n${json.toJsonPretty}"))
 
       jsonPath match {
         case head :: tail =>
@@ -48,6 +48,9 @@ object Config {
   def fromJson(json: Json): Config =
     Config(json)
 
+  implicit val jsonCodec: JsonCodec[Config] =
+    JsonCodec(Json.encoder, Json.decoder).transform(Config(_), _.json)
+
   // =====| API |=====
 
   def read[A](jsonPath: String*)(implicit decoder: JsonDecoder[A]): HRIO[Config, A] =
@@ -57,6 +60,19 @@ object Config {
     ZLayer.fromZIO { Config.read[A](jsonPath*)(decoder) }
 
   // =====| ZIOs |=====
+
+  def fromJarResource(path: String): HTask[Config] =
+    for {
+      stream <-
+        ZIO
+          .hAttempt { Option(this.getClass.getClassLoader.getResourceAsStream(path)) }
+          .someOrFail(HError.InternalDefect(s"No such jar resource: $path"))
+      string <- ZIO.hAttempt(new String(stream.readAllBytes()))
+      config <- string.fromJson[Config] match {
+        case Right(config) => ZIO.succeed(config)
+        case Left(error)   => ZIO.fail(HError.InternalDefect(s"Unable to decode json config: $error"))
+      }
+    } yield config
 
   def fromPath(path: Path): HTask[Config] =
     path.readJson[Json].map(Config(_))
@@ -72,54 +88,36 @@ object Config {
 
   // =====| Layers |=====
 
-  val emptyLayer: ULayer[Config] =
-    ZLayer.succeed(Config.empty)
+  sealed abstract class LayerBuilder[R](make: Config => URIO[R, Config]) {
 
-  def fromJsonLayer(json: Json): ULayer[Config] =
-    ZLayer.succeed(Config(json))
+    final def json(json: Json): URLayer[R, Config] =
+      ZLayer.fromZIO { make(Config(json)) }
 
-  def fromPathLayer(path: Path): HTaskLayer[Config] =
-    ZLayer.fromZIO { Config.fromPath(path) }
+    final def jarResource(path: String): HRLayer[R, Config] =
+      ZLayer.fromZIO { Config.fromJarResource(path).flatMap(make) }
 
-  def fromPathStringLayer(path: String): HRLayer[FileSystem, Config] =
-    ZLayer.fromZIO { Config.fromPathString(path) }
+    final def path(path: Path): HRLayer[R, Config] =
+      ZLayer.fromZIO { Config.fromPath(path).flatMap(make) }
 
-  def fromPathsLayer(paths: List[Path]): HTaskLayer[Config] =
-    ZLayer.fromZIO { Config.fromPaths(paths) }
+    final def paths(paths: List[Path]): HRLayer[R, Config] =
+      ZLayer.fromZIO { Config.fromPaths(paths).flatMap(make) }
 
-  def fromPathStringsLayer(paths: List[String]): HRLayer[FileSystem, Config] =
-    ZLayer.fromZIO { Config.fromPathStrings(paths) }
+    final def pathString(path: String): HRLayer[FileSystem & R, Config] =
+      ZLayer.fromZIO { Config.fromPathString(path).flatMap(make) }
 
-  def addPathLayer(path: Path): HRLayer[Config, Config] =
-    ZLayer.fromZIO {
-      for {
-        a <- ZIO.service[Config]
-        b <- Config.fromPath(path)
-      } yield a + b
-    }
+    final def pathStrings(paths: List[String]): HRLayer[FileSystem & R, Config] =
+      ZLayer.fromZIO { Config.fromPathStrings(paths).flatMap(make) }
 
-  def addPathStringLayer(path: String): HRLayer[Config & FileSystem, Config] =
-    ZLayer.fromZIO {
-      for {
-        a <- ZIO.service[Config]
-        b <- Config.fromPathString(path)
-      } yield a + b
-    }
+  }
 
-  def addPathsLayer(paths: List[Path]): HRLayer[Config, Config] =
-    ZLayer.fromZIO {
-      for {
-        a <- ZIO.service[Config]
-        b <- Config.fromPaths(paths)
-      } yield a + b
-    }
+  object layer extends LayerBuilder[Any](ZIO.succeed(_)) {
 
-  def addPathsStringLayer(paths: List[String]): HRLayer[Config & FileSystem, Config] =
-    ZLayer.fromZIO {
-      for {
-        a <- ZIO.service[Config]
-        b <- Config.fromPathStrings(paths)
-      } yield a + b
-    }
+    val empty: ULayer[Config] =
+      ZLayer.succeed(Config.empty)
+
+    object prepend extends LayerBuilder[Config](cfg => ZIO.serviceWith[Config](cfg + _))
+    object append extends LayerBuilder[Config](cfg => ZIO.serviceWith[Config](_ + cfg))
+
+  }
 
 }
