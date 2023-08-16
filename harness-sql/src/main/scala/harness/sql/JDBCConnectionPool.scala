@@ -17,4 +17,16 @@ object JDBCConnectionPool {
   def layer(min: Int, max: Int, duration: Duration): HRLayer[ConnectionFactory & Logger & Scope, JDBCConnectionPool] =
     ZLayer.fromZIO { ZIO.service[ConnectionFactory].flatMap(JDBCConnectionPool(_, min, max, duration)) }
 
+  val configLayer: HRLayer[DbConfig & Logger & Scope, JDBCConnectionPool] =
+    ZLayer.fromZIO {
+      ZIO.serviceWithZIO[DbConfig] { config =>
+        JDBCConnectionPool(
+          ConnectionFactory(config.psqlJdbcUrl, config.credentials.username, config.credentials.password),
+          config.pool.minConnections,
+          config.pool.maxConnections,
+          config.pool.duration,
+        )
+      }
+    }
+
 }

@@ -19,7 +19,7 @@ object Main extends ExecutableApp {
 
   // This layer will be evaluated once when the server starts
   val serverLayer: SHRLayer[Scope, ServerEnv] =
-    ZLayer.fromZIO { JDBCConnectionPool(ConnectionFactory("jdbc:postgresql:template", "kalin", "psql-pass"), 4, 16, Duration.fromSeconds(60)) }
+    Config.layer.jarResource("application.conf.json") >>> DbConfig.configLayer >>> JDBCConnectionPool.configLayer
 
   val storageLayer: URLayer[JDBCConnection, StorageEnv] =
     Transaction.liveLayer ++

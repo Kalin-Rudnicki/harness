@@ -1,0 +1,16 @@
+{
+  "db": {
+    "target": {
+      "database": "template"
+    },
+    "credentials": {
+      "username": "kalin",
+      "password": "psql-pass"
+    },
+    "pool": {
+      "minConnections": 4,
+      "maxConnections": 16,
+      "duration": "P60S"
+    }
+  }
+}

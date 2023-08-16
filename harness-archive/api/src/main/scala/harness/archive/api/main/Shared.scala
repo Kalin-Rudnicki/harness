@@ -7,6 +7,6 @@ import zio.*
 object Shared {
 
   val poolLayer: HRLayer[Logger & Scope, JDBCConnectionPool] =
-    ZLayer.fromZIO { JDBCConnectionPool(ConnectionFactory("jdbc:postgresql:archive", "kalin", "psql-pass"), 4, 16, Duration.fromSeconds(60)) }
+    Config.layer.jarResource("application.conf.json") >>> DbConfig.configLayer >>> JDBCConnectionPool.configLayer
 
 }
