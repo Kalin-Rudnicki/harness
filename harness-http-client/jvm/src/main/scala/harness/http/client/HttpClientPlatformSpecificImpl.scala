@@ -8,6 +8,7 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
   override type RequestT = JavaClient.RequestT
   override type ResponseT = JavaClient.ResponseT
 
-  override val defaultLayer: HTaskLayer[HttpClient[RequestT, ResponseT]] = JavaClient.layer
+  override val defaultClient: ClientT = JavaClient.client
+  override val defaultLayer: ULayer[ClientT] = ZLayer.succeed(defaultClient)
 
 }

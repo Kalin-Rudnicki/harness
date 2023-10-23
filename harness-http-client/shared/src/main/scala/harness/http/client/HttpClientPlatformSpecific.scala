@@ -10,6 +10,7 @@ trait HttpClientPlatformSpecific {
   type ResponseT
   final type ClientT = HttpClient[RequestT, ResponseT]
 
-  val defaultLayer: HTaskLayer[HttpClient[RequestT, ResponseT]]
+  val defaultClient: ClientT
+  val defaultLayer: ULayer[ClientT]
 
 }

@@ -72,6 +72,7 @@ object JsClient {
   type RequestT = String | File // TODO (KR) : Make `js.Any`?
   type ResponseT = String // TODO (KR) : Make `Any`?
 
-  val layer: ULayer[HttpClient.ClientT] = ZLayer.succeed(new JsClient)
+  val client: HttpClient.ClientT = new JsClient
+  val layer: ULayer[HttpClient.ClientT] = ZLayer.succeed(JsClient.client)
 
 }

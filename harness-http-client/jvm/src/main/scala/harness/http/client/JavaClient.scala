@@ -76,7 +76,8 @@ object JavaClient {
 
   type RequestT = String
   type ResponseT = InputStream
-
-  val layer: ULayer[HttpClient.ClientT] = ZLayer.succeed(new JavaClient)
+  
+  val client: HttpClient.ClientT = new JavaClient
+  val layer: ULayer[HttpClient.ClientT] = ZLayer.succeed(JavaClient.client)
 
 }
