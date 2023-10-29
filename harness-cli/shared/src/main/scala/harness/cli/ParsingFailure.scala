@@ -14,11 +14,12 @@ sealed trait ParsingFailure {
             _.toString.split("\n").mkString("    ", "\n    ", "")
           }
           .mkString("\nOR\n")
-      case ParsingFailure.MissingParam(param)                   => s"Missing param ${param.formattedName}"
-      case ParsingFailure.MalformedValue(param, value, message) => s"Malformed value '$value' for param ${param.formattedName} ($message)"
-      case ParsingFailure.UnexpectedValue(param, value)         => s"Unexpected value '$value' for param ${param.formattedName}"
-      case ParsingFailure.MissingValue(param)                   => s"Missing value for param ${param.formattedName}"
-      case ParsingFailure.UnparsedArg(arg)                      => s"Remaining unparsed arg '${arg.value.toArgString}'"
+      case ParsingFailure.MissingParam(param) => s"Missing param ${param.formattedName}"
+      case ParsingFailure.MalformedValue(param, value, message, helpHint) =>
+        s"${param.formattedName} contains malformed value '$value': $message${helpHint.map(str => s"\n    $str").mkString}"
+      case ParsingFailure.UnexpectedValue(param, value) => s"${param.formattedName} does not expected a value, but was given: '$value'"
+      case ParsingFailure.MissingValue(param)           => s"${param.formattedName} expects a value, but was not given one"
+      case ParsingFailure.UnparsedArg(arg)              => s"Remaining unparsed arg '${arg.value.toArgString}'"
     }
 
 }
@@ -30,7 +31,7 @@ object ParsingFailure {
   sealed trait NonOr
 
   final case class MissingParam(param: Param) extends ParsingFailure with NonAnd with NonOr
-  final case class MalformedValue(param: Param, value: String, message: String) extends ParsingFailure with NonAnd with NonOr
+  final case class MalformedValue(param: Param, value: String, message: String, helpHint: List[String]) extends ParsingFailure with NonAnd with NonOr
 
   final case class UnexpectedValue(param: Param, value: String) extends ParsingFailure with NonAnd with NonOr
   final case class MissingValue(param: Param) extends ParsingFailure with NonAnd with NonOr

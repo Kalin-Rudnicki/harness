@@ -366,7 +366,7 @@ object Parser {
           findFunction.toParseFunction(long)(_).flatMap { (args, str) =>
             decoder.decode(str) match {
               case Right(value) => ParseResult.Success(args, value)
-              case Left(msg)    => ParseResult.Fail(args, ParsingFailure.MalformedValue(long, str, msg))
+              case Left(msg)    => ParseResult.Fail(args, ParsingFailure.MalformedValue(long, str, msg, helpHint))
             }
           },
         )
@@ -441,7 +441,7 @@ object Parser {
                   ParseResult.Fail(
                     args,
                     ParsingFailure.and(pairs.map {
-                      ParsingFailure.MalformedValue(long, _, _)
+                      ParsingFailure.MalformedValue(long, _, _, helpHint)
                     }),
                   )
               }
@@ -670,7 +670,7 @@ object Parser {
         FindFunction.forValue.toParseFunction(long)(_).flatMap { (args, value) =>
           decoder.decode(value) match {
             case Right(value) => ParseResult.Success(args, value)
-            case Left(msg)    => ParseResult.Fail(args, ParsingFailure.MalformedValue(long, value, msg))
+            case Left(msg)    => ParseResult.Fail(args, ParsingFailure.MalformedValue(long, value, msg, helpHint))
           }
         },
       )
@@ -706,7 +706,7 @@ object Parser {
           }
 
           values.traverse { value =>
-            decoder.decode(value).leftMap(ParsingFailure.MalformedValue(long, value, _))
+            decoder.decode(value).leftMap(ParsingFailure.MalformedValue(long, value, _, helpHint))
           } match {
             case Right(value) => ParseResult.Success(remainingArgs, value)
             case Left(fail)   => ParseResult.Fail(remainingArgs, fail)

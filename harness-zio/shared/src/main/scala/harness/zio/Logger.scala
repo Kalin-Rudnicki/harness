@@ -107,39 +107,31 @@ object Logger { self =>
 
   }
 
-  object logHError {
+  sealed abstract class ErrorLogger[R, U](
+      getEnv: URIO[R, U],
+      formatMessage: (U, HError.Single) => String,
+  ) {
+
+    private def makeEvent(use: U, error: HError): Logger.Event =
+      Logger.Event.Compound(
+        error.toNel.toList.map(e => Logger.Event.Output(Map.empty, formatMessage(use, e))),
+      )
 
     sealed class LogAtLevel(logLevel: LogLevel) {
-      def apply(error: => HError): URIO[Logger & RunMode & HError.UserMessage.IfHidden, Unit] =
+      def apply(error: => HError): URIO[Logger & R, Unit] =
         for {
-          runMode <- ZIO.service[RunMode]
-          ifHidden <- ZIO.service[HError.UserMessage.IfHidden]
-          _ <-
-            Logger.execute(
-              Logger.Event.AtLogLevel(
-                logLevel,
-                () =>
-                  Logger.Event.Compound(
-                    error.toNel.toList.map(e => Logger.Event.Output(Map.empty, e.formatMessage(runMode, ifHidden))),
-                  ),
-              ),
-            )
+          use <- getEnv
+          _ <- Logger.execute(Logger.Event.AtLogLevel(logLevel, () => makeEvent(use, error)))
         } yield ()
     }
 
-    def apply(logLevel: LogLevel, error: => HError): URIO[Logger & RunMode & HError.UserMessage.IfHidden, Unit] =
+    def apply(logLevel: LogLevel, error: => HError): URIO[Logger & R, Unit] =
       LogAtLevel(logLevel)(error)
 
-    def apply(error: => HError): URIO[Logger & RunMode & HError.UserMessage.IfHidden, Unit] =
+    def apply(error: => HError): URIO[Logger & R, Unit] =
       for {
-        runMode <- ZIO.service[RunMode]
-        ifHidden <- ZIO.service[HError.UserMessage.IfHidden]
-        _ <-
-          Logger.execute(
-            Logger.Event.Compound(
-              error.toNel.toList.map(e => Logger.Event.Output(Map.empty, e.formatMessage(runMode, ifHidden))),
-            ),
-          )
+        use <- getEnv
+        _ <- Logger.execute(makeEvent(use, error))
       } yield ()
 
     object never extends LogAtLevel(LogLevel.Never)
@@ -154,6 +146,24 @@ object Logger { self =>
     object always extends LogAtLevel(LogLevel.Always)
 
   }
+
+  object logHError
+      extends ErrorLogger[RunMode & HError.UserMessage.IfHidden, (RunMode, HError.UserMessage.IfHidden)](
+        ZIO.service[RunMode] <*> ZIO.service[HError.UserMessage.IfHidden],
+        { case ((runMode, ifHidden), e) => e.formatMessage(runMode, ifHidden) },
+      )
+
+  object logHErrorMessage
+      extends ErrorLogger[Any, Unit](
+        ZIO.unit,
+        (_, e) => e.fullInternalMessage,
+      )
+
+  object logHErrorMessageWithTrace
+      extends ErrorLogger[Any, Unit](
+        ZIO.unit,
+        (_, e) => e.fullInternalMessageWithTrace,
+      )
 
   val getContext: URIO[Logger, Map[String, String]] =
     ZIO.serviceWith[Logger](_.defaultContext)

@@ -19,7 +19,7 @@ object Main extends ExecutableApp {
 
   // This layer will be evaluated once when the server starts
   val serverLayer: SHRLayer[Scope, ServerEnv] =
-    Config.layer.jarResource("application.conf.json") >>> DbConfig.configLayer >>> JDBCConnectionPool.configLayer
+    DbConfig.configLayer >>> JDBCConnectionPool.configLayer
 
   val storageLayer: URLayer[JDBCConnection, StorageEnv] =
     Transaction.liveLayer ++

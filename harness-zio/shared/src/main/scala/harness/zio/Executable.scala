@@ -1,40 +1,49 @@
 package harness.zio
 
-import cats.data.NonEmptyList
+import cats.data.{EitherNel, NonEmptyList}
 import cats.syntax.either.*
 import harness.cli.*
 import harness.core.*
+import harness.zio.Config as Cfg
 import scala.annotation.tailrec
+import scala.util.matching.Regex
 import zio.*
+import zio.json.*
+import zio.json.ast.Json
 
 trait Executable { self =>
 
   def execute(args: IndexedArgs): SHTask[Any]
 
   final def apply(args: List[String]): UIO[ExitCode] = {
-    val result: Executable.Result[(ULayer[HarnessEnv], SHTask[Any])] =
+    val result: Executable.Result[(HTaskLayer[HarnessEnv], SHTask[Any])] =
       for {
         args <- Executable.parseIndexedArgs(args)
         (harnessArgs, executableArgs) = Executable.parseSplitArgs(args)
-        harnessEnvLayer <- Executable.parseLayer(harnessArgs)
+        harnessEnvLayer <- Executable.parseHarnessEnvLayer(harnessArgs)
         executableEffect = self.execute(executableArgs)
       } yield (harnessEnvLayer, executableEffect)
 
-    result match {
-      case Executable.Result.Success((layer, effect)) =>
-        effect.collapseCause
-          .tapError(e => Logger.log.debug(Logger.Event.Compound(e.toNel.toList.map(e => Logger.Event.Output(Map.empty, e.fullInternalMessageWithTrace)))))
-          .dumpErrorsAndContinue(Logger.LogLevel.Fatal)
-          .map {
-            case Some(_) => ExitCode.success
-            case None    => ExitCode.failure
-          }
-          .provideLayer(layer)
-      case Executable.Result.Help(message) =>
-        Logger.log.info(message).as(ExitCode.success).provideLayer(HarnessEnv.defaultLayer.orDie)
-      case Executable.Result.Fail(error) =>
-        Logger.logHError.fatal(error).as(ExitCode.failure).provideLayer(HarnessEnv.defaultLayer.orDie)
-    }
+    val execute: HRIO[Logger, ExitCode] =
+      result match {
+        case Executable.Result.Success((layer, effect)) =>
+          effect.collapseCause
+            .tapError(Logger.logHErrorMessageWithTrace.debug(_))
+            .dumpErrorsAndContinue(Logger.LogLevel.Fatal)
+            .provideLayer(layer)
+            .map {
+              case Some(_) => ExitCode.success
+              case None    => ExitCode.failure
+            }
+        case Executable.Result.Help(message) =>
+          Logger.log.info(message).as(ExitCode.success)
+        case Executable.Result.Fail(error) =>
+          Logger.logHErrorMessage.fatal(error).as(ExitCode.failure)
+      }
+
+    execute.collapseCause
+      .catchAll(Logger.logHErrorMessageWithTrace.fatal(_).as(ExitCode.failure))
+      .provideLayer(ZLayer.succeed(Logger.default()))
   }
 
   final def apply(args: String*): UIO[ExitCode] =
@@ -87,8 +96,47 @@ object Executable extends ExecutableBuilders.Builder1 {
       colorMode: ColorMode,
       runMode: RunMode,
       logJson: Boolean,
+      configStrings: List[Config.ConfigString],
   )
   private object Config {
+
+    sealed trait ConfigString
+    object ConfigString {
+      final case class FilePath(path: String) extends ConfigString
+      final case class JarResPath(path: String) extends ConfigString
+      final case class JsonConfig(json: Json) extends ConfigString
+
+      private def parseJson(json: String): Json =
+        json.fromJson[zio.json.ast.Json].toOption.getOrElse(Json.Str(json))
+
+      private def nestJson(nest: String, json: Json): Json = {
+        @tailrec
+        def loop(
+            nest: List[String],
+            json: Json,
+        ): Json =
+          nest match {
+            case head :: tail => loop(tail, Json.Obj(head -> json))
+            case Nil          => json
+          }
+
+        loop(nest.split('.').toList.reverse, json)
+      }
+
+      private val jarResRegex: Regex = "^jar:(.*)$".r
+      private val fileResRegex: Regex = "^file:(.*)$".r
+      private val jsonPathRegex: Regex = "^json:([A-Za-z_0-9]+(?:\\.[A-Za-z_0-9]+)*):(.*)$".r
+      private val jsonRegex: Regex = "^json:(.*)$".r
+      implicit val stringDecoder: StringDecoder[ConfigString] =
+        StringDecoder.string.flatMap {
+          case fileResRegex(path)        => ConfigString.FilePath(path).asRight
+          case jarResRegex(path)         => ConfigString.JarResPath(path).asRight
+          case jsonPathRegex(nest, json) => ConfigString.JsonConfig(nestJson(nest, parseJson(json))).asRight
+          case jsonRegex(json)           => ConfigString.JsonConfig(parseJson(json)).asRight
+          case _                         => "does not match a valid regex".leftNel
+        }
+
+    }
 
     val parser: Parser[Config] = {
       Parser
@@ -119,7 +167,17 @@ object Executable extends ExecutableBuilders.Builder1 {
           LongName.unsafe("log-json"),
           shortParam = Defaultable.None,
           helpHint = List("Log messages in JSON format"),
-        )
+        ) &&
+      Parser.values.list[Config.ConfigString](
+        LongName.unsafe("config-path"),
+        Defaultable.Some(ShortName.unsafe('C')),
+        helpHint = List(
+          "jar:path/to/jar/res",
+          "file:path/to/file",
+          """json:{ "js": { "path": "some-json" } }""",
+          """json:js.path:"some-json"""",
+        ),
+      )
     }.map(Config.apply)
 
   }
@@ -141,7 +199,17 @@ object Executable extends ExecutableBuilders.Builder1 {
       case FinalizedParser.Result.InvalidArg(msg)           => Result.Fail(HError.UserError(msg))
     }
 
-  private def parseLayer(args: IndexedArgs): Result[ULayer[HarnessEnv]] =
+  private def loadConfig(cfg: Config.ConfigString): HRIO[FileSystem, Cfg] =
+    cfg match {
+      case Config.ConfigString.FilePath(path)   => Cfg.fromPathString(path)
+      case Config.ConfigString.JarResPath(path) => Cfg.fromJarResource(path)
+      case Config.ConfigString.JsonConfig(json) => ZIO.succeed(Cfg.fromJson(json))
+    }
+
+  private def loadConfigs(configStrings: List[Config.ConfigString]): HRLayer[FileSystem, harness.zio.Config] =
+    ZLayer.fromZIO { ZIO.foreach(configStrings)(loadConfig).map(harness.zio.Config.flatten) }
+
+  private def parseHarnessEnvLayer(args: IndexedArgs): Result[HTaskLayer[HarnessEnv]] =
     finalizedResultToExecutableResult(Config.parser.finalized.parse(args)).map { config =>
       val logger: Logger =
         Logger.default(
@@ -150,11 +218,14 @@ object Executable extends ExecutableBuilders.Builder1 {
           defaultColorMode = config.colorMode,
         )
 
-      ZLayer.succeed(logger) ++
-        ZLayer.succeed(Telemetry.log) ++
-        ZLayer.succeed(config.runMode) ++
-        ZLayer.succeed(HError.UserMessage.IfHidden.default) ++
-        FileSystem.liveLayer.orDie
+      ZLayer.make[HarnessEnv](
+        ZLayer.succeed(logger),
+        ZLayer.succeed(Telemetry.log),
+        ZLayer.succeed(config.runMode),
+        ZLayer.succeed(HError.UserMessage.IfHidden.default),
+        FileSystem.liveLayer,
+        loadConfigs(config.configStrings),
+      )
     }
 
   private def parseSplitArgs(args: IndexedArgs): (IndexedArgs, IndexedArgs) = {

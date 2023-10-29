@@ -7,9 +7,9 @@ import zio.*
 import zio.json.*
 import zio.json.ast.Json
 
-final class Config(private val json: Json) { self =>
+final case class Config(configJson: Json) { self =>
 
-  def +(other: Config): Config = Config(self.json.merge(other.json))
+  def +(other: Config): Config = Config(self.configJson.merge(other.configJson))
 
   def read[A](jsonPath: String*)(implicit decoder: JsonDecoder[A]): HTask[A] = {
     @tailrec
@@ -28,7 +28,7 @@ final class Config(private val json: Json) { self =>
             case _ => fail(s"Expected object with key '$head', but found $json")
           }
         case Nil =>
-          // NOTE : `fromJsonAST` is not used, because ZIO json doesnt properly decode missing values to None with that function
+          // NOTE : `fromJsonAST` is not used, because ZIO json doesn't properly decode missing values to None with that function
           decoder.decodeJson(json.toString) match {
             case Right(value) => ZIO.succeed(value)
             case Left(error)  => fail(error)
@@ -36,7 +36,7 @@ final class Config(private val json: Json) { self =>
       }
     }
 
-    loop(jsonPath.toList, json, Nil)
+    loop(jsonPath.toList, configJson, Nil)
   }
 
 }
@@ -48,8 +48,10 @@ object Config {
   def fromJson(json: Json): Config =
     Config(json)
 
+  def flatten(list: List[Config]): Config = list.foldLeft(empty)(_ + _)
+
   implicit val jsonCodec: JsonCodec[Config] =
-    JsonCodec(Json.encoder, Json.decoder).transform(Config(_), _.json)
+    JsonCodec(Json.encoder, Json.decoder).transform(Config(_), _.configJson)
 
   // =====| API |=====
 
