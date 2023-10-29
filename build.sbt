@@ -352,6 +352,10 @@ lazy val `harness-archive-ui-web` =
     .settings(
       name := "harness-archive-ui-web",
       publish / skip := true,
+      webCompDirs := Seq(
+        file("harness-archive/api/src/main/resources/res/js"),
+        file("harness-archive/res/js"),
+      ),
       miscSettings,
       testSettings,
       scalaJSUseMainModuleInitializer := true,
@@ -416,6 +420,10 @@ lazy val `harness-web-app-template--ui-web` =
     .settings(
       name := "harness-web-app-template--ui-web",
       publish / skip := true,
+      webCompDirs := Seq(
+        file("harness-web-app-template/api/src/main/resources/res/js"),
+        file("harness-web-app-template/res/js"),
+      ),
       miscSettings,
       testSettings,
       scalaJSUseMainModuleInitializer := true,
