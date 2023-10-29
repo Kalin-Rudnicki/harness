@@ -85,6 +85,7 @@ lazy val `harness-root` =
       `harness-http-server`,
       `harness-http-server-test`,
       `harness-web-ui`,
+      `harness-js-plugin`,
       `harness-web-app-template`,
       `harness-archive`,
     )
@@ -193,7 +194,7 @@ lazy val `harness-sql` =
       miscSettings,
       testSettings,
       libraryDependencies ++= Seq(
-        "org.typelevel" %% "shapeless3-deriving" % "3.0.1",
+        "org.typelevel" %% "shapeless3-deriving" % "3.3.0",
         "org.postgresql" % "postgresql" % "42.5.0",
       ),
       Test / fork := true,
@@ -267,6 +268,18 @@ lazy val `harness-web-ui` =
       testSettings,
     )
     .dependsOn(`harness-http-client`.js % "test->test;compile->compile")
+
+lazy val `harness-js-plugin` =
+  project
+    .in(file("harness-js-plugin"))
+    .enablePlugins(SbtPlugin)
+    .settings(
+      name := "harness-js-plugin",
+      scalaVersion := "2.12.13",
+      addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.13.2"),
+      publishSettings,
+      testSettings,
+    )
 
 // =====| Harness Archive |=====
 
@@ -342,52 +355,6 @@ lazy val `harness-archive-ui-web` =
       miscSettings,
       testSettings,
       scalaJSUseMainModuleInitializer := true,
-      buildUI :=
-        Def.inputTaskDyn {
-          import complete.DefaultParsers._
-
-          val resDir = file("/home/kalin/dev/current/harness/harness-archive/res")
-
-          lazy val fast = (fastLinkJS, "fastopt")
-          lazy val full = (fullLinkJS, "opt")
-
-          val args: List[String] = spaceDelimited("<arg>").parsed.toList
-          val (t, s) =
-            if (args.contains("-F")) full
-            else fast
-          val m = !args.contains("-m")
-
-          Def.sequential(
-            Def.inputTask { println("Running 'webComp'...") }.toTask(""),
-            Compile / t,
-            Def
-              .inputTask {
-                def jsFile(fName: String): File = {
-                  val crossTargetDir = (crossTarget in (Compile / t)).value
-                  val projectName = normalizedName.value
-                  file(s"$crossTargetDir/$projectName-$s/$fName")
-                }
-
-                val moveToDir = resDir / "js"
-
-                val files =
-                  jsFile("main.js") ::
-                    (if (m) jsFile("main.js.map") :: Nil else Nil)
-
-                moveToDir.mkdirs()
-                moveToDir.listFiles.foreach { f =>
-                  if (f.name.contains("main.js"))
-                    f.delete()
-                }
-                files.foreach { f =>
-                  IO.copyFile(f, new File(moveToDir, f.getName))
-                }
-
-                ()
-              }
-              .toTask(""),
-          )
-        }.evaluated,
     )
     .dependsOn(`harness-archive-model`.js, `harness-web-ui`)
 
@@ -442,8 +409,6 @@ lazy val `harness-web-app-template--api` =
     )
     .dependsOn(`harness-web-app-template--model`.jvm, `harness-web-app-template--db-model`, `harness-http-server`, `harness-http-server-test` % Test)
 
-lazy val buildUI: InputKey[Unit] = inputKey("build UI")
-
 lazy val `harness-web-app-template--ui-web` =
   project
     .in(file("harness-web-app-template/ui-web"))
@@ -454,51 +419,5 @@ lazy val `harness-web-app-template--ui-web` =
       miscSettings,
       testSettings,
       scalaJSUseMainModuleInitializer := true,
-      buildUI :=
-        Def.inputTaskDyn {
-          import complete.DefaultParsers._
-
-          val resDir = file("/home/kalin/dev/current/harness/harness-web-app-template/res")
-
-          lazy val fast = (fastLinkJS, "fastopt")
-          lazy val full = (fullLinkJS, "opt")
-
-          val args: List[String] = spaceDelimited("<arg>").parsed.toList
-          val (t, s) =
-            if (args.contains("-F")) full
-            else fast
-          val m = !args.contains("-m")
-
-          Def.sequential(
-            Def.inputTask { println("Running 'webComp'...") }.toTask(""),
-            Compile / t,
-            Def
-              .inputTask {
-                def jsFile(fName: String): File = {
-                  val crossTargetDir = (crossTarget in (Compile / t)).value
-                  val projectName = normalizedName.value
-                  file(s"$crossTargetDir/$projectName-$s/$fName")
-                }
-
-                val moveToDir = resDir / "js"
-
-                val files =
-                  jsFile("main.js") ::
-                    (if (m) jsFile("main.js.map") :: Nil else Nil)
-
-                moveToDir.mkdirs()
-                moveToDir.listFiles.foreach { f =>
-                  if (f.name.contains("main.js"))
-                    f.delete()
-                }
-                files.foreach { f =>
-                  IO.copyFile(f, new File(moveToDir, f.getName))
-                }
-
-                ()
-              }
-              .toTask(""),
-          )
-        }.evaluated,
     )
     .dependsOn(`harness-web-app-template--model`.js, `harness-web-ui`)
