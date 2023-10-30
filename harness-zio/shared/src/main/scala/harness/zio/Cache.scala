@@ -39,6 +39,7 @@ final class Cache[K, V] private (ref: Ref.Synchronized[Map[K, V]]) {
   def invalidate(k: K): UIO[Unit] = ref.update { _.removed(k) }
   def invalidateAll(ks: K*): UIO[Unit] = ref.update { _.removedAll(ks) }
   def invalidateAll: UIO[Unit] = ref.update { _ => Map.empty[K, V] }
+  def invalidateValues(f: V => Boolean): UIO[Unit] = ref.update { _.toList.filterNot { (_, v) => f(v) }.toMap }
 
   def refreshAll[R, E](_get: K => ZIO[R, E, V]): ZIO[R, E, Unit] =
     ref.updateZIO { cached =>
