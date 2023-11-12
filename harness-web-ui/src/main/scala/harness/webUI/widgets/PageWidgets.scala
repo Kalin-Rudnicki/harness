@@ -15,9 +15,7 @@ object PageWidgets {
         DefaultStyleSheet.pageMessages.message,
         s.style,
         s.title,
-        onClick := { _ =>
-          rh.raise(Raise.Action(s.id))
-        },
+        onClick := { _ => rh.raiseAction(s.id) },
       )
     }
 
@@ -25,11 +23,9 @@ object PageWidgets {
     val tmp: Modifier[PageState[Any]] =
       div(
         DefaultStyleSheet.pageMessages,
-        Common
+        SeqWidgets
           .listWidget(pageMessageWidget)
-          .mapActionV[List[PageMessage], List[PageMessage], Nothing] { (_, a) =>
-            ZIO.succeed(Raise.updateState[List[PageMessage]](_.filterNot(_.id == a)) :: Nil)
-          }
+          .flatMapAction { a => Raise.updateState[List[PageMessage]](_.filterNot(_.id == a)) }
           .zoomOut[PageState[Any]](_.pageMessages),
       )
 

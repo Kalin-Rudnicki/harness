@@ -38,7 +38,7 @@ object Widgets {
     )
 
   val optNavBar: Modifier[Option[D.user.User]] =
-    SumWidget.option(signedInNavBar, signedOutNavBar).unit
+    SumWidgets.option(signedInNavBar, signedOutNavBar).unit
 
   def stdInput[V: StringDecoder](
       _label: String,

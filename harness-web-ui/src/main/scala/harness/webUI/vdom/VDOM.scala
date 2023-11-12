@@ -8,6 +8,7 @@ import harness.core.*
 import harness.http.client.HttpClient
 import harness.webUI.*
 import harness.webUI.rawVDOM
+import harness.webUI.vdom.widgetModifierFunctions.*
 import harness.zio.*
 import monocle.Lens
 import monocle.macros.GenLens
@@ -16,7 +17,7 @@ import scala.scalajs.js
 import zio.*
 import zio.json.*
 
-trait PModifier[+Action, -StateGet, +StateSet <: StateGet, +Value] { self =>
+trait PModifier[+Action, -StateGet, +StateSet <: StateGet, +Value] extends RaiseFunctions[Action, StateGet, StateSet, Value] { self =>
 
   // =====| Abstract |=====
 
@@ -31,69 +32,6 @@ trait PModifier[+Action, -StateGet, +StateSet <: StateGet, +Value] { self =>
   protected def mapValueImpl[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Value2](
       f: (StateGet2, EitherNel[String, Value]) => EitherNel[String, Value2],
   ): SelfT[Action, StateGet2, StateSet2, Value2]
-
-  // =====| Mapping Raise |=====
-
-  // --- mapRaise ---
-
-  final def mapRaiseSEV[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Action2](
-      f: (StateGet2, EitherNel[String, Value], Raise[Action, StateSet]) => SHRIO[HttpClient.ClientT, List[Raise[Action2, StateSet2]]],
-  ): PModifier[Action2, StateGet2, StateSet2, Value] =
-    new PModifier.Simple[Action2, StateGet2, StateSet2, Value] {
-      override def build(rh: RaiseHandler[Action2, StateSet2], state: StateGet2): List[rawVDOM.VDom.Modifier] =
-        self.build(
-          rh.mapRaise[Action, StateSet] { r => f(state, self.value(state), r) },
-          state,
-        )
-      override val value: StateGet2 => EitherNel[String, Value] = self.value
-    }
-
-  inline final def mapRaiseSV[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Action2](
-      f: (StateGet2, Value, Raise[Action, StateSet]) => SHRIO[HttpClient.ClientT, List[Raise[Action2, StateSet2]]],
-  ): PModifier[Action2, StateGet2, StateSet2, Value] =
-    self.mapRaiseSEV[StateGet2, StateSet2, Action2] {
-      case (s, Right(v), r) => f(s, v, r)
-      case (_, Left(es), _) => ZIO.hFailUserErrors(es)
-    }
-
-  inline final def mapRaiseEV[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Action2](
-      f: (EitherNel[String, Value], Raise[Action, StateSet]) => SHRIO[HttpClient.ClientT, List[Raise[Action2, StateSet2]]],
-  ): PModifier[Action2, StateGet2, StateSet2, Value] =
-    self.mapRaiseSEV[StateGet2, StateSet2, Action2]((_, v, r) => f(v, r))
-
-  inline final def mapRaiseV[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Action2](
-      f: (Value, Raise[Action, StateSet]) => SHRIO[HttpClient.ClientT, List[Raise[Action2, StateSet2]]],
-  ): PModifier[Action2, StateGet2, StateSet2, Value] =
-    self.mapRaiseSV[StateGet2, StateSet2, Action2]((_, v, r) => f(v, r))
-
-  // --- mapAction ---
-
-  @nowarn
-  inline final def mapActionSEV[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Action2](
-      f: (StateGet2, EitherNel[String, Value], Action) => SHRIO[HttpClient.ClientT, List[Raise[Action2, StateSet2]]],
-  ): PModifier[Action2, StateGet2, StateSet2, Value] =
-    self.mapRaiseSEV[StateGet2, StateSet2, Action2] {
-      case (s, v, Raise.Action(action))                   => f(s, v, action)
-      case (_, _, sou: Raise.StandardOrUpdate[StateSet2]) => ZIO.succeed(sou :: Nil)
-    }
-
-  inline final def mapActionSV[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Action2](
-      f: (StateGet2, Value, Action) => SHRIO[HttpClient.ClientT, List[Raise[Action2, StateSet2]]],
-  ): PModifier[Action2, StateGet2, StateSet2, Value] =
-    self.mapActionSEV[StateGet2, StateSet2, Action2] {
-      case (s, Right(v), a) => f(s, v, a)
-      case (_, Left(es), _) => ZIO.hFailUserErrors(es)
-    }
-
-  inline final def mapActionEV[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Action2](
-      f: (EitherNel[String, Value], Action) => SHRIO[HttpClient.ClientT, List[Raise[Action2, StateSet2]]],
-  ): PModifier[Action2, StateGet2, StateSet2, Value] =
-    self.mapActionSEV[StateGet2, StateSet2, Action2]((_, v, a) => f(v, a))
-
-  inline final def mapActionV[StateGet2 <: StateGet, StateSet2 >: StateSet <: StateGet2, Action2](
-      f: (Value, Action) => SHRIO[HttpClient.ClientT, List[Raise[Action2, StateSet2]]],
-  ): PModifier[Action2, StateGet2, StateSet2, Value] =
-    self.mapActionSV[StateGet2, StateSet2, Action2]((_, v, a) => f(v, a))
 
   // =====| Mapping State |=====
 

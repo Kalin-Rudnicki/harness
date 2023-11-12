@@ -6,7 +6,7 @@ import harness.webUI.vdom.{given, *}
 import monocle.*
 import zio.Chunk
 
-object Common {
+object SeqWidgets {
 
   private def listIndexLens[S](idx: Int): Lens[List[S], S] =
     Lens[List[S], S](_(idx))(elem => list => list.updated(idx, elem))

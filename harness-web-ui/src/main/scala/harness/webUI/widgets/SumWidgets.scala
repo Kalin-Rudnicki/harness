@@ -10,7 +10,7 @@ import monocle.macros.GenLens
 import scala.annotation.{nowarn, tailrec}
 import scala.reflect.ClassTag
 
-object SumWidget {
+object SumWidgets {
 
   def apply[Action, State, Value](
       cases: Case[Action, State, _, Value]*,
@@ -30,7 +30,7 @@ object SumWidget {
       some: ModifierAV[Action, State, Value],
       none: CModifierA[Action] = PModifier(),
   ): ModifierAV[Action, Option[State], Option[Value]] =
-    SumWidget[Action, Option[State], Option[Value]](
+    SumWidgets[Action, Option[State], Option[Value]](
       Case.subType[Option[State]].filterType[Some[State]].focus(_.value).withWidget {
         some.mapValue(Some(_))
       },
@@ -43,7 +43,7 @@ object SumWidget {
       left: ModifierAV[Action, LS, LV],
       right: ModifierAV[Action, RS, RV],
   ): ModifierAV[Action, Either[LS, RS], Either[LV, RV]] =
-    SumWidget[Action, Either[LS, RS], Either[LV, RV]](
+    SumWidgets[Action, Either[LS, RS], Either[LV, RV]](
       Case.subType[Either[LS, RS]].filterType[Left[LS, Nothing]].focus(_.value).withWidget {
         left.mapValue(Left(_))
       },
@@ -57,7 +57,7 @@ object SumWidget {
       widget: PModifier[Action, InnerState, InnerState, Value],
   ) {
 
-    private[SumWidget] def buildOption(
+    private[SumWidgets] def buildOption(
         rh: RaiseHandler[Action, OuterState],
         state: OuterState,
     ): Option[List[rawVDOM.VDom.Modifier]] =
@@ -65,7 +65,7 @@ object SumWidget {
         widget.build(rh.mapState(lens), state)
       }
 
-    private[SumWidget] def valueOption(
+    private[SumWidgets] def valueOption(
         state: OuterState,
     ): Option[EitherNel[String, Value]] =
       lens.getOption(state).map { state =>
@@ -103,7 +103,7 @@ object SumWidget {
 
     inline def subType[OuterState]: SubTypeBuilder1[OuterState] = new SubTypeBuilder1[OuterState]
 
-    private[SumWidget] def firstOf[Action, State, Value, O](
+    private[SumWidgets] def firstOf[Action, State, Value, O](
         cases: List[Case[Action, State, _, Value]],
     )(f: Case[Action, State, _, Value] => Option[O]): Option[O] = {
       @tailrec

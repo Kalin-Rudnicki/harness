@@ -18,7 +18,7 @@ import scala.scalajs.js.annotation.*
 import zio.*
 import zio.stream.*
 
-object Files {
+object FileWidgets {
 
   private def fileListToList(files: FileList): List[File] =
     0.until(files.length)
@@ -77,9 +77,9 @@ object Files {
       labelMod: Modifier[Option[NonEmptyList[File]]] = showFiles("Click or drag to select file"),
   ): ModifierV[Option[NonEmptyList[File]], Option[File]] =
     genFileInput()(labelMod)
-      .mapActionV { (_, files) =>
+      .flatMapActionZ { files =>
         validateSingleFile(files) match {
-          case Right(file)  => ZIO.succeed(Raise.setState(file.map(NonEmptyList.one)) :: Nil)
+          case Right(file)  => ZIO.succeed(Raise.setState(file.map(NonEmptyList.one)))
           case Left(errors) => ZIO.fail(HError(errors.map(HError.UserError(_))))
         }
       }
@@ -89,15 +89,15 @@ object Files {
       labelMod: Modifier[Option[NonEmptyList[File]]] = showFiles("Click or drag to select files"),
   ): ModifierV[Option[NonEmptyList[File]], Option[NonEmptyList[File]]] =
     genFileInput(multiple.empty)(labelMod)
-      .mapActionV { (_, files) => ZIO.succeed(Raise.setState(files) :: Nil) }
+      .flatMapAction { files => Raise.setState(files) }
       .asValue(identity)
 
   def singleFileDrop(
       labelMod: CModifier = "Click or drag to select file",
   ): CModifierA[Option[File]] =
-    genFileInput()(labelMod).mapActionV { (_, files) =>
+    genFileInput()(labelMod).flatMapActionZ { files =>
       validateSingleFile(files) match {
-        case Right(file)  => ZIO.succeed(Raise.Action(file) :: Nil)
+        case Right(file)  => ZIO.succeed(Raise.Action(file))
         case Left(errors) => ZIO.fail(HError(errors.map(HError.UserError(_))))
       }
     }

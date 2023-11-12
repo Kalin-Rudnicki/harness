@@ -61,10 +61,10 @@ object SignUp {
                 Widgets.stdInput[String]("Email:", "email", inputModifier = `type`.email).zoomOut[Env](_.email) <*>
                 Widgets.stdSubmit("Sign Up")
             ).mapValue(D.user.SignUp.apply)
-              .mapActionV { (signUp, _) =>
+              .flatMapActionVZ { (_, signUp) =>
                 Api.user
                   .signUp(signUp)
-                  .as(Raise.History.push(Url("page", "home")()) :: Nil)
+                  .as(Raise.History.push(Url("page", "home")()) )
               },
           ),
         )

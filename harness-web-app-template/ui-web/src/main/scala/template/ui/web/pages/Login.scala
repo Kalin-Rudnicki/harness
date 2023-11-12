@@ -30,10 +30,10 @@ object Login {
                 Widgets.stdInput[String]("Password:", "password", inputModifier = `type`.password).zoomOut[D.user.Login](_.password) <*>
                 Widgets.stdSubmit("Login")
             ).mapValue(D.user.Login.apply)
-              .mapActionV { (login, _) =>
+              .flatMapActionVZ { (_, login) =>
                 Api.user
                   .login(login)
-                  .as(Raise.History.push(Url("page", "home")()) :: Nil)
+                  .as(Raise.History.push(Url("page", "home")()))
               },
           ),
         )

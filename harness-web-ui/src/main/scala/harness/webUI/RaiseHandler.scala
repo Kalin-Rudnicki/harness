@@ -40,6 +40,7 @@ abstract class RaiseHandler[-A, -S] private (
 
   inline final def raiseZIO(raises: SHRIO[HttpClient.ClientT, Raise[A, S]]*): Unit = self.raiseManyZIO(raises.map(_.map(_ :: Nil))*)
   inline final def raise(raises: Raise[A, S]*): Unit = self.raiseManyZIO(raises.map { r => ZIO.succeed(r :: Nil) }*)
+  inline final def raiseAction(raises: A*): Unit = self.raiseManyZIO(raises.map { r => ZIO.succeed(Raise.Action(r) :: Nil) }*)
 
   // --- State ---
 
