@@ -51,15 +51,15 @@ object SignUp {
           PageWidgets.pageBody(
             h1("Sign Up"),
             (
-              FormWidgets.labeled.requiredTextInput[String]("First Name:", "first-name").zoomOut[Env](_.firstName) <*>
-                FormWidgets.labeled.requiredTextInput[String]("Last Name:", "last-name").zoomOut[Env](_.lastName) <*>
-                FormWidgets.labeled.requiredTextInput[String]("Username:", "username").zoomOut[Env](_.username) <*>
+              FormWidgets.textInput[String].labelRequired("First Name:", "first-name").zoomOut[Env](_.firstName) <*>
+                FormWidgets.textInput[String].labelRequired("Last Name:", "last-name").zoomOut[Env](_.lastName) <*>
+                FormWidgets.textInput[String].labelRequired("Username:", "username").zoomOut[Env](_.username) <*>
                 (
-                  FormWidgets.labeled.requiredTextInput[String]("Password:", "password", inputModifier = `type`.password).zoomOut[Env.Passwords](_.password) <*>
-                    FormWidgets.labeled.requiredTextInput[String]("Confirm Password:", "confirm-password", inputModifier = `type`.password).zoomOut[Env.Passwords](_.confirmPassword)
+                  FormWidgets.textInput[String].labelRequired("Password:", "password", inputModifier = `type`.password).zoomOut[Env.Passwords](_.password) <*>
+                    FormWidgets.textInput[String].labelRequired("Confirm Password:", "confirm-password", inputModifier = `type`.password).zoomOut[Env.Passwords](_.confirmPassword)
                 ).zoomOut[Env](_.passwords).flatMapValue(Env.Passwords(_, _).validate) <*>
-                FormWidgets.labeled.requiredTextInput[String]("Email:", "email", inputModifier = `type`.email).zoomOut[Env](_.email) <*>
-                Widgets.stdSubmit("Sign Up")
+                FormWidgets.textInput[String].labelRequired("Email:", "email", inputModifier = `type`.email).zoomOut[Env](_.email) <*>
+                FormWidgets.submitButton("Sign Up")
             ).mapValue(D.user.SignUp.apply)
               .flatMapActionVZ { (_, signUp) =>
                 Api.user

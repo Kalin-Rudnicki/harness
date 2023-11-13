@@ -40,9 +40,5 @@ object Widgets {
   val optNavBar: Modifier[Option[D.user.User]] =
     SumWidgets.option(signedInNavBar, signedOutNavBar).unit
 
-  val stdSubmit: CNodeWidgetA[Submit] =
-    FormWidgets.formSubmitButton(
-      DefaultStyleSheet.formSubmit,
-    )
 
 }

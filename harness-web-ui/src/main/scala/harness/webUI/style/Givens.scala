@@ -5,7 +5,5 @@ import harness.webUI.vdom.{given, *}
 
 given Conversion[rawVDOM.VDom.CSSAttr, StyleElement] = attr => StyleElement.Attr(attr)
 
-given convertBlock: Conversion[StyleSheet#Block, CModifier] = _.classNames
-given convertBlockModifier: Conversion[StyleSheet#Block#Modifier, CModifier] = _.classNames
-given convertBlockElement: Conversion[StyleSheet#Block#Element, CModifier] = _.classNames
-given convertBlockElementModifier: Conversion[StyleSheet#Block#Element#Modifier, CModifier] = _.classNames
+given convertStyleSheetPart: Conversion[StyleSheet.StyleSheetPart, CModifier] = _.classNames
+given convertOptStyleSheetPart: Conversion[Option[StyleSheet.StyleSheetPart], CModifier] = _.fold(PModifier())(_.classNames)
