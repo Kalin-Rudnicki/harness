@@ -51,20 +51,20 @@ object SignUp {
           PageWidgets.pageBody(
             h1("Sign Up"),
             (
-              Widgets.stdInput[String]("First Name:", "first-name").zoomOut[Env](_.firstName) <*>
-                Widgets.stdInput[String]("Last Name:", "last-name").zoomOut[Env](_.lastName) <*>
-                Widgets.stdInput[String]("Username:", "username").zoomOut[Env](_.username) <*>
+              FormWidgets.labeled.requiredTextInput[String]("First Name:", "first-name").zoomOut[Env](_.firstName) <*>
+                FormWidgets.labeled.requiredTextInput[String]("Last Name:", "last-name").zoomOut[Env](_.lastName) <*>
+                FormWidgets.labeled.requiredTextInput[String]("Username:", "username").zoomOut[Env](_.username) <*>
                 (
-                  Widgets.stdInput[String]("Password:", "password", inputModifier = `type`.password).zoomOut[Env.Passwords](_.password) <*>
-                    Widgets.stdInput[String]("Confirm Password:", "confirm-password", inputModifier = `type`.password).zoomOut[Env.Passwords](_.confirmPassword)
+                  FormWidgets.labeled.requiredTextInput[String]("Password:", "password", inputModifier = `type`.password).zoomOut[Env.Passwords](_.password) <*>
+                    FormWidgets.labeled.requiredTextInput[String]("Confirm Password:", "confirm-password", inputModifier = `type`.password).zoomOut[Env.Passwords](_.confirmPassword)
                 ).zoomOut[Env](_.passwords).flatMapValue(Env.Passwords(_, _).validate) <*>
-                Widgets.stdInput[String]("Email:", "email", inputModifier = `type`.email).zoomOut[Env](_.email) <*>
+                FormWidgets.labeled.requiredTextInput[String]("Email:", "email", inputModifier = `type`.email).zoomOut[Env](_.email) <*>
                 Widgets.stdSubmit("Sign Up")
             ).mapValue(D.user.SignUp.apply)
               .flatMapActionVZ { (_, signUp) =>
                 Api.user
                   .signUp(signUp)
-                  .as(Raise.History.push(Url("page", "home")()) )
+                  .as(Raise.History.push(Url("page", "home")()))
               },
           ),
         )

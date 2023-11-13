@@ -40,33 +40,8 @@ object Widgets {
   val optNavBar: Modifier[Option[D.user.User]] =
     SumWidgets.option(signedInNavBar, signedOutNavBar).unit
 
-  def stdInput[V: StringDecoder](
-      _label: String,
-      _id: String,
-      inputModifier: CModifier = PModifier(),
-      labelModifier: CModifier = PModifier(),
-  ): ModifierAV[Submit, String, V] =
-    div(DefaultStyleSheet.formField).defer(
-      formInput[V]
-        .apply(
-          DefaultStyleSheet.formField.input,
-          id := _id,
-          inputModifier,
-        )
-        .required
-        .labeled(
-          _label,
-          label(
-            _,
-            DefaultStyleSheet.formField.label,
-            `for` := _id,
-            labelModifier,
-          ),
-        ),
-    )
-
   val stdSubmit: CNodeWidgetA[Submit] =
-    formSubmitButton(
+    FormWidgets.formSubmitButton(
       DefaultStyleSheet.formSubmit,
     )
 

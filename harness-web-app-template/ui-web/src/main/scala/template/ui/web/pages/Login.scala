@@ -26,8 +26,8 @@ object Login {
           PageWidgets.pageBody(
             h1("Login"),
             (
-              Widgets.stdInput[String]("Username:", "username").zoomOut[D.user.Login](_.username) <*>
-                Widgets.stdInput[String]("Password:", "password", inputModifier = `type`.password).zoomOut[D.user.Login](_.password) <*>
+              FormWidgets.labeled.requiredTextInput[String]("Username:", "username").zoomOut[D.user.Login](_.username) <*>
+                FormWidgets.labeled.requiredTextInput[String]("Password:", "password", inputModifier = `type`.password).zoomOut[D.user.Login](_.password) <*>
                 Widgets.stdSubmit("Login")
             ).mapValue(D.user.Login.apply)
               .flatMapActionVZ { (_, login) =>
