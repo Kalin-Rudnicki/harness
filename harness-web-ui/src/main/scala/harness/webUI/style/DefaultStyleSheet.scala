@@ -26,6 +26,7 @@ abstract class _DefaultStyleSheet(
         height := s"calc(100vh - $navBarHeight)",
         padding := "0",
         margin := "0",
+        overflow := "auto",
       ) {
 
     object body
@@ -167,6 +168,38 @@ abstract class _DefaultStyleSheet(
     object error extends M("error")(colorError, colorErrorFont, s"darken($colorError, 5%)"); error
 
   }; button
+
+  object dropdownSelect
+      extends Block("dropdown-select")(
+        // TODO (KR) :
+      ) {
+
+    object selected
+        extends Element("selected")(
+          height := "1rem",
+          backgroundColor := "#f5f5f5", // TODO (KR) :
+          color.black,
+          clickable,
+        ); selected
+
+    object options
+        extends Element("options")(
+          display.none,
+        ) {
+
+      object visible
+          extends Modifier("visible")(
+            display.block,
+          ); visible
+
+    }; options
+
+    object option
+        extends Element("option")(
+          clickable,
+        ); option
+
+  }; dropdownSelect
 
 }
 

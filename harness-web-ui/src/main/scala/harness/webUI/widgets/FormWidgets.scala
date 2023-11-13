@@ -7,6 +7,7 @@ import harness.webUI.*
 import harness.webUI.style.{given, *}
 import harness.webUI.vdom.{given, *}
 import org.scalajs.dom.{console, KeyboardEvent}
+import zio.Chunk
 
 object FormWidgets {
 
@@ -108,6 +109,71 @@ object FormWidgets {
 
   def textArea[V: StringDecoder]: FormWidget[Submit, String, V] =
     genFormInput[V](textarea, e => e.keyCode == KeyCode.Enter.keyCode && e.ctrlKey)
+
+  object dropdownSelect {
+
+    final case class Env[V](
+        values: Seq[V],
+        selected: Option[V],
+        expanded: Boolean,
+    )
+    object Env {
+
+      def initial[V](values: Seq[V]): dropdownSelect.Env[V] = dropdownSelect.Env(values, None, false)
+      def initialFirstSelected[V](values: Seq[V]): dropdownSelect.Env[V] = dropdownSelect.Env(values, values.headOption, false)
+
+      def enumInitial[V <: Enum[V]](implicit hec: Enum.HasCompanion[V]): dropdownSelect.Env[V] = Env.initial(hec.companion.enumValues)
+      def enumInitialFirstSelected[V <: Enum[V]](implicit hec: Enum.HasCompanion[V]): dropdownSelect.Env[V] = Env.initialFirstSelected(hec.companion.enumValues)
+
+    }
+
+    def apply[V](
+        showV: V => CModifier = (_: V).toString,
+        closeOnMouseLeave: Boolean = false,
+    ): FormWidget[Option[V], dropdownSelect.Env[V], V] =
+      FormWidget(
+        div(
+          DefaultStyleSheet.dropdownSelect,
+          PModifier.builder.withAction[Option[V]].withState[dropdownSelect.Env[V]] { (rh, s) =>
+            PModifier(
+              Option.when(closeOnMouseLeave) {
+                onMouseLeave := { _ =>
+                  rh.raise(
+                    Raise.updateState[Env[V]] { s => s.copy(expanded = false) },
+                  )
+                }
+              },
+              div(
+                DefaultStyleSheet.dropdownSelect.selected,
+                PModifier.foreach(s.selected)(showV),
+                onClick := { _ =>
+                  rh.updateState[Env[V]](s => s.copy(expanded = !s.expanded))
+                },
+              ),
+              div(
+                DefaultStyleSheet.dropdownSelect.options.visible.when(s.expanded),
+                PModifier.foreach(s.values) { v =>
+                  div(
+                    DefaultStyleSheet.dropdownSelect.option,
+                    showV(v),
+                    onClick := { _ =>
+                      rh.raise(
+                        Raise.updateState[Env[V]] { s => s.copy(selected = v.some, expanded = false) },
+                        Raise.Action(v.some),
+                      )
+                    },
+                  )
+                },
+              ),
+            )
+          },
+        ).asValue(_.selected),
+        DefaultStyleSheet.formField.some,
+        None, // TODO (KR) : ???
+        DefaultStyleSheet.formField.label.some,
+      )
+
+  }
 
   def submitButton: CNodeWidgetA[Submit] =
     button(
