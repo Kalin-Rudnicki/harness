@@ -77,6 +77,8 @@ lazy val `harness-root` =
       `harness-cli`.jvm,
       `harness-zio`.js,
       `harness-zio`.jvm,
+      `harness-pk`.js,
+      `harness-pk`.jvm,
       `harness-sql`,
       `harness-web`.js,
       `harness-web`.jvm,
