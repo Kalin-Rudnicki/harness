@@ -185,6 +185,18 @@ lazy val `harness-zio` =
     )
     .dependsOn(`harness-cli` % "test->test;compile->compile")
 
+lazy val `harness-pk` =
+  crossProject(JSPlatform, JVMPlatform)
+    .in(file("harness-pk"))
+    .settings(
+      name := "harness-pk",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      Test / fork := true,
+    )
+    .dependsOn(`harness-zio` % "test->test;compile->compile")
+
 lazy val `harness-sql` =
   project
     .in(file("harness-sql"))
@@ -199,7 +211,7 @@ lazy val `harness-sql` =
       ),
       Test / fork := true,
     )
-    .dependsOn(`harness-zio`.jvm % "test->test;compile->compile")
+    .dependsOn(`harness-pk`.jvm % "test->test;compile->compile")
 
 lazy val `harness-web` =
   crossProject(JSPlatform, JVMPlatform)
@@ -218,7 +230,7 @@ lazy val `harness-web` =
         "com.github.julien-truffaut" %%% "monocle-macro" % "3.0.0-M6",
       ),
     )
-    .dependsOn(`harness-zio` % "test->test;compile->compile")
+    .dependsOn(`harness-pk` % "test->test;compile->compile")
 
 lazy val `harness-http-client` =
   crossProject(JSPlatform, JVMPlatform)
@@ -397,7 +409,7 @@ lazy val `harness-web-app-template--db-model` =
       miscSettings,
       testSettings,
     )
-    .dependsOn(`harness-sql`)
+    .dependsOn(`harness-sql`, `harness-web-app-template--model`.jvm)
 
 lazy val `harness-web-app-template--api` =
   project

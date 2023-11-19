@@ -2,10 +2,8 @@ package harness.archive.model.user
 
 import zio.json.*
 
-import java.util.UUID
-
 final case class User(
-    id: UUID,
+    id: UserId,
     firstName: String,
     lastName: String,
     username: String,

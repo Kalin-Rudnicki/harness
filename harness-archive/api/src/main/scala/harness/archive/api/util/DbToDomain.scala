@@ -7,7 +7,7 @@ object DbToDomain {
 
   def user(user: M.User.Identity): D.user.User =
     D.user.User(
-      id = user.id.toUUID,
+      id = user.id,
       firstName = user.firstName,
       lastName = user.lastName,
       username = user.username,
@@ -16,8 +16,8 @@ object DbToDomain {
 
   def log(log: M.Log.Identity): D.log.Log =
     D.log.Log(
-      id = log.id.toUUID,
-      appId = log.appId.toUUID,
+      id = log.id,
+      appId = log.appId,
       logLevel = log.logLevel,
       message = log.message,
       context = log.context,
@@ -28,8 +28,8 @@ object DbToDomain {
 
   def trace(trace: M.Trace.Identity): D.telemetry.Trace =
     D.telemetry.Trace(
-      id = trace.id.toUUID,
-      appId = trace.appId.toUUID,
+      id = trace.id,
+      appId = trace.appId,
       logLevel = trace.logLevel,
       label = trace.label,
       startDateTime = trace.startDateTime,

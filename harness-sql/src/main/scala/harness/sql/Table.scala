@@ -1,14 +1,16 @@
 package harness.sql
 
 import harness.core.*
+import harness.pk.TableKey
 import harness.sql.query.*
 import java.util.UUID
+import zio.*
 
 abstract class Table
 object Table {
 
-  abstract class WithId[F[_], Id] extends Table {
-    final type IdT = Id
+  abstract class WithId[F[_], TKId <: TableKey#Id] extends Table {
+    final type Id = TKId
     val id: F[Id]
   }
 
@@ -22,18 +24,15 @@ object Table {
   }
   object Companion {
 
-    trait WithId[T[_[_]] <: Table] extends Table.Companion[T] {
+    trait WithId[TKId <: TableKey#Id, T[_[_]] <: Table.WithId[_, TKId]](implicit
+        iMap: IMap[UUID, TKId],
+    ) extends Table.Companion[T] {
 
-      opaque type Id = UUID
-      extension (self: Id) {
-        def toUUID: UUID = self
-      }
+      final type Id = TKId
       object Id {
-        def apply(uuid: UUID): Id = uuid
-        def gen: Id = UUID.randomUUID
-
-        implicit val stringDecoder: StringDecoder[Id] = StringDecoder.uuid.map(Id(_))
-        implicit val stringEncoder: StringEncoder[Id] = StringEncoder.uuid.imap[Id](_.toUUID)
+        def apply(uuid: UUID): Id = iMap.to(uuid)
+        def gen: Id = Id(UUID.randomUUID)
+        def genZio: UIO[Id] = Random.nextUUID.map(Id(_))
 
         /**
           * It is recommended to use [[pkCol]] or [[fkCol]] instead,
@@ -47,6 +46,8 @@ object Table {
         def pkCol(colName: String): Col[Id] =
           Id.basicCol(colName).primaryKey
 
+        def fkCol: Col[Id] =
+          Id.fkCol(s"${tableSchema.tableName}_id")
         def fkCol(colName: String): Col[Id] =
           Id.fkCol(colName, "id")
         def fkCol(colName: String, referencesColName: String): Col[Id] =

@@ -20,13 +20,17 @@ final case class Col[T] private (
     constraints: List[Col.Constraint],
     setType: Option[String],
     getType: Option[String],
-) {
+) { self =>
 
   def imap[T2](mf: T => T2)(cmf: T2 => T): Col[T2] =
     Col(colName, colType, colCodec.imap(mf)(cmf), nullable, constraints, setType, getType)
+  def imapAuto[T2](implicit iMap: IMap[T, T2]): Col[T2] =
+    self.imap(iMap.to)(iMap.from)
 
   def iemap[T2](mf: T => EitherNel[String, T2])(cmf: T2 => T): Col[T2] =
     Col(colName, colType, colCodec.iemap(mf)(cmf), nullable, constraints, setType, getType)
+  def iemapAuto[T2](implicit iEMap: IEMap[T, T2]): Col[T2] =
+    self.iemap(iEMap.toOrFail)(iEMap.from)
 
   inline def imapTry[T2](mf: T => T2)(cmf: T2 => T): Col[T2] =
     iemap(t => Try(mf(t)).toEither.leftMap(e => NonEmptyList.one(e.toString)))(cmf)

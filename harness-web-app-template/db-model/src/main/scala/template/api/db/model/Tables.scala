@@ -2,6 +2,7 @@ package template.api.db.model
 
 import harness.sql.*
 import java.util.UUID
+import template.model as D
 
 final case class User[F[_]](
     id: F[User.Id],
@@ -14,7 +15,7 @@ final case class User[F[_]](
 ) extends Table.WithId[F, User.Id] {
   def show: String = s"'$username' ($id)"
 }
-object User extends Table.Companion.WithId[User] {
+object User extends Table.Companion.WithId[D.user.UserId, User] {
 
   override implicit lazy val tableSchema: TableSchema[User] =
     TableSchema.derived[User]("user") {
@@ -36,7 +37,7 @@ final case class Session[F[_]](
     userId: F[User.Id],
     token: F[String],
 ) extends Table.WithId[F, Session.Id]
-object Session extends Table.Companion.WithId[Session] {
+object Session extends Table.Companion.WithId[D.user.SessionId, Session] {
 
   override implicit lazy val tableSchema: TableSchema[Session] =
     TableSchema.derived[Session]("session") {

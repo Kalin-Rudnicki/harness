@@ -2,12 +2,12 @@ package harness.archive.model.telemetry
 
 import harness.zio.*
 import java.time.OffsetDateTime
-import java.util.UUID
 import zio.json.*
+import harness.archive.model.app.AppId
 
 final case class Trace(
-    id: UUID,
-    appId: UUID,
+    id: TraceId,
+    appId: AppId,
     logLevel: Logger.LogLevel,
     label: String,
     startDateTime: OffsetDateTime,

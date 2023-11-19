@@ -4,6 +4,7 @@ import cats.~>
 import cats.syntax.option.*
 import harness.cli.*
 import harness.core.*
+import harness.pk.TableKey
 import harness.sql.autoSchema.*
 import harness.sql.query.{given, *}
 import harness.sql.typeclass.*
@@ -17,20 +18,34 @@ object Tmp extends ExecutableApp {
 
   // =====|  |=====
 
+  type MusicianId = MusicianId.Id
+  object MusicianId extends TableKey
+
+  type BandId = BandId.Id
+  object BandId extends TableKey
+
+  type MusicianInBandId = MusicianInBandId.Id
+  object MusicianInBandId extends TableKey
+
+  type NoteId = NoteId.Id
+  object NoteId extends TableKey
+
+  // =====|  |=====
+
   final case class Musician[F[_]](
-      id: F[Musician.Id],
+      id: F[MusicianId],
       firstName: F[String],
       lastName: F[String],
       instrument: F[String],
       birthday: F[LocalDate],
       favoriteNumber: F[Option[Int]],
-  ) extends Table.WithId[F, Musician.Id]
-  object Musician extends Table.Companion.WithId[Musician] {
+  ) extends Table.WithId[F, MusicianId]
+  object Musician extends Table.Companion.WithId[MusicianId, Musician] {
 
     override implicit lazy val tableSchema: TableSchema[Musician] =
       TableSchema.derived[Musician]("tmp", "musician")(
-        Musician[Col](
-          id = Id.pkCol,
+        new Musician.Cols(
+          id = Musician.Id.pkCol,
           firstName = Col.string("first_name"),
           lastName = Col.string("last_name"),
           instrument = Col.string("instrument"),
@@ -42,16 +57,16 @@ object Tmp extends ExecutableApp {
   }
 
   final case class Band[F[_]](
-      id: F[Band.Id],
+      id: F[BandId],
       name: F[String],
       formationDate: F[LocalDate],
-  ) extends Table.WithId[F, Band.Id]
-  object Band extends Table.Companion.WithId[Band] {
+  ) extends Table.WithId[F, BandId]
+  object Band extends Table.Companion.WithId[BandId, Band] {
 
     override implicit lazy val tableSchema: TableSchema[Band] =
       TableSchema.derived[Band]("tmp", "band")(
-        Band[Col](
-          id = Id.pkCol,
+        new Band.Cols(
+          id = Band.Id.pkCol,
           name = Col.string("name"),
           formationDate = Col.localDate("formation_date"),
         ),
@@ -60,17 +75,17 @@ object Tmp extends ExecutableApp {
   }
 
   final case class MusicianInBand[F[_]](
-      id: F[MusicianInBand.Id],
-      musicianId: F[Musician.Id],
-      bandId: F[Band.Id],
+      id: F[MusicianInBandId],
+      musicianId: F[MusicianId],
+      bandId: F[BandId],
       active: F[Boolean],
-  ) extends Table.WithId[F, MusicianInBand.Id]
-  object MusicianInBand extends Table.Companion.WithId[MusicianInBand] {
+  ) extends Table.WithId[F, MusicianInBandId]
+  object MusicianInBand extends Table.Companion.WithId[MusicianInBandId, MusicianInBand] {
 
     override implicit lazy val tableSchema: TableSchema[MusicianInBand] =
       TableSchema.derived[MusicianInBand]("tmp", "musician_in_band")(
-        MusicianInBand[Col](
-          id = Id.pkCol,
+        new MusicianInBand.Cols(
+          id = MusicianInBand.Id.pkCol,
           musicianId = Musician.Id.fkCol("musician_id"),
           bandId = Band.Id.fkCol("band_id"),
           active = Col.boolean("active"),
@@ -80,15 +95,15 @@ object Tmp extends ExecutableApp {
   }
 
   final case class Note[F[_]](
-      id: F[Note.Id],
+      id: F[NoteId],
       text: F[String],
       localDate: F[LocalDate],
       localTime: F[LocalTime],
       offsetTime: F[OffsetTime],
       localDateTime: F[LocalDateTime],
       offsetDateTime: F[OffsetDateTime],
-  ) extends Table.WithId[F, Note.Id]
-  object Note extends Table.Companion.WithId[Note] {
+  ) extends Table.WithId[F, NoteId]
+  object Note extends Table.Companion.WithId[NoteId, Note] {
 
     override implicit lazy val tableSchema: TableSchema[Note] =
       TableSchema.derived[Note]("tmp", "note")(

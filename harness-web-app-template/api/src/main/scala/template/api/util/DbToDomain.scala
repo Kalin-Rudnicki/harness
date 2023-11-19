@@ -7,7 +7,7 @@ object DbToDomain {
 
   def user(user: M.User.Identity): D.user.User =
     D.user.User(
-      id = user.id.toUUID,
+      id = user.id,
       firstName = user.firstName,
       lastName = user.lastName,
       username = user.username,

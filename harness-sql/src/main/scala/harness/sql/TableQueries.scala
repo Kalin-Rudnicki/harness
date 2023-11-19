@@ -1,9 +1,10 @@
 package harness.sql
 
+import harness.pk.TableKey
 import harness.sql.query.*
 import shapeless3.deriving.Id as Identity
 
-abstract class TableQueries[Id, T[F[_]] <: Table.WithId[F, Id]](implicit ti: TableSchema[T]) {
+abstract class TableQueries[Id <: TableKey#Id, T[F[_]] <: Table.WithId[F, Id]](implicit ti: TableSchema[T]) {
 
   final val insert: QueryI[T[Identity]] =
     Prepare.insertO(s"${ti.referenceName} - insert") {

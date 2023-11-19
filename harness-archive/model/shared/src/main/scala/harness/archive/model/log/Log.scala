@@ -2,12 +2,12 @@ package harness.archive.model.log
 
 import harness.zio.*
 import java.time.OffsetDateTime
-import java.util.UUID
 import zio.json.*
+import harness.archive.model.app.AppId
 
 final case class Log(
-    id: UUID,
-    appId: UUID,
+    id: LogId,
+    appId: AppId,
     logLevel: Option[Logger.LogLevel],
     message: String,
     context: Map[String, String],

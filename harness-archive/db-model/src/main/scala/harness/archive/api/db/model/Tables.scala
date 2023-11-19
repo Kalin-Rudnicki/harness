@@ -4,11 +4,10 @@ import harness.archive
 import harness.archive.api
 import harness.archive.api.db
 import harness.archive.api.db.model
+import harness.archive.model as D
 import harness.sql.*
-import harness.sql.Table.Companion
 import harness.zio.Logger
 import java.time.OffsetDateTime
-import harness.archive.model as D
 import java.util.UUID
 
 final case class User[F[_]](
@@ -22,7 +21,7 @@ final case class User[F[_]](
 ) extends Table.WithId[F, User.Id] {
   def show: String = s"'$username' ($id)"
 }
-object User extends Table.Companion.WithId[User] {
+object User extends Table.Companion.WithId[D.user.UserId, User] {
 
   override implicit lazy val tableSchema: TableSchema[User] =
     TableSchema.derived[User]("user_data", "user") {
@@ -44,7 +43,7 @@ final case class Session[F[_]](
     userId: F[User.Id],
     token: F[String],
 ) extends Table.WithId[F, Session.Id]
-object Session extends Table.Companion.WithId[Session] {
+object Session extends Table.Companion.WithId[D.user.SessionId, Session] {
 
   override implicit lazy val tableSchema: TableSchema[Session] =
     TableSchema.derived[Session]("user_data", "session") {
@@ -70,7 +69,7 @@ final case class App[F[_]](
     logDurationMap: F[D.app.DurationMap],
     traceDurationMap: F[D.app.DurationMap],
 ) extends Table.WithId[F, App.Id]
-object App extends Companion.WithId[App] {
+object App extends Table.Companion.WithId[D.app.AppId, App] {
 
   override implicit lazy val tableSchema: TableSchema[App] =
     TableSchema.derived[App]("archive", "app") {
@@ -94,7 +93,7 @@ final case class Log[F[_]](
     epochMS: F[Long],
     keepUntilEpochMS: F[Long],
 ) extends Table.WithId[F, db.model.Log.Id]
-object Log extends Companion.WithId[Log] {
+object Log extends Table.Companion.WithId[D.log.LogId, Log] {
 
   override implicit lazy val tableSchema: TableSchema[Log] =
     TableSchema.derived[Log]("archive", "log") {
@@ -126,7 +125,7 @@ final case class Trace[F[_]](
     endEpochMS: F[Long],
     keepUntilEpochMS: F[Long],
 ) extends Table.WithId[F, archive.api.db.model.Trace.Id]
-object Trace extends Companion.WithId[Trace] {
+object Trace extends Table.Companion.WithId[D.telemetry.TraceId, Trace] {
 
   override implicit lazy val tableSchema: TableSchema[Trace] =
     TableSchema.derived[Trace]("archive", "trace") {

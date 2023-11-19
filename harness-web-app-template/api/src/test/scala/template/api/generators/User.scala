@@ -35,7 +35,7 @@ object User {
       Gen.fromZIO {
         val encryptedPassword = BCrypt.hashpw(signUp.password, BCrypt.gensalt)
         val user = new M.User.Identity(M.User.Id.gen, signUp.firstName, signUp.lastName, signUp.username, signUp.username.toLowerCase, encryptedPassword, signUp.email)
-        UserStorage.insert(user).as(D.user.User(user.id.toUUID, user.firstName, user.lastName, user.username, user.email)).orDie
+        UserStorage.insert(user).as(D.user.User(user.id, user.firstName, user.lastName, user.username, user.email)).orDie
       }
     }
 
