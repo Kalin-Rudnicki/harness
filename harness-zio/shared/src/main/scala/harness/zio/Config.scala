@@ -48,6 +48,12 @@ object Config {
   def fromJson(json: Json): Config =
     Config(json)
 
+  def fromJsonString(json: String): HTask[Config] =
+    json.fromJson[Json] match {
+      case Right(json) => ZIO.succeed(Config(json))
+      case Left(error) => ZIO.fail(HError.InternalDefect(error))
+    }
+
   def flatten(list: List[Config]): Config = list.foldLeft(empty)(_ + _)
 
   implicit val jsonCodec: JsonCodec[Config] =
@@ -94,6 +100,9 @@ object Config {
 
     final def json(json: Json): URLayer[R, Config] =
       ZLayer.fromZIO { make(Config(json)) }
+
+    final def jsonString(json: String): HRLayer[R, Config] =
+      ZLayer.fromZIO { Config.fromJsonString(json).flatMap(make) }
 
     final def jarResource(path: String): HRLayer[R, Config] =
       ZLayer.fromZIO { Config.fromJarResource(path).flatMap(make) }

@@ -5,6 +5,7 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import harness.core.*
 import harness.sql.typeclass.*
+import harness.zio.*
 import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.{TimeZone, UUID}
@@ -14,21 +15,21 @@ import zio.json.JsonCodec
 
 final case class Col[T] private (
     colName: String,
-    colType: String,
+    colType: Col.ColType,
     colCodec: ColCodec[T],
     nullable: Boolean,
-    constraints: List[Col.Constraint],
+    keyType: Option[Col.KeyType],
     setType: Option[String],
     getType: Option[String],
 ) { self =>
 
   def imap[T2](mf: T => T2)(cmf: T2 => T): Col[T2] =
-    Col(colName, colType, colCodec.imap(mf)(cmf), nullable, constraints, setType, getType)
+    Col(colName, colType, colCodec.imap(mf)(cmf), nullable, keyType, setType, getType)
   def imapAuto[T2](implicit iMap: IMap[T, T2]): Col[T2] =
     self.imap(iMap.to)(iMap.from)
 
   def iemap[T2](mf: T => EitherNel[String, T2])(cmf: T2 => T): Col[T2] =
-    Col(colName, colType, colCodec.iemap(mf)(cmf), nullable, constraints, setType, getType)
+    Col(colName, colType, colCodec.iemap(mf)(cmf), nullable, keyType, setType, getType)
   def iemapAuto[T2](implicit iEMap: IEMap[T, T2]): Col[T2] =
     self.iemap(iEMap.toOrFail)(iEMap.from)
 
@@ -36,12 +37,12 @@ final case class Col[T] private (
     iemap(t => Try(mf(t)).toEither.leftMap(e => NonEmptyList.one(e.toString)))(cmf)
 
   def optional: Col[Option[T]] =
-    Col(colName, colType, colCodec.optional, true, constraints, setType, getType)
+    Col(colName, colType, colCodec.optional, true, keyType, setType, getType)
 
   def primaryKey: Col[T] =
-    Col(colName, colType, colCodec, nullable, Col.Constraint.PrimaryKey :: constraints, setType, getType)
+    Col(colName, colType, colCodec, nullable, Col.KeyType.PrimaryKey.some, setType, getType)
   def references(foreignKeyRef: => ForeignKeyRef): Col[T] =
-    Col(colName, colType, colCodec, nullable, Col.Constraint.ForeignKey(foreignKeyRef) :: constraints, setType, getType)
+    Col(colName, colType, colCodec, nullable, Col.KeyType.ForeignKey(foreignKeyRef).some, setType, getType)
 
   override def toString: String = s"$colName[$colType]"
 
@@ -53,25 +54,25 @@ object Col {
 
   // =====| BuiltIn |=====
 
-  private inline def basic[T](colName: String, colType: String, colCodec: ColCodec[T]): Col[T] = Col(colName, colType, colCodec, false, Nil, None, None)
+  private inline def basic[T](colName: String, colType: ColType, colCodec: ColCodec[T]): Col[T] = Col(colName, colType, colCodec, false, None, None, None)
 
-  def string(name: String): Col[String] = Col.basic(name, "TEXT", ColCodec.string)
-  def uuid(name: String): Col[UUID] = Col.basic(name, "UUID", ColCodec.uuid)
-  def boolean(name: String): Col[Boolean] = Col.basic(name, "BOOLEAN", ColCodec.boolean)
+  def string(name: String): Col[String] = Col.basic(name, ColType.Text, ColCodec.string)
+  def uuid(name: String): Col[UUID] = Col.basic(name, ColType.UUID, ColCodec.uuid)
+  def boolean(name: String): Col[Boolean] = Col.basic(name, ColType.Boolean, ColCodec.boolean)
 
-  def short(name: String): Col[Short] = Col.basic(name, "SMALLINT", ColCodec.short)
-  def int(name: String): Col[Int] = Col.basic(name, "INTEGER", ColCodec.int)
-  def long(name: String): Col[Long] = Col.basic(name, "BIGINT", ColCodec.long)
+  def short(name: String): Col[Short] = Col.basic(name, ColType.SmallInt, ColCodec.short)
+  def int(name: String): Col[Int] = Col.basic(name, ColType.Integer, ColCodec.int)
+  def long(name: String): Col[Long] = Col.basic(name, ColType.BigInt, ColCodec.long)
 
-  def float(name: String): Col[Float] = Col.basic(name, "REAL", ColCodec.float)
-  def double(name: String): Col[Double] = Col.basic(name, "DOUBLE PRECISION", ColCodec.double)
+  def float(name: String): Col[Float] = Col.basic(name, ColType.Real, ColCodec.float)
+  def double(name: String): Col[Double] = Col.basic(name, ColType.DoublePrecision, ColCodec.double)
 
-  def localDate(name: String): Col[LocalDate] = Col.basic(name, "DATE", ColCodec.localDate)
-  def localTime(name: String): Col[LocalTime] = Col.basic(name, "TIME", ColCodec.localTime)
-  def localDateTime(name: String): Col[LocalDateTime] = Col.basic(name, "TIMESTAMP", ColCodec.localDateTime)
+  def localDate(name: String): Col[LocalDate] = Col.basic(name, ColType.Date, ColCodec.localDate)
+  def localTime(name: String): Col[LocalTime] = Col.basic(name, ColType.Time, ColCodec.localTime)
+  def localDateTime(name: String): Col[LocalDateTime] = Col.basic(name, ColType.Timestamp, ColCodec.localDateTime)
 
-  def json[T: JsonCodec](name: String): Col[T] = Col(name, "JSON", ColCodec.json[T], false, Nil, "JSON".some, None)
-  def jsonb[T: JsonCodec](name: String): Col[T] = Col(name, "JSONB", ColCodec.json[T], false, Nil, "JSONB".some, None)
+  def json[T: JsonCodec](name: String): Col[T] = Col(name, ColType.Json, ColCodec.json[T], false, None, "JSON".some, None)
+  def jsonb[T: JsonCodec](name: String): Col[T] = Col(name, ColType.JsonB, ColCodec.json[T], false, None, "JSONB".some, None)
 
   // =====| Helpers |=====
 
@@ -101,6 +102,27 @@ object Col {
 
   // =====|  |=====
 
+  enum ColType(final val sql: String) extends Enum[ColType] {
+    case Text extends ColType("TEXT")
+    case UUID extends ColType("UUID")
+    case Boolean extends ColType("BOOLEAN")
+    case SmallInt extends ColType("SMALLINT")
+    case Integer extends ColType("INTEGER")
+    case BigInt extends ColType("BIGINT")
+    case Real extends ColType("REAL")
+    case DoublePrecision extends ColType("DOUBLE PRECISION")
+    case Date extends ColType("DATE")
+    case Time extends ColType("TIME")
+    case Timestamp extends ColType("TIMESTAMP")
+    case Json extends ColType("JSON")
+    case JsonB extends ColType("JSONB")
+
+    override final def toString: String = sql
+  }
+  object ColType extends Enum.Companion[ColType] {
+    implicit val jsonCodec: JsonCodec[ColType] = JsonCodec.`enum`[ColType, String]
+  }
+
   trait GenCol[T] {
     def make(name: String): Col[T]
   }
@@ -126,25 +148,28 @@ object Col {
 
   }
 
-  sealed trait Constraint {
+  sealed trait KeyType {
 
-    override def toString: String =
+    final def sql: String =
       this match {
-        case Constraint.PrimaryKey                                 => "PRIMARY KEY"
-        case Constraint.ForeignKey(schemaName, tableName, colName) => s"REFERENCES $schemaName.$tableName($colName)"
+        case KeyType.PrimaryKey                                 => "PRIMARY KEY"
+        case KeyType.ForeignKey(schemaName, tableName, colName) => s"REFERENCES $schemaName.$tableName($colName)"
       }
 
   }
-  object Constraint {
-
-    case object PrimaryKey extends Constraint
-
-    final class ForeignKey private (val fkr: () => ForeignKeyRef) extends Constraint
+  object KeyType {
+    case object PrimaryKey extends KeyType
+    final class ForeignKey(val fkr: () => ForeignKeyRef) extends KeyType {
+      override def equals(obj: Any): Boolean =
+        obj.asInstanceOf[Matchable] match {
+          case that: ForeignKey => this.fkr() == that.fkr()
+          case _                => false
+        }
+    }
     object ForeignKey {
       def apply(fkr: => ForeignKeyRef): ForeignKey = new ForeignKey(() => fkr)
       def unapply(foreignKey: ForeignKey): ForeignKeyRef = foreignKey.fkr()
     }
-
   }
 
 }

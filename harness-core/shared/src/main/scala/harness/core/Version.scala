@@ -25,6 +25,12 @@ final case class Version(
 
   override def toString: String = numbersList.mkString(if (hasVPrefix) "v" else "", ".", suffixOpt.getOrElse(""))
 
+  override def equals(obj: Any): Boolean =
+    obj.asInstanceOf[Matchable] match {
+      case that: Version => this.numbersList == that.numbersList && this.suffixOpt == that.suffixOpt
+      case _             => false
+    }
+
 }
 object Version {
 

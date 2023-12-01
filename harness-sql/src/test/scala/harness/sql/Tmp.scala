@@ -11,6 +11,7 @@ import harness.sql.typeclass.*
 import harness.zio.*
 import java.time.{Clock as _, *}
 import java.util.{TimeZone, UUID}
+import scala.reflect.ClassTag
 import shapeless3.deriving.*
 import zio.*
 
@@ -300,18 +301,41 @@ object Tmp extends ExecutableApp {
       _ <- NoteQueries.deleteById.batched(batch2.map(_.id)).expectSize(batch2.length).trace("batch-deletes", Logger.LogLevel.Info)
     } yield ()
 
+  private def showMigration(migration: MigrationPlan): URIO[Logger, Unit] =
+    Logger.log.info("") *>
+      Logger.log.info(s"Migration ${migration.version}") *>
+      ZIO.foreachDiscard(migration.steps.toList) { Logger.log.info(_) }
+
   override val executable: Executable =
     Executable
       .withParser(Parser.unit)
       .withLayer {
-        ZLayer.succeed(ConnectionFactory("jdbc:postgresql:postgres", "kalin", "psql-pass")) >+>
-          JDBCConnection.connectionFactoryLayer
+        Config.layer.append.jsonString("""{
+            |  "db": {
+            |    "target": {
+            |      "database": "tmp"
+            |    },
+            |    "credentials": {
+            |      "username": "kalin",
+            |      "password": "psql-pass"
+            |    },
+            |    "pool": {
+            |      "minConnections": 4,
+            |      "maxConnections": 16,
+            |      "duration": "P60S"
+            |    }
+            |  }
+            |}""".stripMargin) >+>
+          DbConfig.configLayer("db") >+>
+          JDBCConnectionPool.configLayer >>>
+          JDBCConnection.poolLayer
       }
       .withEffect {
         for {
           _ <- Logger.log.info("Starting...")
           _ <- Logger.log.debug("Starting[Debug]")
-          _ <- PostgresMeta.schemaDiff(Tables(Musician.tableSchema, Band.tableSchema, MusicianInBand.tableSchema, Note.tableSchema))
+          tables = Tables(Musician.tableSchema, Band.tableSchema, MusicianInBand.tableSchema, Note.tableSchema)
+          // _ <- PostgresMeta.schemaDiff(tables)
 
           // _ <- batchTimings(1000)
 
@@ -320,6 +344,10 @@ object Tmp extends ExecutableApp {
           // _ <- NoteQueries.updateNoteText(initialNote.copy(text = s"updated - ${initialNote.text}", localDate = initialNote.localDate.plusDays(1))).single
           // updatedNote <- NoteQueries.selectById(initialNote.id).single
           // _ <- Logger.log.info(s"$initialNote\n$updatedNote")
+
+          _ <- MigrationRunner.runMigrations(
+            InMemoryMigration.auto(Version.parseUnsafe("0.0.1"), tables),
+          )
         } yield ()
       }
 

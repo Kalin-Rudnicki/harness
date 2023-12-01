@@ -46,9 +46,9 @@ object Main extends ExecutableApp {
       .withParser(ServerConfig.parser)
       .withLayer[ServerEnv](serverLayer)
       .withEffect { config =>
-        PostgresMeta.schemaDiff
-          .withPool(tables)
-          .mapError(HError.SystemFailure("Failed to execute schema diff", _)) *>
+        MigrationRunner.runMigrationsFromPool(
+          Migrations.`0.0.1`,
+        ) *>
           Server.start[ServerEnv, ReqEnv](config, JDBCConnection.poolLayer >>> reqLayer) { routes(config) }
       }
 

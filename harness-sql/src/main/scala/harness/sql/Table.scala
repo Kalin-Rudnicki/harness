@@ -24,6 +24,8 @@ object Table {
   }
   object Companion {
 
+    type AnyCompanion = Table.Companion[_ <: ([_[_]] =>> harness.sql.Table)]
+
     trait WithId[TKId <: TableKey#Id, T[_[_]] <: Table.WithId[_, TKId]](implicit
         iMap: IMap[UUID, TKId],
     ) extends Table.Companion[T] {

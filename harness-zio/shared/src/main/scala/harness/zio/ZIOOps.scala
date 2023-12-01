@@ -68,10 +68,20 @@ extension (self: ZIO.type) {
   def hFailUserErrors(strings: NonEmptyList[String]): HTask[Nothing] = ZIO.fail(HError(strings.map(HError.UserError(_))))
   def hFailUserErrors(string0: String, stringN: String*): HTask[Nothing] = hFailUserErrors(NonEmptyList(string0, stringN.toList))
 
+  def hFailInternalDefect(string: String): HTask[Nothing] = ZIO.fail(HError.InternalDefect(string))
+  def hFailInternalDefects(strings: NonEmptyList[String]): HTask[Nothing] = ZIO.fail(HError(strings.map(HError.InternalDefect(_))))
+  def hFailInternalDefects(string0: String, stringN: String*): HTask[Nothing] = hFailInternalDefects(NonEmptyList(string0, stringN.toList))
+
   def eitherNelToUserErrors[T](eitherNel: EitherNel[String, T]): HTask[T] =
     eitherNel match {
       case Right(value) => ZIO.succeed(value)
       case Left(errors) => ZIO.hFailUserErrors(errors)
+    }
+
+  def eitherNelToInternalDefects[T](eitherNel: EitherNel[String, T]): HTask[T] =
+    eitherNel match {
+      case Right(value) => ZIO.succeed(value)
+      case Left(errors) => ZIO.hFailInternalDefects(errors)
     }
 
 }

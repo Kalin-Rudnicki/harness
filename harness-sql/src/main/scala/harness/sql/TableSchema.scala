@@ -20,6 +20,8 @@ final case class TableSchema[T[_[_]] <: Table](
 }
 object TableSchema {
 
+  type AnySchema = TableSchema[_ <: ([_[_]] =>> harness.sql.Table)]
+  
   inline def derived[T[_[_]] <: Table](tableSchema: String, tableName: String)(colInfo: T[Col])(using gen: K11.ProductGeneric[T]): TableSchema[T] = {
     val functorK: FunctorK[T] = FunctorK.derived[T]
     val rowCodec: RowCodec[T[Id]] =

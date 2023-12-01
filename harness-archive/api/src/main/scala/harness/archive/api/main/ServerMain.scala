@@ -36,15 +36,6 @@ object ServerMain {
   val reqLayer: SHRLayer[ServerEnv & JDBCConnection & Scope, ReqEnv] =
     storageLayer
 
-  val tables: Tables =
-    Tables(
-      M.User.tableSchema,
-      M.Session.tableSchema,
-      M.App.tableSchema,
-      M.Log.tableSchema,
-      M.Trace.tableSchema,
-    )
-
   def routes(config: ServerConfig): Route[ServerEnv & ReqEnv] =
     Route.stdRoot(config)(
       R.User.routes,
@@ -52,17 +43,15 @@ object ServerMain {
       R.Telemetry.routes,
     )
 
-  private val schemaDiff: HRIO[JDBCConnectionPool & Logger & Telemetry, Unit] =
-    PostgresMeta.schemaDiff
-      .withPool(tables)
-      .mapError(HError.SystemFailure("Failed to execute schema diff", _))
-
   val executable: Executable =
     Executable
       .withParser(ServerConfig.parser)
       .withLayer[ServerEnv](serverLayer)
       .withEffect { config =>
-        schemaDiff *>
+        MigrationRunner.runMigrationsFromPool(
+          Migrations.`0.0.1`,
+          Migrations.`0.0.2`,
+        ) *>
           Server.start[ServerEnv, ReqEnv](config, JDBCConnection.poolLayer >>> reqLayer) { routes(config) }
       }
 
