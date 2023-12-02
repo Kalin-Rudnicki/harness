@@ -25,7 +25,7 @@ object SessionUtils {
           case None =>
             val msg = "Session token was specified, but is not valid"
             Logger.log.warning(msg) *>
-              HttpResponse.earlyReturn(HttpResponse.encodeJson(List(msg), HttpCode.`401`))
+              HttpResponse.earlyReturn(HttpResponse.encodeJson(List(msg), HttpCode.`401`).withCookie(Cookie.unset(SessionUtils.SessionToken)))
         }
       case None => ZIO.none
     }

@@ -326,7 +326,7 @@ object Tmp extends ExecutableApp {
             |    }
             |  }
             |}""".stripMargin) >+>
-          DbConfig.configLayer("db") >+>
+          DbConfig.configLayer >+>
           JDBCConnectionPool.configLayer >>>
           JDBCConnection.poolLayer
       }

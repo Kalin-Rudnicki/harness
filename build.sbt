@@ -79,6 +79,7 @@ lazy val `harness-root` =
       `harness-zio`.jvm,
       `harness-pk`.js,
       `harness-pk`.jvm,
+      `harness-docker`,
       `harness-sql`,
       `harness-web`.js,
       `harness-web`.jvm,
@@ -186,6 +187,18 @@ lazy val `harness-zio` =
       Test / fork := true,
     )
     .dependsOn(`harness-cli` % "test->test;compile->compile")
+
+lazy val `harness-docker` =
+  project
+    .in(file("harness-docker"))
+    .settings(
+      name := "harness-docker",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      Test / fork := true,
+    )
+    .dependsOn(`harness-sql`)
 
 lazy val `harness-pk` =
   crossProject(JSPlatform, JVMPlatform)
@@ -425,7 +438,7 @@ lazy val `harness-web-app-template--api` =
         "org.mindrot" % "jbcrypt" % "0.4",
       ),
     )
-    .dependsOn(`harness-web-app-template--model`.jvm, `harness-web-app-template--db-model`, `harness-http-server`, `harness-http-server-test` % Test)
+    .dependsOn(`harness-web-app-template--model`.jvm, `harness-web-app-template--db-model`, `harness-http-server`, `harness-http-server-test` % Test, `harness-docker`)
 
 lazy val `harness-web-app-template--ui-web` =
   project

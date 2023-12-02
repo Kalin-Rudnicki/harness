@@ -1,0 +1,8 @@
+{
+  "docker": {
+    "needsSudo": true,
+    "postgres": {
+      "volumePath": "pvc/dev/postgres"
+    }
+  }
+}

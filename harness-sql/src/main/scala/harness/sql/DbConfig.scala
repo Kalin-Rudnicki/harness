@@ -1,16 +1,38 @@
 package harness.sql
 
+import cats.syntax.either.*
 import harness.core.*
 import harness.zio.*
 import zio.*
 import zio.json.*
 
-final case class DbConfig private (
-    psqlJdbcUrl: String,
-    credentials: DbConfig.Credentials,
-    pool: DbConfig.PoolConfig,
-)
+final class DbConfig private (
+    val psqlJdbcUrl: String,
+    private val raw: DbConfig.Raw,
+) {
+  def target: DbConfig.Target = raw.target
+  def credentials: DbConfig.Credentials = raw.credentials
+  def pool: DbConfig.PoolConfig = raw.pool
+}
 object DbConfig {
+
+  implicit val jsonCodec: JsonCodec[DbConfig] =
+    DbConfig.Raw.jsonCodec.transformOrFail(
+      { raw =>
+        val database = raw.target.database
+
+        ((raw.target.host, raw.target.port) match {
+          case (Some(host), Some(port)) => s"//$host:$port/$database".asRight
+          case (Some(host), None)       => s"//$host/$database".asRight
+          case (None, None)             => database.asRight
+          case (None, Some(_))          => "You must supply a host when supplying a port".asLeft
+        }).map { psqlJdbcUrlSuffix =>
+          val psqlJdbcUrl = s"jdbc:postgresql:$psqlJdbcUrlSuffix"
+          DbConfig(psqlJdbcUrl, raw)
+        }
+      },
+      _.raw,
+    )
 
   final case class PoolConfig(
       minConnections: Int,
@@ -29,12 +51,12 @@ object DbConfig {
     implicit val jsonCodec: JsonCodec[Credentials] = DeriveJsonCodec.gen
   }
 
-  private final case class Target(
+  final case class Target(
       database: String,
       host: Option[String],
       port: Option[Int],
   )
-  private object Target {
+  object Target {
     implicit val jsonCodec: JsonCodec[Target] = DeriveJsonCodec.gen
   }
 
@@ -47,22 +69,7 @@ object DbConfig {
     implicit val jsonCodec: JsonCodec[Raw] = DeriveJsonCodec.gen
   }
 
-  def configLayer(configJsonPath: String*): HRLayer[Config, DbConfig] =
-    ZLayer.fromZIO {
-      for {
-        raw <- Config.read[DbConfig.Raw](configJsonPath*)
-        database = raw.target.database
-        psqlJdbcUrlSuffix <- (raw.target.host, raw.target.port) match {
-          case (Some(host), Some(port)) => ZIO.succeed(s"//$host:$port/$database")
-          case (Some(host), None)       => ZIO.succeed(s"//$host/$database")
-          case (None, None)             => ZIO.succeed(database)
-          case (None, Some(_))          => ZIO.fail(HError.InternalDefect("You must supply a host when supplying a port"))
-        }
-        psqlJdbcUrl = s"jdbc:postgresql:$psqlJdbcUrlSuffix"
-        // TODO (KR) : validations on config fields (don't allow stupid shit)
-      } yield DbConfig(psqlJdbcUrl, raw.credentials, raw.pool)
-    }
   def configLayer: HRLayer[Config, DbConfig] =
-    configLayer("db")
+    Config.readLayer[DbConfig]("db")
 
 }

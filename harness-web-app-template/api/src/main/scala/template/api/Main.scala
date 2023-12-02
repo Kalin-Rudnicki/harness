@@ -1,6 +1,8 @@
 package template.api
 
 import harness.core.*
+import harness.docker.DockerNeedsSudo
+import harness.docker.postgres.DockerPostgres
 import harness.http.server.{given, *}
 import harness.sql.*
 import harness.sql.autoSchema.*
@@ -42,14 +44,23 @@ object Main extends ExecutableApp {
     )
 
   override val executable: Executable =
-    Executable
-      .withParser(ServerConfig.parser)
-      .withLayer[ServerEnv](serverLayer)
-      .withEffect { config =>
-        MigrationRunner.runMigrationsFromPool(
-          Migrations.`0.0.1`,
-        ) *>
-          Server.start[ServerEnv, ReqEnv](config, JDBCConnection.poolLayer >>> reqLayer) { routes(config) }
-      }
+    Executable.fromSubCommands(
+      "server" ->
+        Executable
+          .withParser(ServerConfig.parser)
+          .withLayer[ServerEnv](serverLayer)
+          .withEffect { config =>
+            MigrationRunner.runMigrationsFromPool(
+              Migrations.`0.0.1`,
+            ) *>
+              Server.start[ServerEnv, ReqEnv](config, JDBCConnection.poolLayer >>> reqLayer) { routes(config) }
+          },
+      "docker" ->
+        (DockerPostgres.containerManager).toExecutable {
+          DbConfig.configLayer ++
+            DockerNeedsSudo.configLayer("docker", "needsSudo") ++
+            Config.readLayer[DockerPostgres.Config]("docker", "postgres")
+        },
+    )
 
 }

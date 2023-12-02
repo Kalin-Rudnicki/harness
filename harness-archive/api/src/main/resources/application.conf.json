@@ -1,10 +1,12 @@
 {
   "db": {
     "target": {
-      "database": "archive"
+      "database": "archive",
+      "host": "localhost",
+      "port": "5002"
     },
     "credentials": {
-      "username": "kalin",
+      "username": "postgres",
       "password": "psql-pass"
     },
     "pool": {
