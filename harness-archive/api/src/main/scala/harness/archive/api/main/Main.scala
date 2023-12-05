@@ -6,6 +6,8 @@ import harness.archive.api.routes as R
 import harness.archive.api.service.*
 import harness.archive.api.service.storage.*
 import harness.core.*
+import harness.docker.*
+import harness.docker.sql.DockerPostgres
 import harness.http.server.{given, *}
 import harness.sql.*
 import harness.sql.autoSchema.*
@@ -19,6 +21,12 @@ object Main extends ExecutableApp {
   override val executable: Executable =
     Executable.fromSubCommands(
       "server" -> ServerMain.executable,
+      "docker" ->
+        (DockerPostgres.containerManager).toExecutable {
+          DbConfig.configLayer ++
+            DockerNeedsSudo.configLayer("docker", "needsSudo") ++
+            Config.readLayer[DockerPostgres.Config]("docker", "postgres")
+        },
       "stale-data-cleanser" -> StaleDataCleanserMain.executable,
     )
 

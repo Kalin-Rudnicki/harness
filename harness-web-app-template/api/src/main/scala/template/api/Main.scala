@@ -2,7 +2,7 @@ package template.api
 
 import harness.core.*
 import harness.docker.DockerNeedsSudo
-import harness.docker.postgres.DockerPostgres
+import harness.docker.sql.DockerPostgres
 import harness.http.server.{given, *}
 import harness.sql.*
 import harness.sql.autoSchema.*

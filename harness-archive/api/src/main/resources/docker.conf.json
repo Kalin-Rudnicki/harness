@@ -1,0 +1,6 @@
+{
+  "docker": {
+    "needsSudo": true,
+    "postgres": {}
+  }
+}

@@ -1,4 +1,4 @@
-package harness.docker.postgres
+package harness.docker.sql
 
 import cats.syntax.option.*
 import harness.core.HError
