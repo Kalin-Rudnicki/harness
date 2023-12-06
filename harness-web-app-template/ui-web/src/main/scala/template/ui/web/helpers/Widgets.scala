@@ -17,28 +17,38 @@ object Widgets {
       NavBar.linkItem(Url("page", "login")(), "Login"),
     )
 
-  val signedInNavBar: Modifier[D.user.User] =
-    NavBar(
-      NavBar.linkItem(Url("page")(), "Index"),
-    )(
-      NavBar.linkItem(Url("page", "home")(), "Home"),
-      PModifier.builder.withState[D.user.User] { s =>
-        NavBar.linkItem(Url("page", "account")(), s.firstName)
+  private val logOutItem =
+    NavBar.item(
+      "Log Out",
+      PModifier.builder.withRaise { rh =>
+        onClick := { _ =>
+          rh.raiseZIO(
+            Api.user.logOut.as(Raise.History.push(Url("page", "login")())),
+          )
+        }
       },
-      NavBar.item(
-        "Log Out",
-        PModifier.builder.withRaise { rh =>
-          onClick := { _ =>
-            rh.raiseZIO(
-              Api.user.logOut.as(Raise.History.push(Url("page", "login")())),
-            )
-          }
-        },
-      ),
     )
+
+  val signedInNavBar: Modifier[D.user.User] =
+    PModifier.builder.withRaise.withState[D.user.User] { (rh, s) =>
+      if (s.emailIsVerified)
+        NavBar(
+          NavBar.linkItem(Url("page")(), "Index"),
+        )(
+          NavBar.linkItem(Url("page", "home")(), "Home"),
+          NavBar.linkItem(Url("page", "account")(), s.firstName),
+          logOutItem,
+        )
+      else
+        NavBar(
+          NavBar.linkItem(Url("page")(), "Index"),
+        )(
+          NavBar.linkItem(Url("page", "verify-email")(), "Verify Email"),
+          logOutItem,
+        )
+    }
 
   val optNavBar: Modifier[Option[D.user.User]] =
     SumWidgets.option(signedInNavBar, signedOutNavBar).unit
-
 
 }

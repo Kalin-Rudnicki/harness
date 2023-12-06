@@ -69,16 +69,19 @@ object DockerCommands {
 
       Logger.log.info(s"Found existing container '${container.Names}'") *>
         (container.State match {
-          case "running" => stop *> rm
-          case "exited"  => rm
-          case state     => ZIO.fail(HError.SystemFailure(s"Unable to act on unknown state '$state' for container '${container.Names}'"))
+          case "running" | "created" => stop *> rm
+          case "exited"              => rm
+          case state                 => ZIO.fail(HError.SystemFailure(s"Unable to act on unknown state '$state' for container '${container.Names}'"))
         })
     }
 
-  def runContainer(container: DockerContainer): HRIO[DockerNeedsSudo & Logger, Unit] =
+  def runContainer(container: DockerContainer): HRIO[DockerNeedsSudo & FileSystem & Logger, Unit] =
     for {
       _ <- Logger.log.info(s"Running docker container '${container.name}'")
       dockerNeedsSudo <- DockerNeedsSudo.value
+      _ <- ZIO.foreachDiscard(container.volumeMappings) { mapping =>
+        Path(mapping.host).flatMap { path => path.mkdirs.unlessZIO(path.exists) }
+      }
       cmd = Sys.Command(
         NonEmptyList(
           "docker",

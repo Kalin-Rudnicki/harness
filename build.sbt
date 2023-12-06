@@ -475,7 +475,6 @@ lazy val `harness-web-app-template--api` =
       libraryDependencies ++= Seq(
         "org.mindrot" % "jbcrypt" % "0.4",
       ),
-      fork := true,
     )
     .dependsOn(
       `harness-web-app-template--model`.jvm,

@@ -46,11 +46,12 @@ trait ResponseOps[GetResponseR, GetBodyR, ResponseT] { self =>
 
   // =====| Other |=====
 
-  final def unit2xx: HRIO[GetResponseR, Unit] =
+  final def unit2xx: HRIO[GetResponseR & Logger, Unit] =
     ZIO.scoped {
       self.getResponse.flatMap { response =>
         if (response.responseCode.is2xx) ZIO.unit
-        else ZIO.fail(HError.UserError(s"Expected 2xx response code, but got: ${response.responseCode}"))
+        else
+          response.bodyAsString.flatMap { body => ZIO.fail(HError.UserError(body, s"Expected 2xx response code, but got: ${response.responseCode}")) }
       }
     }
 

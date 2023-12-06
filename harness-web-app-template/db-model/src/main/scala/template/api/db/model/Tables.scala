@@ -13,6 +13,7 @@ final case class User[F[_]](
     lowerUsername: F[String],
     encryptedPassword: F[String],
     email: F[EmailAddress],
+    verificationEmailCodes: F[Option[Set[D.user.EmailVerificationCode]]],
 ) extends Table.WithId[F, User.Id] {
   def show: String = s"'$username' ($id)"
 }
@@ -28,6 +29,7 @@ object User extends Table.Companion.WithId[D.user.UserId, User] {
         lowerUsername = Col.string("lower_username"),
         encryptedPassword = Col.string("encrypted_password"),
         email = Col.encoded[EmailAddress]("email"),
+        verificationEmailCodes = Col.json[Set[D.user.EmailVerificationCode]]("verification_email_codes").optional,
       )
     }
 

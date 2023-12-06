@@ -12,6 +12,7 @@ object DbToDomain {
       lastName = user.lastName,
       username = user.username,
       email = user.email,
+      emailIsVerified = user.verificationEmailCodes.isEmpty,
     )
 
 }

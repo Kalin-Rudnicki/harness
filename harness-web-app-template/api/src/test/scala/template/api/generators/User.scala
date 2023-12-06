@@ -10,6 +10,7 @@ import org.mindrot.jbcrypt.BCrypt
 import template.api.*
 import template.api.db.model as M
 import template.api.service.storage.*
+import template.api.util.DbToDomain
 import template.model as D
 import zio.*
 import zio.test.*
@@ -35,8 +36,8 @@ object User {
     signUpGen.flatMap { signUp =>
       Gen.fromZIO {
         val encryptedPassword = BCrypt.hashpw(signUp.password, BCrypt.gensalt)
-        val user = new M.User.Identity(M.User.Id.gen, signUp.firstName, signUp.lastName, signUp.username, signUp.username.toLowerCase, encryptedPassword, signUp.email)
-        UserStorage.insert(user).as(D.user.User(user.id, user.firstName, user.lastName, user.username, user.email)).orDie
+        val user = new M.User.Identity(M.User.Id.gen, signUp.firstName, signUp.lastName, signUp.username, signUp.username.toLowerCase, encryptedPassword, signUp.email, None)
+        UserStorage.insert(user).as(DbToDomain.user(user)).orDie
       }
     }
 

@@ -10,6 +10,7 @@ final case class User(
     lastName: String,
     username: String,
     email: EmailAddress,
+    emailIsVerified: Boolean,
 )
 object User {
   implicit val jsonCodec: JsonCodec[User] = DeriveJsonCodec.gen

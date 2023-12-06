@@ -62,6 +62,9 @@ object FormWidgets {
     ): ModifierAV[A, S, Option[V]] =
       labeledGeneric(identity)(label, id, inputModifier, labelModifier)
 
+    def decorate(modifiers: ModifierA[A, S]*): FormWidget[A, S, V] =
+      copy(widget = widget(modifiers*))
+
   }
 
   private def genFormInput[V](

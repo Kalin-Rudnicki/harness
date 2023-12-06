@@ -2,7 +2,7 @@
   "docker": {
     "needsSudo": true,
     "postgres": {
-      "volumePath": "pvc/dev/postgres"
+      "volumePath": "harness-web-app-template/pvc/dev/postgres"
     }
   }
 }

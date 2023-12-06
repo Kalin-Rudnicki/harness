@@ -41,12 +41,6 @@ object Main extends ExecutableApp {
   val reqLayer: SHRLayer[ServerEnv & JDBCConnection & Scope, ReqEnv] =
     storageLayer
 
-  val tables: Tables =
-    Tables(
-      db.model.User.tableSchema,
-      db.model.Session.tableSchema,
-    )
-
   def routes(config: ServerConfig): Route[ServerEnv & ReqEnv] =
     Route.stdRoot(config)(
       R.User.routes,
@@ -62,6 +56,8 @@ object Main extends ExecutableApp {
           .withEffect {
             MigrationRunner.runMigrationsFromPool(
               Migrations.`0.0.1`,
+              Migrations.`0.0.2`,
+              Migrations.`0.0.3`,
             ) *>
               ZIO.serviceWithZIO[ServerConfig] { config =>
                 Server.start[ServerEnv, ReqEnv](JDBCConnection.poolLayer >>> reqLayer) { routes(config) }

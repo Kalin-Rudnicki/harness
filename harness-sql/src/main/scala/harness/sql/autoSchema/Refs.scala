@@ -1,6 +1,7 @@
 package harness.sql.autoSchema
 
 import cats.syntax.either.*
+import harness.sql.TableSchema
 import zio.json.*
 
 sealed abstract class SchemaRef(final val schemaName: String) {
@@ -32,7 +33,12 @@ object SchemaRef {
 
 final case class TableRef(schemaRef: SchemaRef, tableName: String)
 object TableRef {
+
+  def apply(schema: TableSchema.AnySchema): TableRef =
+    TableRef(SchemaRef(schema.tableSchema), schema.tableName)
+
   implicit val jsonCodec: JsonCodec[TableRef] = DeriveJsonCodec.gen
+
 }
 
 final case class ColRef(schemaRef: SchemaRef, tableName: String, colName: String) {
