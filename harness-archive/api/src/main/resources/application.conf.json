@@ -20,8 +20,13 @@
     "useJarResource": false
   },
   "email": {
-    "host": "smtp.gmail.com",
-    "port": 465,
-    "authType": "SSL"
+    "client": {
+      "host": "smtp.gmail.com",
+      "port": 465,
+      "authType": "SSL"
+    },
+    "service": {
+      "sender": "harness.email.client@gmail.com"
+    }
   }
 }

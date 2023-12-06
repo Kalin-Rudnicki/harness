@@ -18,10 +18,11 @@ object EmailClient {
 
   // =====| Live |=====
 
-  val liveLayer: HRLayer[EmailConfig, EmailClient] =
+  val liveLayer: HRLayer[EmailConfig & Logger, EmailClient] =
     ZLayer.fromZIO {
       ZIO.serviceWithZIO[EmailConfig] { config =>
-        ZIO.hAttempt { Live(config) }.mapError(HError.InternalDefect("Unable to create EmailClient.Live", _))
+        Logger.log.warning("Email config does not have auth enabled").when(config.passwordMap.isEmpty) *>
+          ZIO.hAttempt { Live(config) }.mapError(HError.InternalDefect("Unable to create EmailClient.Live", _))
       }
     }
 
