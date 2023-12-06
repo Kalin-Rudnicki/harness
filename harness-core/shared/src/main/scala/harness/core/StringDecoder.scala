@@ -27,6 +27,9 @@ object StringDecoder {
   def apply[T: StringDecoder]: StringDecoder[T] =
     implicitly[StringDecoder[T]]
 
+  def fromEitherF[R](f: String => Either[String, R]): StringDecoder[R] =
+    f(_).leftMap(NonEmptyList.one)
+
   def fromOptionF[R](typeName: String, f: String => Option[R]): StringDecoder[R] =
     str => f(str).toRight(NonEmptyList.one(s"Malformatted $typeName '$str'"))
 

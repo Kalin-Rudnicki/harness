@@ -14,5 +14,10 @@
       "maxConnections": 16,
       "duration": "P60S"
     }
+  },
+  "http": {
+    "port": 3001,
+    "resDir": "harness-web-app-template/res",
+    "useJarResource": false
   }
 }

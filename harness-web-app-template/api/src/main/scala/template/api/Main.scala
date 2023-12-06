@@ -47,13 +47,17 @@ object Main extends ExecutableApp {
     Executable.fromSubCommands(
       "server" ->
         Executable
-          .withParser(ServerConfig.parser)
-          .withLayer[ServerEnv](serverLayer)
-          .withEffect { config =>
+          .withLayer[ServerEnv & ServerConfig] {
+            serverLayer ++ Config.readLayer[ServerConfig]("http")
+          }
+          .withEffect {
+
             MigrationRunner.runMigrationsFromPool(
               Migrations.`0.0.1`,
             ) *>
-              Server.start[ServerEnv, ReqEnv](config, JDBCConnection.poolLayer >>> reqLayer) { routes(config) }
+              ZIO.serviceWithZIO[ServerConfig] { config =>
+                Server.start[ServerEnv, ReqEnv](JDBCConnection.poolLayer >>> reqLayer) { routes(config) }
+              }
           },
       "docker" ->
         (DockerPostgres.containerManager).toExecutable {
