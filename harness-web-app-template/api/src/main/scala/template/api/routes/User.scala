@@ -1,6 +1,8 @@
 package template.api.routes
 
+import cats.data.NonEmptyList
 import harness.core.*
+import harness.email.*
 import harness.http.server.{given, *}
 import harness.sql.*
 import harness.sql.query.Transaction
@@ -8,6 +10,7 @@ import harness.web.*
 import harness.zio.*
 import org.mindrot.jbcrypt.BCrypt
 import template.api.db.model as M
+import template.api.service.email.*
 import template.api.service.storage.*
 import template.api.util.*
 import template.model as D
@@ -17,7 +20,7 @@ object User {
 
   private val isSecure: Boolean = false
 
-  val routes: Route[UserStorage & SessionStorage & Transaction] =
+  val routes: Route[UserStorage & SessionStorage & Transaction & EmailService] =
     "user" /: Route.oneOf(
       (HttpMethod.GET / "from-session-token").implement { _ =>
         Transaction.inTransaction {
@@ -42,6 +45,11 @@ object User {
             _ <- ZIO.fail(HError.UserError("Invalid Password")).unless(BCrypt.checkpw(body.password, user.encryptedPassword))
             session = M.Session.newForUser(user)
             _ <- SessionStorage.insert(session)
+
+            _ <- EmailService.sendEmail(SendEmail.Recipient.to(user.email))(
+              subject = "Login Successful",
+              body = "You successfully logged in!",
+            )
           } yield HttpResponse.encodeJson(DbToDomain.user(user)).withCookie(Cookie(SessionUtils.SessionToken, session.token).rootPath.secure(isSecure))
         }
       },

@@ -79,7 +79,10 @@ lazy val `harness-root` =
       `harness-zio`.jvm,
       `harness-pk`.js,
       `harness-pk`.jvm,
+      `harness-email`.jvm,
+      `harness-email`.js,
       `harness-docker`,
+      `harness-docker-sql`,
       `harness-sql`,
       `harness-web`.js,
       `harness-web`.jvm,
@@ -240,6 +243,23 @@ lazy val `harness-sql` =
     )
     .dependsOn(`harness-pk`.jvm % "test->test;compile->compile")
 
+lazy val `harness-email` =
+  crossProject(JSPlatform, JVMPlatform)
+    .in(file("harness-email"))
+    .settings(
+      name := "harness-email",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      Test / fork := true,
+    )
+    .jvmSettings(
+      libraryDependencies ++= Seq(
+        "com.sun.mail" % "javax.mail" % "1.6.2",
+      ),
+    )
+    .dependsOn(`harness-zio` % "test->test;compile->compile")
+
 lazy val `harness-web` =
   crossProject(JSPlatform, JVMPlatform)
     .in(file("harness-web"))
@@ -357,7 +377,7 @@ lazy val `harness-archive-model` =
       miscSettings,
       testSettings,
     )
-    .dependsOn(`harness-web`)
+    .dependsOn(`harness-web`, `harness-email`)
 
 lazy val `harness-archive-db-model` =
   project
@@ -431,7 +451,7 @@ lazy val `harness-web-app-template--model` =
       miscSettings,
       testSettings,
     )
-    .dependsOn(`harness-web`)
+    .dependsOn(`harness-web`, `harness-email`)
 
 lazy val `harness-web-app-template--db-model` =
   project
@@ -455,6 +475,7 @@ lazy val `harness-web-app-template--api` =
       libraryDependencies ++= Seq(
         "org.mindrot" % "jbcrypt" % "0.4",
       ),
+      fork := true,
     )
     .dependsOn(
       `harness-web-app-template--model`.jvm,

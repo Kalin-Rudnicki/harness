@@ -6,6 +6,7 @@ import harness.archive.api.routes as R
 import harness.archive.api.service.*
 import harness.archive.api.service.storage.*
 import harness.core.*
+import harness.email.*
 import harness.http.server.{given, *}
 import harness.sql.*
 import harness.sql.autoSchema.*
@@ -17,12 +18,17 @@ import zio.*
 object ServerMain {
 
   type StorageEnv = Transaction & SessionStorage & UserStorage & AppStorage & LogStorage & TraceStorage
-  type ServerEnv = JDBCConnectionPool
+  type ServerEnv = JDBCConnectionPool & EmailClient
   type ReqEnv = StorageEnv
 
   // This layer will be evaluated once when the server starts
   val serverLayer: SHRLayer[Scope, ServerEnv] =
-    Shared.poolLayer
+    ZLayer.makeSome[HarnessEnv & Scope, ServerEnv](
+      Config.readLayer[DbConfig]("db"),
+      JDBCConnectionPool.configLayer,
+      Config.readLayer[EmailConfig]("email"),
+      EmailClient.liveLayer,
+    )
 
   val storageLayer: URLayer[JDBCConnection, StorageEnv] =
     Transaction.liveLayer ++

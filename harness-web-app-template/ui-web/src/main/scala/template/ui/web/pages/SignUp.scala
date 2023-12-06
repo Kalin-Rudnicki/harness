@@ -4,6 +4,7 @@ import _root_.template.model as D
 import _root_.template.ui.web.helpers.*
 import cats.data.EitherNel
 import cats.syntax.either.*
+import harness.email.EmailAddress
 import harness.webUI.*
 import harness.webUI.vdom.{given, *}
 import harness.webUI.widgets.*
@@ -58,7 +59,7 @@ object SignUp {
                   FormWidgets.textInput[String].labelRequired("Password:", "password", inputModifier = `type`.password).zoomOut[Env.Passwords](_.password) <*>
                     FormWidgets.textInput[String].labelRequired("Confirm Password:", "confirm-password", inputModifier = `type`.password).zoomOut[Env.Passwords](_.confirmPassword)
                 ).zoomOut[Env](_.passwords).flatMapValue(Env.Passwords(_, _).validate) <*>
-                FormWidgets.textInput[String].labelRequired("Email:", "email", inputModifier = `type`.email).zoomOut[Env](_.email) <*>
+                FormWidgets.textInput[EmailAddress].labelRequired("Email:", "email", inputModifier = `type`.email).zoomOut[Env](_.email) <*>
                 FormWidgets.submitButton("Sign Up")
             ).mapValue(D.user.SignUp.apply)
               .flatMapActionVZ { (_, signUp) =>

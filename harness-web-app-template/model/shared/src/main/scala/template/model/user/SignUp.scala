@@ -1,5 +1,6 @@
 package template.model.user
 
+import harness.email.EmailAddress
 import zio.json.*
 
 final case class SignUp(
@@ -7,7 +8,7 @@ final case class SignUp(
     lastName: String,
     username: String,
     password: String,
-    email: String,
+    email: EmailAddress,
 )
 object SignUp {
   implicit val jsonCodec: JsonCodec[SignUp] = DeriveJsonCodec.gen

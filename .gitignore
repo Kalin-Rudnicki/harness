@@ -16,3 +16,6 @@ harness-web-app-template/res/js
 harness-web-app-template/api/src/main/resources/res/js
 
 pvc/
+
+harness-web-app-template/api/src/main/resources/secrets.conf.json
+harness-archive/api/src/main/resources/secrets.conf.json

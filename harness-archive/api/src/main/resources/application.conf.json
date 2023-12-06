@@ -6,8 +6,7 @@
       "port": "5000"
     },
     "credentials": {
-      "username": "postgres",
-      "password": "psql-pass"
+      "username": "postgres"
     },
     "pool": {
       "minConnections": 4,
@@ -19,5 +18,10 @@
     "port": 3000,
     "resDir": "harness-archive/res",
     "useJarResource": false
+  },
+  "email": {
+    "host": "smtp.gmail.com",
+    "port": 465,
+    "authType": "SSL"
   }
 }

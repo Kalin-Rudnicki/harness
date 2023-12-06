@@ -1,5 +1,6 @@
 package template.api.generators
 
+import harness.email.EmailAddress
 import harness.http.server.HttpRequest
 import harness.http.server.test.*
 import harness.sql.*
@@ -27,7 +28,7 @@ object User {
       lastName = lastName,
       username = username,
       password = password,
-      email = s"${firstName.toLowerCase}.${lastName.toLowerCase}@${domain.toLowerCase}.com",
+      email = EmailAddress.parseUnsafe(s"${firstName.toLowerCase}.${lastName.toLowerCase}@${domain.toLowerCase}.com"),
     )
 
   val insertedUserGen: Gen[UserStorage & Logger & Telemetry & Sized, D.user.User] =

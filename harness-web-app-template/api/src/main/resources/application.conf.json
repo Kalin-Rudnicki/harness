@@ -6,8 +6,7 @@
       "port": "5001"
     },
     "credentials": {
-      "username": "postgres",
-      "password": "psql-pass"
+      "username": "postgres"
     },
     "pool": {
       "minConnections": 4,
@@ -17,7 +16,17 @@
   },
   "http": {
     "port": 3001,
-    "resDir": "harness-web-app-template/res",
+    "resDir": "../res",
     "useJarResource": false
+  },
+  "email": {
+    "client": {
+      "host": "smtp.gmail.com",
+      "port": 465,
+      "authType": "SSL"
+    },
+    "service": {
+      "sender": "harness.email.client@gmail.com"
+    }
   }
 }

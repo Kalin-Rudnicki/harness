@@ -1,5 +1,6 @@
 package template.api.db.model
 
+import harness.email.EmailAddress
 import harness.sql.*
 import java.util.UUID
 import template.model as D
@@ -11,7 +12,7 @@ final case class User[F[_]](
     username: F[String],
     lowerUsername: F[String],
     encryptedPassword: F[String],
-    email: F[String],
+    email: F[EmailAddress],
 ) extends Table.WithId[F, User.Id] {
   def show: String = s"'$username' ($id)"
 }
@@ -26,7 +27,7 @@ object User extends Table.Companion.WithId[D.user.UserId, User] {
         username = Col.string("username"),
         lowerUsername = Col.string("lower_username"),
         encryptedPassword = Col.string("encrypted_password"),
-        email = Col.string("email"),
+        email = Col.encoded[EmailAddress]("email"),
       )
     }
 
