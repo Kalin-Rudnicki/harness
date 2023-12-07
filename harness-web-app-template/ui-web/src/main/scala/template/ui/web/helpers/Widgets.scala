@@ -30,7 +30,7 @@ object Widgets {
     )
 
   val signedInNavBar: Modifier[D.user.User] =
-    PModifier.builder.withRaise.withState[D.user.User] { (rh, s) =>
+    PModifier.builder.withState[D.user.User] { s =>
       if (s.emailIsVerified)
         NavBar(
           NavBar.linkItem(Url("page")(), "Index"),

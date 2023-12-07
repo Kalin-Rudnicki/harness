@@ -3,7 +3,7 @@
     "target": {
       "database": "template",
       "host": "localhost",
-      "port": "5001"
+      "port": 5001
     },
     "credentials": {
       "username": "postgres"

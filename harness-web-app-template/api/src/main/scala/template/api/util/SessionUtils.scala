@@ -33,24 +33,23 @@ object SessionUtils {
     }
 
   extension [R, A](self: HRIO[R, Option[A]])
-    def requireOr401: HRIO[R, A] =
+    def someOr401: HRIO[R, A] =
       self.someOrFail { HError.UserError(s"Unauthorized: Specify cookie '$SessionToken'").withHTTPCode(HttpCode.`401`) }
 
   val sessionFromSessionTokenOptional: HRIO[SessionStorage & Logger & Telemetry & HttpRequest, Option[M.Session.Identity]] =
     withSessionTokenOptional(SessionStorage.sessionFromSessionToken)
 
   val sessionFromSessionToken: HRIO[SessionStorage & Logger & Telemetry & HttpRequest, M.Session.Identity] =
-    sessionFromSessionTokenOptional.requireOr401
+    sessionFromSessionTokenOptional.someOr401
 
   val userFromSessionTokenOptional: HRIO[SessionStorage & Logger & Telemetry & HttpRequest, Option[M.User.Identity]] =
     withSessionTokenOptional(SessionStorage.userFromSessionToken)
 
   def userFromSessionToken(allowUnverifiedEmail: Boolean): HRIO[SessionStorage & Logger & Telemetry & HttpRequest, M.User.Identity] =
-    userFromSessionTokenOptional.requireOr401
-      .flatMap { user =>
-        if (user.verificationEmailCodes.isDefined && !allowUnverifiedEmail) ZIO.fail(HError.UserError("This action is not allowed until you verify your email address").withHTTPCode(HttpCode.`403`))
-        else ZIO.succeed(user)
-      }
+    userFromSessionTokenOptional.someOr401.flatMap { user =>
+      if (user.verificationEmailCodes.isDefined && !allowUnverifiedEmail) ZIO.fail(HError.UserError("This action is not allowed until you verify your email address").withHTTPCode(HttpCode.`403`))
+      else ZIO.succeed(user)
+    }
   def userFromSessionToken: HRIO[SessionStorage & Logger & Telemetry & HttpRequest, M.User.Identity] =
     SessionUtils.userFromSessionToken(false)
 
