@@ -41,8 +41,8 @@ object Main extends ExecutableApp {
   val reqLayer: SHRLayer[ServerEnv & JDBCConnection & Scope, ReqEnv] =
     storageLayer
 
-  def routes(config: ServerConfig): Route[ServerEnv & ReqEnv] =
-    Route.stdRoot(config)(
+  val routes: URIO[ServerConfig, Route[ServerEnv & ReqEnv]] =
+    Route.stdRoot(
       R.User.routes,
     )
 
@@ -59,9 +59,7 @@ object Main extends ExecutableApp {
               Migrations.`0.0.2`,
               Migrations.`0.0.3`,
             ) *>
-              ZIO.serviceWithZIO[ServerConfig] { config =>
-                Server.start[ServerEnv, ReqEnv](JDBCConnection.poolLayer >>> reqLayer) { routes(config) }
-              }
+              routes.flatMap { Server.start[ServerEnv, ReqEnv](JDBCConnection.poolLayer >>> reqLayer) }
           },
       "docker" ->
         (DockerPostgres.containerManager).toExecutable {

@@ -32,7 +32,7 @@ abstract class RouteSpec[
   // This layer will be evaluated for each http call
   val reqLayer: SHRLayer[ServerEnv & JDBCConnection & Scope, ReqEnv]
 
-  val route: ServerConfig => Route[ServerEnv & ReqEnv]
+  val route: URIO[ServerConfig, Route[ServerEnv & ReqEnv]]
 
   def routeSpec: TestSpec
 
@@ -91,7 +91,7 @@ abstract class RouteSpec[
 
   override def bootstrap: ZLayer[Scope, Any, Environment] =
     harnessLayer ++
-      ZLayer.succeed(evalRoute) ++
+      ZLayer.fromZIO(evalRoute) ++
       testEnvironment
 
   override final def spec: Spec[Environment & Scope, Any] =
@@ -103,8 +103,8 @@ abstract class RouteSpec[
 
   // =====| Helpers |=====
 
-  private final lazy val evalRoute: Route[ServerEnv & ReqEnv] =
-    route(ServerConfig(None, "res", true, None))
+  private final lazy val evalRoute: UIO[Route[ServerEnv & ReqEnv]] =
+    route.provide(ZLayer.succeed(ServerConfig(None, "res", true, None)))
 
   final val harnessLayer: HTaskLayer[HarnessEnv] =
     HarnessEnv.defaultLayer(logLevel)

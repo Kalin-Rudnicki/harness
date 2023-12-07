@@ -81,29 +81,31 @@ object Route {
     *  - /res/js/{*}       ->  {res}/js/{*}
     *  - /res/css/{*}      ->  {res}/css/{*}
     */
-  def stdRoot[R](config: ServerConfig)(apis: Route[R]*): Route[R] =
-    Route.oneOf(
-      "api" /: Route.oneOf(apis*),
-      (HttpMethod.GET / "api" / "health-check").implement { _ =>
-        for {
-          _ <- Logger.log.info("health-check")
-          _ <- HttpRequest.query.logAll(Logger.LogLevel.Info)
-          _ <- HttpRequest.header.logAll(Logger.LogLevel.Info)
-          _ <- HttpRequest.cookie.logAll(Logger.LogLevel.Info)
-        } yield HttpResponse.fromHttpCode.Ok
-      },
-      (HttpMethod.GET / "page" / RouteMatcher.**).implement { _ =>
-        ZIO.succeed(pageHtmlResponse)
-      },
-      HttpMethod.GET /: "res" /: Route.oneOf(
-        "favicon.ico".implement { _ =>
-          getFile(config, "favicon.ico" :: Nil)
+  def stdRoot[R](apis: Route[R]*): URIO[ServerConfig, Route[R]] =
+    ZIO.serviceWith[ServerConfig] { config =>
+      Route.oneOf(
+        "api" /: Route.oneOf(apis*),
+        (HttpMethod.GET / "api" / "health-check").implement { _ =>
+          for {
+            _ <- Logger.log.info("health-check")
+            _ <- HttpRequest.query.logAll(Logger.LogLevel.Info)
+            _ <- HttpRequest.header.logAll(Logger.LogLevel.Info)
+            _ <- HttpRequest.cookie.logAll(Logger.LogLevel.Info)
+          } yield HttpResponse.fromHttpCode.Ok
         },
-        ("js" / RouteMatcher.**).implement { routes =>
-          getFile(config, "js" :: routes)
+        (HttpMethod.GET / "page" / RouteMatcher.**).implement { _ =>
+          ZIO.succeed(pageHtmlResponse)
         },
-      ),
-      HttpMethod.GET.implement { _ => ZIO.succeed(HttpResponse.redirect("/page")) },
-    )
+        HttpMethod.GET /: "res" /: Route.oneOf(
+          "favicon.ico".implement { _ =>
+            getFile(config, "favicon.ico" :: Nil)
+          },
+          ("js" / RouteMatcher.**).implement { routes =>
+            getFile(config, "js" :: routes)
+          },
+        ),
+        HttpMethod.GET.implement { _ => ZIO.succeed(HttpResponse.redirect("/page")) },
+      )
+    }
 
 }
