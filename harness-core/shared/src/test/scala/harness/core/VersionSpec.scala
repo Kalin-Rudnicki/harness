@@ -77,6 +77,11 @@ object VersionSpec extends PlainHarnessSpec {
         makeOrderingTest("1", "1.1-RC1", "1.1"),
         makeOrderingTest("1", "1.1-RC1", "1.1", "1.1.1", "1.1.2", "1.2", "1.2"),
       ),
+      suite("equals")(
+        test("basic") { assertTrue(Version.parseUnsafe("0") == Version.parseUnsafe("0")) },
+        test("extra zeros") { assertTrue(Version.parseUnsafe("3") == Version.parseUnsafe("3.0.0")) },
+        test("with v") { assertTrue(Version.parseUnsafe("v3") == Version.parseUnsafe("3.0.0")) },
+      ),
     )
 
 }

@@ -13,13 +13,35 @@ import zio.*
 
 object MigrationRunner {
 
-  def runMigrations(planned0: InMemoryMigration, plannedN: InMemoryMigration*): SHRIO[JDBCConnection, Unit] =
-    doMigrations(planned0 :: plannedN.toList, true)
+  def runMigrations(migrations: PlannedMigrations): SHRIO[JDBCConnection, Unit] =
+    doMigrations(migrations.migrations.toList, true)
 
-  def runMigrationsFromPool(planned0: InMemoryMigration, plannedN: InMemoryMigration*): SHRIO[JDBCConnectionPool, Unit] =
+  def runMigrationsFromPool(migrations: PlannedMigrations): SHRIO[JDBCConnectionPool, Unit] =
     ZIO.scoped {
-      MigrationRunner.runMigrations(planned0, plannedN*).provideSomeLayer[HarnessEnv & JDBCConnectionPool & Scope](JDBCConnection.poolLayer)
+      MigrationRunner.runMigrations(migrations).provideSomeLayer[HarnessEnv & JDBCConnectionPool & Scope](JDBCConnection.poolLayer)
     }
+
+  def rollbackTo(version: Version): SHRIO[JDBCConnection, Unit] =
+    for {
+      _ <- Logger.log.important(s"RESETTING DATABASE to $version")
+      existing <- getExisting
+      rollbacks <- reverseTo(version, existing.reverse, Nil)
+      _ <- Logger.log.warning("No migrations to rollback").when(rollbacks.isEmpty)
+      _ <- ZIO.foreachDiscard(rollbacks)(undoMigration)
+    } yield ()
+
+  def rollbackToFromPool(version: Version): SHRIO[JDBCConnectionPool, Unit] =
+    ZIO.scoped {
+      MigrationRunner.rollbackTo(version).provideSomeLayer[HarnessEnv & JDBCConnectionPool & Scope](JDBCConnection.poolLayer)
+    }
+
+  def rollbackExecutable(dbLayer: HTaskLayer[JDBCConnectionPool]): Executable =
+    Executable
+      .withParser { harness.cli.Parser.value[Version](harness.cli.LongName.unsafe("version")) }
+      .withLayer { dbLayer }
+      .withEffect { version => MigrationRunner.rollbackToFromPool(version) }
+
+  // =====|  |=====
 
   private def doMigrations(inMemoryMigrations: List[InMemoryMigration], persist: Boolean): SHRIO[JDBCConnection, Unit] =
     for {
@@ -127,5 +149,46 @@ object MigrationRunner {
         .provideSomeLayer[HarnessEnv & JDBCConnection](Transaction.liveLayer)
     else
       Logger.log.info(s"Skipping db migration ${migrationPlan.version} (already ran)")
+
+  @tailrec
+  private def reverseTo(version: Version, rQueue: List[Migration.Identity], rStack: List[Migration.Identity]): HTask[List[Migration.Identity]] =
+    rQueue match {
+      case head :: tail =>
+        if (head.version == version) ZIO.succeed((head :: rStack).reverse)
+        else if (head.version > version) reverseTo(version, tail, head :: rStack)
+        else ZIO.fail(HError.InternalDefect(s"Missing version '$version' to rollback to"))
+      case Nil =>
+        if (version == Version.zero) ZIO.succeed(rStack.reverse)
+        else ZIO.fail(HError.InternalDefect(s"No version '$version' to rollback to"))
+    }
+
+  private def undoMigration(migration: Migration.Identity): SHRIO[JDBCConnection, Unit] =
+    Transaction
+      .inTransaction {
+        for {
+          _ <- Logger.log.info(s"Undoing migration ${migration.version}")
+          reversedOptSteps <- ZIO.foreach(migration.steps.toList.reverse) {
+            case MigrationStep.Encoded.Code(name, reversible)                => Logger.log.warning(s"Ignoring code step '$name', reversible=$reversible").as(None)
+            case MigrationStep.CreateSchema(ref)                             => ZIO.some(MigrationStep.DropSchema(ref))
+            case MigrationStep.RenameSchema(refBefore, refAfter)             => ZIO.some(MigrationStep.RenameSchema(refAfter, refBefore))
+            case MigrationStep.DropSchema(ref)                               => ZIO.some(MigrationStep.CreateSchema(ref))
+            case MigrationStep.CreateTable(ref)                              => ZIO.some(MigrationStep.DropTable(ref))
+            case MigrationStep.RenameTable(schemaRef, nameBefore, nameAfter) => ZIO.some(MigrationStep.RenameTable(schemaRef, nameAfter, nameBefore))
+            case MigrationStep.DropTable(ref)                                => ZIO.some(MigrationStep.CreateTable(ref))
+            case MigrationStep.CreateCol(ref, _, keyType, _)                 => ZIO.some(MigrationStep.DropCol(ref, keyType))
+            case MigrationStep.RenameCol(tableRef, nameBefore, nameAfter)    => ZIO.some(MigrationStep.RenameCol(tableRef, nameAfter, nameBefore))
+            case MigrationStep.DropCol(ref, _)                               => ZIO.fail(HError.InternalDefect(s"Unable to reverse DropCol '$ref'"))
+            case MigrationStep.SetColNotNullable(ref)                        => ZIO.some(MigrationStep.SetColNullable(ref))
+            case MigrationStep.SetColNullable(ref)                           => ZIO.some(MigrationStep.SetColNotNullable(ref))
+            case MigrationStep.CreateIndex(_, name, _, _)                    => ZIO.some(MigrationStep.DropIndex(name))
+            case MigrationStep.RenameIndex(nameBefore, nameAfter)            => ZIO.some(MigrationStep.RenameIndex(nameAfter, nameBefore))
+            case MigrationStep.DropIndex(name)                               => ZIO.fail(HError.InternalDefect(s"Unable to reverse DropIndex '$name'"))
+          }
+          reversedSteps = reversedOptSteps.flatten
+          _ <- ZIO.foreachDiscard(reversedSteps) { step => executeEffect(MigrationEffect.Sql(step.sql)) }
+          _ <- MigrationQueries.deleteById(migration.id).single
+        } yield ()
+      }
+      .provideSomeLayer[HarnessEnv & JDBCConnection](Transaction.liveLayer)
 
 }

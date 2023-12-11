@@ -8,6 +8,9 @@ object MigrationStep {
 
   sealed trait Encoded
   object Encoded {
+    sealed trait SqlEncoded extends MigrationStep.Encoded {
+      val sql: String
+    }
     final case class Code(name: String, reversible: Boolean) extends MigrationStep.Encoded
 
     implicit val jsonCodec: JsonCodec[MigrationStep.Encoded] = DeriveJsonCodec.gen
@@ -37,23 +40,57 @@ object MigrationStep {
     final case class Code(name: String, up: SHRIO[JDBCConnection, Unit], down: Option[SHRIO[JDBCConnection, Unit]]) extends MigrationStep.InMemory
   }
 
-  final case class CreateSchema(ref: SchemaRef.Custom) extends MigrationStep.Encoded with MigrationStep.InMemory.Auto
-  final case class RenameSchema(refBefore: SchemaRef.Custom, refAfter: SchemaRef.Custom) extends MigrationStep.Encoded with MigrationStep.InMemory
-  final case class DropSchema(ref: SchemaRef.Custom) extends MigrationStep.Encoded with MigrationStep.InMemory.Auto
+  final case class CreateSchema(ref: SchemaRef.Custom) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory.Auto {
+    override val sql: String = s"CREATE SCHEMA $ref"
+  }
+  final case class RenameSchema(refBefore: SchemaRef.Custom, refAfter: SchemaRef.Custom) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory {
+    override val sql: String = s"ALTER SCHEMA $refBefore RENAME TO $refAfter"
+  }
+  final case class DropSchema(ref: SchemaRef.Custom) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory.Auto {
+    override val sql: String = s"DROP SCHEMA $ref"
+  }
 
-  final case class CreateTable(ref: TableRef) extends MigrationStep.Encoded with MigrationStep.InMemory.Auto
-  final case class RenameTable(schemaRef: SchemaRef, nameBefore: String, nameAfter: String) extends MigrationStep.Encoded with MigrationStep.InMemory
-  final case class DropTable(ref: TableRef) extends MigrationStep.Encoded with MigrationStep.InMemory.Auto
+  final case class CreateTable(ref: TableRef) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory.Auto {
+    override val sql: String = s"CREATE TABLE ${ref.schemaRef}.${ref.tableName}()"
+  }
+  final case class RenameTable(schemaRef: SchemaRef, nameBefore: String, nameAfter: String) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory {
+    override val sql: String = s"ALTER TABLE $schemaRef.$nameBefore RENAME TO $nameAfter"
+  }
+  final case class DropTable(ref: TableRef) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory.Auto {
+    override val sql: String = s"DROP TABLE ${ref.schemaRef}.${ref.tableName}"
+  }
   // TODO (KR) :  SetTableSchema
 
-  final case class CreateCol(ref: ColRef, colType: Col.ColType, keyType: KeyType, nullable: Boolean) extends MigrationStep.Encoded with MigrationStep.InMemory.Auto
-  final case class RenameCol(tableRef: TableRef, nameBefore: String, nameAfter: String) extends MigrationStep.Encoded with MigrationStep.InMemory
-  final case class DropCol(ref: ColRef, keyType: KeyType) extends MigrationStep.Encoded with MigrationStep.InMemory.Auto
-  final case class SetColNotNullable(ref: ColRef) extends MigrationStep.Encoded with MigrationStep.InMemory.Auto
-  final case class SetColNullable(ref: ColRef) extends MigrationStep.Encoded with MigrationStep.InMemory.Auto
+  final case class CreateCol(ref: ColRef, colType: Col.ColType, keyType: KeyType, nullable: Boolean) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory.Auto {
+    override val sql: String = {
+      val nullableSql = if (nullable) "NULL" else "NOT NULL"
+      s"ALTER TABLE ${ref.schemaRef}.${ref.tableName} ADD COLUMN ${ref.colName} $colType $nullableSql${keyType.sql}"
+    }
+  }
+  final case class RenameCol(tableRef: TableRef, nameBefore: String, nameAfter: String) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory {
+    override val sql: String = s"ALTER TABLE ${tableRef.schemaRef}.${tableRef.tableName} RENAME COLUMN $nameBefore TO $nameAfter"
+  }
+  final case class DropCol(ref: ColRef, keyType: KeyType) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory.Auto {
+    override val sql: String = s"ALTER TABLE ${ref.schemaRef}.${ref.tableName} DROP COLUMN ${ref.colName}"
+  }
+  final case class SetColNotNullable(ref: ColRef) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory.Auto {
+    override val sql: String = s"ALTER TABLE ${ref.schemaRef}.${ref.tableName} ALTER COLUMN ${ref.colName} SET NOT NULL"
+  }
+  final case class SetColNullable(ref: ColRef) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory.Auto {
+    override val sql: String = s"ALTER TABLE ${ref.schemaRef}.${ref.tableName} ALTER COLUMN ${ref.colName} DROP NOT NULL"
+  }
 
-  final case class CreateIndex(tableRef: TableRef, name: String, unique: Boolean, cols: List[String]) extends MigrationStep.Encoded with MigrationStep.InMemory
-  final case class RenameIndex(nameBefore: String, nameAfter: String) extends MigrationStep.Encoded with MigrationStep.InMemory
-  final case class DropIndex(name: String) extends MigrationStep.Encoded with MigrationStep.InMemory
+  final case class CreateIndex(tableRef: TableRef, name: String, unique: Boolean, cols: List[String]) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory {
+    override val sql: String = {
+      val uniqueSql = if (unique) s" UNIQUE" else ""
+      s"CREATE$uniqueSql INDEX $name ON ${tableRef.schemaRef}.${tableRef.tableName} (${cols.mkString(", ")})"
+    }
+  }
+  final case class RenameIndex(nameBefore: String, nameAfter: String) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory {
+    override val sql: String = s"ALTER INDEX $nameBefore RENAME TO $nameAfter"
+  }
+  final case class DropIndex(name: String) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory {
+    override val sql: String = s"DROP INDEX $name"
+  }
 
 }

@@ -94,7 +94,7 @@ object DbState {
         for {
           _ <- Either.cond(!state.schemas.contains(ref), (), s"Schema '$ref' already exists")
           newState = DbState(state.schemas.updated(ref, Schema.initial(ref)), state.indexesTable)
-        } yield (MigrationEffect.Sql(s"CREATE SCHEMA $ref"), step, newState)
+        } yield (MigrationEffect.Sql(step.sql), step, newState)
       case step @ MigrationStep.RenameSchema(refBefore, refAfter) =>
         for {
           schema <- state.schema(refBefore)
@@ -102,20 +102,20 @@ object DbState {
           newSchema = Schema(refAfter.schemaName, schema.tables)
           newIndexes = state.indexesTable.toList.map { case (name, TableRef(_, tableName)) => (name, TableRef(refAfter, tableName)) }.toMap
           newState = DbState(state.schemas.removed(refBefore).updated(refAfter, newSchema), newIndexes).withMappedKeyTypes(mapKeyType(_, refBefore, refAfter))
-        } yield (MigrationEffect.Sql(s"ALTER SCHEMA $refBefore RENAME TO $refAfter"), step, newState)
+        } yield (MigrationEffect.Sql(step.sql), step, newState)
       case step @ MigrationStep.DropSchema(ref) =>
         for {
           schema <- state.schema(ref)
           _ <- Either.cond(schema.tables.isEmpty, (), s"Can not drop schema '$ref', it still has tables: ${schema.tables.keySet.mkString(", ")}")
           newState = DbState(state.schemas.removed(ref), state.indexesTable)
-        } yield (MigrationEffect.Sql(s"DROP SCHEMA $ref"), step, newState)
+        } yield (MigrationEffect.Sql(step.sql), step, newState)
       case step @ MigrationStep.CreateTable(ref) =>
         for {
           schema <- state.schema(ref.schemaRef)
           _ <- Either.cond(!schema.tables.contains(ref.tableName), (), s"Table '${ref.tableName}' already exists in schema ${ref.schemaRef}")
           newSchema = Schema(schema.name, schema.tables.updated(ref.tableName, Table.initial(ref)))
           newState = DbState(state.schemas.updated(ref.schemaRef, newSchema), state.indexesTable)
-        } yield (MigrationEffect.Sql(s"CREATE TABLE ${ref.schemaRef}.${ref.tableName}()"), step, newState)
+        } yield (MigrationEffect.Sql(step.sql), step, newState)
       case step @ MigrationStep.RenameTable(schemaRef, nameBefore, nameAfter) =>
         for {
           schema <- state.schema(schemaRef)
@@ -125,7 +125,7 @@ object DbState {
           newSchema = Schema(schema.name, schema.tables.removed(nameBefore).updated(nameAfter, newTable))
           newIndexes = state.indexesTable.toList.map { case (name, TableRef(schemaRef, _)) => (name, TableRef(schemaRef, nameAfter)) }.toMap
           newState = DbState(state.schemas.updated(schemaRef, newSchema), newIndexes).withMappedKeyTypes(mapKeyType(_, TableRef(schemaRef, nameBefore), nameAfter))
-        } yield (MigrationEffect.Sql(s"ALTER TABLE $schemaRef.$nameBefore RENAME TO $nameAfter"), step, newState)
+        } yield (MigrationEffect.Sql(step.sql), step, newState)
       case step @ MigrationStep.DropTable(ref) =>
         for {
           schema <- state.schema(ref.schemaRef)
@@ -133,7 +133,7 @@ object DbState {
           newSchema = Schema(schema.name, schema.tables.removed(ref.tableName))
           newIndexes = state.indexesTable.filter(_._2 == ref)
           newState = DbState(state.schemas.updated(ref.schemaRef, newSchema), newIndexes)
-        } yield (MigrationEffect.Sql(s"DROP TABLE ${ref.schemaRef}.${ref.tableName}"), step, newState)
+        } yield (MigrationEffect.Sql(step.sql), step, newState)
       case step @ MigrationStep.CreateCol(ref, colType, keyType, nullable) =>
         for {
           schema <- state.schema(ref.schemaRef)
@@ -147,9 +147,7 @@ object DbState {
           newSchema = Schema(schema.name, schema.tables.updated(newTable.name, newTable))
           newIndexes = state.indexesTable.filterNot((name, _) => removeIndexes.contains(name))
           newState = DbState(state.schemas.updated(SchemaRef(newSchema.name), newSchema), newIndexes)
-          nullableSql = if (nullable) "NULL" else "NOT NULL"
-          sql = s"ALTER TABLE ${ref.schemaRef}.${ref.tableName} ADD COLUMN ${ref.colName} $colType $nullableSql${keyType.sql}"
-        } yield (MigrationEffect.Sql(sql), step, newState)
+        } yield (MigrationEffect.Sql(step.sql), step, newState)
       case step @ MigrationStep.RenameCol(tableRef, nameBefore, nameAfter) =>
         for {
           schema <- state.schema(tableRef.schemaRef)
@@ -162,7 +160,7 @@ object DbState {
           newSchema = Schema(schema.name, schema.tables.updated(newTable.name, newTable))
           newState = DbState(state.schemas.updated(SchemaRef(newSchema.name), newSchema), state.indexesTable)
             .withMappedKeyTypes(mapKeyType(_, ColRef(tableRef.schemaRef, tableRef.tableName, nameBefore), nameAfter))
-        } yield (MigrationEffect.Sql(s"ALTER TABLE ${tableRef.schemaRef}.${tableRef.tableName} RENAME COLUMN $nameBefore TO $nameAfter"), step, newState)
+        } yield (MigrationEffect.Sql(step.sql), step, newState)
       case step @ MigrationStep.DropCol(ref, _) =>
         for {
           schema <- state.schema(ref.schemaRef)
@@ -172,7 +170,7 @@ object DbState {
           newTable = table.copy(columns = table.columns.removed(ref.colName))
           newSchema = schema.copy(tables = schema.tables.updated(newTable.name, newTable))
           newState = state.copy(schemas = state.schemas.updated(SchemaRef(newSchema.name), newSchema))
-        } yield (MigrationEffect.Sql(s"ALTER TABLE ${ref.schemaRef}.${ref.tableName} DROP COLUMN ${ref.colName}"), step, newState)
+        } yield (MigrationEffect.Sql(step.sql), step, newState)
       case step @ MigrationStep.SetColNotNullable(ref) =>
         for {
           schema <- state.schema(ref.schemaRef)
@@ -183,7 +181,7 @@ object DbState {
           newTable = table.copy(columns = table.columns.updated(newCol.name, newCol))
           newSchema = schema.copy(tables = schema.tables.updated(newTable.name, newTable))
           newState = state.copy(schemas = state.schemas.updated(SchemaRef(newSchema.name), newSchema))
-        } yield (MigrationEffect.Sql(s"ALTER TABLE ${ref.schemaRef}.${ref.tableName} ALTER COLUMN ${ref.colName} SET NOT NULL"), step, newState)
+        } yield (MigrationEffect.Sql(step.sql), step, newState)
       case step @ MigrationStep.SetColNullable(ref) =>
         for {
           schema <- state.schema(ref.schemaRef)
@@ -194,7 +192,7 @@ object DbState {
           newTable = table.copy(columns = table.columns.updated(newCol.name, newCol))
           newSchema = schema.copy(tables = schema.tables.updated(newTable.name, newTable))
           newState = state.copy(schemas = state.schemas.updated(SchemaRef(newSchema.name), newSchema))
-        } yield (MigrationEffect.Sql(s"ALTER TABLE ${ref.schemaRef}.${ref.tableName} ALTER COLUMN ${ref.colName} DROP NOT NULL"), step, newState)
+        } yield (MigrationEffect.Sql(step.sql), step, newState)
       case step @ MigrationStep.CreateIndex(tableRef, name, unique, cols) =>
         for {
           _ <- Either.cond(!state.indexesTable.contains(name), (), s"Index with name '$name' already exists")
@@ -205,9 +203,7 @@ object DbState {
           newTable = table.copy(indexes = table.indexes.updated(newIndex.name, newIndex))
           newSchema = schema.copy(tables = schema.tables.updated(newTable.name, newTable))
           newState = DbState(state.schemas.updated(SchemaRef(newSchema.name), newSchema), state.indexesTable.updated(name, tableRef))
-          uniqueSql = if (unique) s" UNIQUE" else ""
-          sql = s"CREATE$uniqueSql INDEX $name ON ${tableRef.schemaRef}.${tableRef.tableName} (${cols.mkString(", ")})"
-        } yield (MigrationEffect.Sql(sql), step, newState)
+        } yield (MigrationEffect.Sql(step.sql), step, newState)
       case step @ MigrationStep.RenameIndex(nameBefore, nameAfter) =>
         for {
           tableRef <- state.index(nameBefore)
@@ -220,7 +216,7 @@ object DbState {
           newSchema = schema.copy(tables = schema.tables.updated(newTable.name, newTable))
           newIndexes = state.indexesTable.removed(nameBefore).updated(newIndex.name, tableRef)
           newState = DbState(state.schemas.updated(SchemaRef(newSchema.name), newSchema), newIndexes)
-        } yield (MigrationEffect.Sql(s"ALTER INDEX $nameBefore RENAME TO $nameAfter"), step, newState)
+        } yield (MigrationEffect.Sql(step.sql), step, newState)
       case step @ MigrationStep.DropIndex(name) =>
         for {
           tableRef <- state.index(name)
@@ -230,7 +226,7 @@ object DbState {
           newSchema = schema.copy(tables = schema.tables.updated(newTable.name, newTable))
           newIndexes = state.indexesTable.removed(name)
           newState = DbState(state.schemas.updated(SchemaRef(newSchema.name), newSchema), newIndexes)
-        } yield (MigrationEffect.Sql(s"DROP INDEX $name"), step, newState)
+        } yield (MigrationEffect.Sql(step.sql), step, newState)
       case MigrationStep.InMemory.Code(name, up, down) =>
         (MigrationEffect.Code(name, up), MigrationStep.Encoded.Code(name, down.nonEmpty), state).asRight
     }

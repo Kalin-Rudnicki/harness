@@ -99,7 +99,8 @@ object MigrationPlan {
           }
       }
 
-    convertMigrationSteps(initialDbState, inMemoryMigration.steps.toList, Nil)
+    if (inMemoryMigration.version == Version.make(0)) "Migration version must be greater than 0".leftNel
+    else convertMigrationSteps(initialDbState, inMemoryMigration.steps.toList, Nil)
   }
 
 }

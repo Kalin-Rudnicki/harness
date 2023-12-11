@@ -27,13 +27,15 @@ final case class Version(
 
   override def equals(obj: Any): Boolean =
     obj.asInstanceOf[Matchable] match {
-      case that: Version => this.numbersList == that.numbersList && this.suffixOpt == that.suffixOpt
+      case that: Version => Version.ordering.equiv(this, that)
       case _             => false
     }
 
 }
 object Version {
 
+  val zero: Version = Version.make(0)
+  
   private val reg = "^(v)?([0-9]+(?:\\.[0-9]+)*)(-.+)?$".r
 
   implicit val stringEncoder: StringEncoder[Version] = StringEncoder.usingToString
@@ -46,9 +48,9 @@ object Version {
           if (aHead < bHead) -1
           else if (aHead > bHead) 1
           else loop(aTail, bTail)
-        case (_ :: _, Nil) => 1
-        case (Nil, _ :: _) => -1
-        case (Nil, Nil) =>
+        case (rest @ _ :: _, Nil) if rest.exists(_ != 0) => 1
+        case (Nil, rest @ _ :: _) if rest.exists(_ != 0) => -1
+        case (_, _) =>
           (versionA.suffixOpt, versionB.suffixOpt) match {
             case (None, None)                   => 0
             case (Some(aSuffix), Some(bSuffix)) => Ordering[String].compare(aSuffix, bSuffix)
@@ -59,6 +61,9 @@ object Version {
 
     loop(versionA.numbersList, versionB.numbersList)
   }
+
+  def make(n0: Int, nN: Int*): Version = Version(false, NonEmptyList(n0, nN.toList), None)
+  def makeV(n0: Int, nN: Int*): Version = Version(true, NonEmptyList(n0, nN.toList), None)
 
   def parse(string: String): Option[Version] =
     string match {

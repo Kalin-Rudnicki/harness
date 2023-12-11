@@ -46,6 +46,13 @@ object Main extends ExecutableApp {
       R.User.routes,
     )
 
+  private val migrations: PlannedMigrations =
+    PlannedMigrations(
+      Migrations.`0.0.1`,
+      Migrations.`0.0.2`,
+      Migrations.`0.0.3`,
+    )
+
   override val executable: Executable =
     Executable.fromSubCommands(
       "server" ->
@@ -54,11 +61,7 @@ object Main extends ExecutableApp {
             serverLayer ++ Config.readLayer[ServerConfig]("http")
           }
           .withEffect {
-            MigrationRunner.runMigrationsFromPool(
-              Migrations.`0.0.1`,
-              Migrations.`0.0.2`,
-              Migrations.`0.0.3`,
-            ) *>
+            MigrationRunner.runMigrationsFromPool(migrations) *>
               routes.flatMap { Server.start[ServerEnv, ReqEnv](JDBCConnection.poolLayer >>> reqLayer) }
           },
       "docker" ->

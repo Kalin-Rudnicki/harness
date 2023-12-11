@@ -346,7 +346,9 @@ object Tmp extends ExecutableApp {
           // _ <- Logger.log.info(s"$initialNote\n$updatedNote")
 
           _ <- MigrationRunner.runMigrations(
-            InMemoryMigration.auto(Version.parseUnsafe("0.0.1"), tables),
+            PlannedMigrations(
+              InMemoryMigration.auto(Version.parseUnsafe("0.0.1"), tables),
+            ),
           )
         } yield ()
       }

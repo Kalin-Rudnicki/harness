@@ -8,8 +8,22 @@ import harness.zio.*
 final case class InMemoryMigration(version: Version, tables: Tables, steps: NonEmptyList[InMemoryMigration.Step])
 object InMemoryMigration {
 
-  def apply(version: Version, tables: Tables)(step0: InMemoryMigration.Step, stepN: InMemoryMigration.Step*): InMemoryMigration =
-    new InMemoryMigration(version, tables, NonEmptyList(step0, stepN.toList))
+  type StepType = InMemoryMigration.Step | InMemoryMigration.StepType.Auto | MigrationStep.InMemory
+  object StepType {
+
+    final case class Auto(allowDrops: Boolean = false)
+
+    def toStep(stepType: StepType, tables: Tables): InMemoryMigration.Step =
+      stepType match {
+        case step: InMemoryMigration.Step          => step
+        case auto: InMemoryMigration.StepType.Auto => InMemoryMigration.Step.Auto(tables, auto.allowDrops)
+        case inMemory: MigrationStep.InMemory      => InMemoryMigration.Step.Manual(inMemory)
+      }
+
+  }
+
+  def apply(version: Version, tables: Tables)(step0: InMemoryMigration.StepType, stepN: InMemoryMigration.StepType*): InMemoryMigration =
+    new InMemoryMigration(version, tables, NonEmptyList(step0, stepN.toList).map(StepType.toStep(_, tables)))
 
   def auto(version: Version, tables: Tables, allowDrops: Boolean = false): InMemoryMigration =
     InMemoryMigration(version, tables)(InMemoryMigration.Step.Auto(tables, allowDrops))
