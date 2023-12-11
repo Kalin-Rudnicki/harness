@@ -45,22 +45,25 @@ object MigrationPlan {
           convertInMemorySteps(state, step :: Nil, Nil)
       }
 
-    @tailrec
-    def validateSteps(stepNo: Int, ran: List[MigrationStep.Encoded], generated: List[MigrationStep.Encoded]): EitherNel[String, Unit] =
-      (ran, generated) match {
-        case (ranH :: ranT, generatedH :: generatedT) =>
-          if (ranH == generatedH) validateSteps(stepNo + 1, ranT, generatedT)
-          else s"Migration ${inMemoryMigration.version} step $stepNo : Expected $ranH, got: $generatedH".leftNel
-        case (ranH :: _, Nil) =>
-          s"Migration ${inMemoryMigration.version} step $stepNo : Expected $ranH, got: No Step".leftNel
-        case (Nil, generatedH :: _) =>
-          s"Migration ${inMemoryMigration.version} step $stepNo : Expected No Step, got: $generatedH".leftNel
-        case (Nil, Nil) => ().asRight
+    def validateSteps(version: Version, ran: List[MigrationStep.Encoded], generated: List[MigrationStep.Encoded]): EitherNel[String, Unit] =
+      if (ran == generated) ().asRight
+      else if (ran.size == generated.size && ran.toSet == generated.toSet) {
+        val filtered = ran.zip(generated).zipWithIndex.collect { case ((r, g), i) if r != g => s"\n  [$i]: ran=$r / generated=$g" }
+        s"Migration $version is not as expected. All elements are the same, but out of order:${filtered.mkString}".leftNel
+      } else {
+        val ranSet = ran.toSet
+        val generatedSet = generated.toSet
+        val ranButNotGenerated = ran.filterNot(generatedSet.contains)
+        val generatedButNotRan = generated.filterNot(ranSet.contains)
+
+        s"""Migration $version has mismatched elements...
+           |  Ran but not generated:${ranButNotGenerated.map { step => s"\n    - $step" }.mkString}
+           |  Generated but not ran:${generatedButNotRan.map { step => s"\n    - $step" }.mkString}""".stripMargin.leftNel
       }
 
     def validateMigration(ranMigration: Migration.Identity, generatedMigration: Migration.Identity): EitherNel[String, Unit] =
       if (ranMigration.version != generatedMigration.version) s"Ran and generated migrations have different versions: ${ranMigration.version} / ${generatedMigration.version}".leftNel
-      else validateSteps(1, ranMigration.steps.toList, generatedMigration.steps.toList)
+      else validateSteps(ranMigration.version, ranMigration.steps.toList, generatedMigration.steps.toList)
 
     @tailrec
     def convertMigrationSteps(state: DbState, queue: List[InMemoryMigration.Step], rStack: List[List[MigrationPlan.Step]]): EitherNel[String, MigrationPlan] =
