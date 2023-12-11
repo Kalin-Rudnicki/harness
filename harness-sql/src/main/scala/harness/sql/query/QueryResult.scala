@@ -99,7 +99,7 @@ object QueryResult {
             res <-
               decoder.decodeRow(0, outputs) match {
                 case Right(value) => ZIO.succeed(value)
-                case Left(errors) => ZIO.fail(RowDecodeFailure(errors))
+                case Left(errors) => ZIO.fail(RowDecodeFailure(errors, outputs))
               }
           } yield res
 
