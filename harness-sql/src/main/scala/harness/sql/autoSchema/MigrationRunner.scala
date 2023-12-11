@@ -78,7 +78,7 @@ object MigrationRunner {
         for {
           _ <- Logger.log.detailed("Creating migrations framework")
           _ <- doMigrations(
-            InMemoryMigration.auto(Version.parseUnsafe("0.0.0"), Tables(Migration.tableSchema)) :: Nil,
+            InMemoryMigration.auto(Version.make(0, 0, 0, 1), Tables(Migration.tableSchema)) :: Nil,
             false,
           )
         } yield ()
