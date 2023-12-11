@@ -35,7 +35,7 @@ object MigrationRunner {
       MigrationRunner.rollbackTo(version).provideSomeLayer[HarnessEnv & JDBCConnectionPool & Scope](JDBCConnection.poolLayer)
     }
 
-  def rollbackExecutable(dbLayer: HTaskLayer[JDBCConnectionPool]): Executable =
+  def rollbackExecutable(dbLayer: SHRLayer[Scope, JDBCConnectionPool]): Executable =
     Executable
       .withParser { harness.cli.Parser.value[Version](harness.cli.LongName.unsafe("version")) }
       .withLayer { dbLayer }
