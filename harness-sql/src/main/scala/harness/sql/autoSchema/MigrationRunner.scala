@@ -180,9 +180,9 @@ object MigrationRunner {
             case MigrationStep.DropCol(ref, _)                               => ZIO.fail(HError.InternalDefect(s"Unable to reverse DropCol '$ref'"))
             case MigrationStep.SetColNotNullable(ref)                        => ZIO.some(MigrationStep.SetColNullable(ref))
             case MigrationStep.SetColNullable(ref)                           => ZIO.some(MigrationStep.SetColNotNullable(ref))
-            case MigrationStep.CreateIndex(_, name, _, _)                    => ZIO.some(MigrationStep.DropIndex(name))
+            case MigrationStep.CreateIndex(tableRef, name, _, _)             => ZIO.some(MigrationStep.DropIndex(tableRef.schemaRef, name))
             case MigrationStep.RenameIndex(nameBefore, nameAfter)            => ZIO.some(MigrationStep.RenameIndex(nameAfter, nameBefore))
-            case MigrationStep.DropIndex(name)                               => ZIO.fail(HError.InternalDefect(s"Unable to reverse DropIndex '$name'"))
+            case MigrationStep.DropIndex(_, name)                            => ZIO.fail(HError.InternalDefect(s"Unable to reverse DropIndex '$name'"))
           }
           reversedSteps = reversedOptSteps.flatten
           _ <- ZIO.foreachDiscard(reversedSteps) { step => executeEffect(MigrationEffect.Sql(step.sql)) }

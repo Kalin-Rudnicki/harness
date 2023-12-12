@@ -89,8 +89,8 @@ object MigrationStep {
   final case class RenameIndex(nameBefore: String, nameAfter: String) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory {
     override val sql: String = s"ALTER INDEX $nameBefore RENAME TO $nameAfter"
   }
-  final case class DropIndex(name: String) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory {
-    override val sql: String = s"DROP INDEX $name"
+  final case class DropIndex(schemaRef: SchemaRef, name: String) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory {
+    override val sql: String = s"DROP INDEX $schemaRef.$name"
   }
 
 }

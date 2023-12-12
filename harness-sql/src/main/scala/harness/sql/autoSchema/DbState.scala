@@ -217,7 +217,7 @@ object DbState {
           newIndexes = state.indexesTable.removed(nameBefore).updated(newIndex.name, tableRef)
           newState = DbState(state.schemas.updated(SchemaRef(newSchema.name), newSchema), newIndexes)
         } yield (MigrationEffect.Sql(step.sql), step, newState)
-      case step @ MigrationStep.DropIndex(name) =>
+      case step @ MigrationStep.DropIndex(_, name) =>
         for {
           tableRef <- state.index(name)
           schema <- state.schema(tableRef.schemaRef)
