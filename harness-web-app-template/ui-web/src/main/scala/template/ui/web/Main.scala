@@ -7,8 +7,8 @@ import harness.zio.Logger
 
 object Main extends PageApp {
 
-  override protected val runMode: RunMode = RunMode.Prod
-  // override protected val logTolerance: Logger.LogLevel = Logger.LogLevel.Trace
+  override protected val runMode: RunMode = RunMode.Dev
+  override protected val logTolerance: Logger.LogLevel = Logger.LogLevel.Trace
 
   override val styleSheets: List[StyleSheet] = List(DefaultStyleSheet)
 

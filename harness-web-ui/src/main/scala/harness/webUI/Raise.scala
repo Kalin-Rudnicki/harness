@@ -1,8 +1,7 @@
 package harness.webUI
 
-import monocle.Lens
-
 import java.util.UUID
+import monocle.Lens
 
 sealed trait Raise[+A, +S]
 object Raise {
@@ -16,8 +15,8 @@ object Raise {
 
   inline def updateState[S](f: S => S): ModifyState[S] = ModifyState[S](f, true)
   inline def updateStateNoReRender[S](f: S => S): ModifyState[S] = ModifyState[S](f, false)
-  inline def setState[S](f:  => S): ModifyState[S] = ModifyState[S](_ => f, true)
-  inline def setStateNoReRender[S](f:  => S): ModifyState[S] = ModifyState[S](_ => f, false)
+  inline def setState[S](f: => S): ModifyState[S] = ModifyState[S]((_: Any) => f, true)
+  inline def setStateNoReRender[S](f: => S): ModifyState[S] = ModifyState[S]((_: Any) => f, false)
 
   sealed trait Standard extends Raise.StandardOrUpdate[Nothing]
 

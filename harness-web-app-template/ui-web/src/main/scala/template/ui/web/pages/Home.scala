@@ -3,11 +3,13 @@ package template.ui.web.pages
 import _root_.template.model as D
 import _root_.template.ui.web.helpers.*
 import cats.syntax.either.*
+import cats.syntax.option.*
 import harness.core.*
 import harness.webUI.*
 import harness.webUI.style.{given, *}
 import harness.webUI.vdom.{given, *}
 import harness.webUI.widgets.*
+import zio.*
 
 object Home {
 
@@ -19,6 +21,7 @@ object Home {
       optionalTextArea: String,
       requiredDropdown: FormWidgets.dropdownSelect.Env[MyEnum],
       optionalDropdown: FormWidgets.dropdownSelect.Env[MyEnum],
+      sumOption: Option[String],
   )
 
   enum MyEnum extends Enum[MyEnum] { case Case1, Case2, Case3 }
@@ -71,6 +74,49 @@ object Home {
 
   }
 
+  enum SumOptionAction {
+    case Show
+    case Hide
+    case Log(message: String)
+  }
+
+  val sumSomeWidget: ModifierA[SumOptionAction, String] =
+    PModifier.builder.withAction[SumOptionAction].withState[String] { (rh, _) =>
+      (FormWidgets.textInput[String].labelRequired("Message:", "message") <*
+        FormWidgets.submitButton("Send Message") <*
+        button(
+          DefaultStyleSheet.button.primary,
+          "Hide",
+          onClick := { _ => rh.raiseAction(SumOptionAction.Hide) },
+        ))
+        .mapActionV { (_, message) => SumOptionAction.Log(message) }
+    }
+
+  val sumNoneWidget: CModifierA[SumOptionAction] =
+    PModifier.builder.withAction[SumOptionAction] { rh =>
+      button(
+        DefaultStyleSheet.button.primary,
+        "Show",
+        onClick := { _ => rh.raiseAction(SumOptionAction.Show) },
+      )
+    }
+
+  val sumWidget: Modifier[Option[String]] =
+    SumWidgets
+      .option(sumSomeWidget, sumNoneWidget)
+      .flatMapActionZM {
+        case SumOptionAction.Show => ZIO.succeed(Raise.setState("".some) :: Nil)
+        case SumOptionAction.Hide => ZIO.succeed(Raise.setState(None) :: Nil)
+        case SumOptionAction.Log(message) =>
+          ZIO.succeed(
+            List(
+              Raise.DisplayMessage(PageMessage.info(message)),
+              Raise.setState(None),
+            ),
+          )
+      }
+      .unit
+
   val page: Page =
     Page.builder
       .fetchState {
@@ -84,6 +130,7 @@ object Home {
           "",
           FormWidgets.dropdownSelect.Env.enumInitial[MyEnum],
           FormWidgets.dropdownSelect.Env.enumInitial[MyEnum],
+          "test".some,
         )
       }
       .constTitle("Home")
@@ -109,6 +156,7 @@ object Home {
             FormWidgets.textArea[String].labelOptional("Optional Text Area (String):", "optional-text-area").showValue.zoomOut[Env](_.optionalTextArea),
             FormWidgets.dropdownSelect[MyEnum]().labelRequired("Required Dropdown:", "required-dropdown").showValue.zoomOut[Env](_.requiredDropdown),
             FormWidgets.dropdownSelect[MyEnum](closeOnMouseLeave = true).labelOptional("Optional Dropdown:", "optional-dropdown").showValue.zoomOut[Env](_.optionalDropdown),
+            sumWidget.showValue.zoomOut[Env](_.sumOption),
           ),
         )
       }

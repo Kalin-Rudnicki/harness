@@ -22,17 +22,19 @@ abstract class RaiseHandler[-A, -S] private (
       runtime,
       ZIO
         .foreachDiscard(raises) { _.flatMap { ZIO.foreachDiscard(_)(self.handleRaise) } }
+        .collapseCause
         .foldZIO(
           { error =>
-            ZIO.serviceWithZIO[RunMode] { runMode =>
-              ZIO.serviceWithZIO[HError.UserMessage.IfHidden] { ifHidden =>
-                ZIO.foreachDiscard {
-                  error.toNel.toList.map { err =>
-                    Raise.DisplayMessage(PageMessage.error(err.formatMessage(runMode, ifHidden)))
-                  }
-                }(handleRaise)
+            Logger.log.debug(error.fullInternalMessageWithTrace) *>
+              ZIO.serviceWithZIO[RunMode] { runMode =>
+                ZIO.serviceWithZIO[HError.UserMessage.IfHidden] { ifHidden =>
+                  ZIO.foreachDiscard {
+                    error.toNel.toList.map { err =>
+                      Raise.DisplayMessage(PageMessage.error(err.formatMessage(runMode, ifHidden)))
+                    }
+                  }(handleRaise)
+                }
               }
-            }
           },
           ZIO.succeed(_),
         ),

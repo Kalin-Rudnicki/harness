@@ -63,15 +63,11 @@ object EmailClient {
         .hAttempt {
           config.passwordMap.map { passwordMap =>
             new Authenticator {
-              override protected def getPasswordAuthentication: PasswordAuthentication = {
-                val res =
-                  passwordMap.get(email.from) match {
-                    case Some(password) => new PasswordAuthentication(email.from.unwrap, password)
-                    case None           => null
-                  }
-                println(res)
-                res
-              }
+              override protected def getPasswordAuthentication: PasswordAuthentication =
+                passwordMap.get(email.from) match {
+                  case Some(password) => new PasswordAuthentication(email.from.unwrap, password)
+                  case None           => null
+                }
             }
           }
         }

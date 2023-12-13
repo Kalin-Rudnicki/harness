@@ -127,7 +127,9 @@ object PageApp {
   ): Unit =
     Unsafe.unsafe { implicit unsafe =>
       runtime.unsafe.runToFuture {
-        effect.dumpErrorsAndContinue(Logger.LogLevel.Error)
+        effect
+          .tapError { error => Logger.log.debug(error.fullInternalMessageWithTrace) }
+          .dumpErrorsAndContinue(Logger.LogLevel.Error)
       }
     }
 
