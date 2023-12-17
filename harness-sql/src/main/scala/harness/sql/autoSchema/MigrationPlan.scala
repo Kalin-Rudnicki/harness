@@ -4,6 +4,7 @@ import cats.data.{EitherNel, NonEmptyList}
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import harness.core.Version
+import harness.sql.autoSchema.MigrationStep.Encoded
 import scala.annotation.tailrec
 
 final case class MigrationPlan private (
@@ -56,9 +57,17 @@ object MigrationPlan {
         val ranButNotGenerated = ran.filterNot(generatedSet.contains)
         val generatedButNotRan = generated.filterNot(ranSet.contains)
 
+        def showStep(step: MigrationStep.Encoded): String = {
+          val show = step match {
+            case encoded: Encoded.SqlEncoded    => encoded.sql
+            case Encoded.Code(name, reversible) => s"Code[$name]${if (reversible) " (reversible)" else ""}"
+          }
+          s"\n    - $show"
+        }
+
         s"""Migration $version has mismatched elements...
-           |  Ran but not generated:${ranButNotGenerated.map { step => s"\n    - $step" }.mkString}
-           |  Generated but not ran:${generatedButNotRan.map { step => s"\n    - $step" }.mkString}""".stripMargin.leftNel
+           |  Ran but not generated:${ranButNotGenerated.map(showStep).mkString}
+           |  Generated but not ran:${generatedButNotRan.map(showStep).mkString}""".stripMargin.leftNel
       }
 
     def validateMigration(ranMigration: Migration.Identity, generatedMigration: Migration.Identity): EitherNel[String, Unit] =
