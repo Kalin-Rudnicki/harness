@@ -171,12 +171,12 @@ abstract class _DefaultStyleSheet(
 
   object dropdownSelect
       extends Block("dropdown-select")(
-        // TODO (KR) :
       ) {
 
     object selected
         extends Element("selected")(
-          height := "1rem",
+          minHeight := "calc(1rem + 4px)",
+          padding := "2px",
           backgroundColor := "#f5f5f5", // TODO (KR) :
           color.black,
           clickable,
@@ -197,7 +197,20 @@ abstract class _DefaultStyleSheet(
     object option
         extends Element("option")(
           clickable,
-        ); option
+          color.black,
+          backgroundColor := "#f5f5f5", // TODO (KR) :
+          padding := "1px",
+          PseudoClass.Hover(
+            bgSecondaryLight,
+          ),
+        ) {
+
+      object selected
+          extends Modifier("selected")(
+            bgSecondary,
+          ); selected
+
+    }; option
 
   }; dropdownSelect
 

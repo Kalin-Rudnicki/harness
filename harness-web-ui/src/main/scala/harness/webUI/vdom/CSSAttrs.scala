@@ -43,7 +43,11 @@ abstract class ColorCSSAttrBuilder(scopedName: rawVDOM.VDom.ScopedName) extends 
 object color extends ColorCSSAttrBuilder("color")
 object backgroundColor extends ColorCSSAttrBuilder("background-color")
 object width extends CSSAttrBuilder("width")
+object minWidth extends CSSAttrBuilder("min-width")
+object maxWidth extends CSSAttrBuilder("max-width")
 object height extends CSSAttrBuilder("height")
+object minHeight extends CSSAttrBuilder("min-height")
+object maxHeight extends CSSAttrBuilder("max-height")
 object cursor extends CSSAttrBuilder("cursor") { self =>
   inline def pointer: CSSAttr = self := "pointer"
   inline def auto: CSSAttr = self := "auto"

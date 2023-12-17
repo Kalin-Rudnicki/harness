@@ -138,6 +138,12 @@ object FormWidgets {
         div(
           DefaultStyleSheet.dropdownSelect,
           PModifier.builder.withAction[Option[V]].withState[dropdownSelect.Env[V]] { (rh, s) =>
+            def setSelected(selected: Option[V]): Unit =
+              rh.raise(
+                Raise.updateState[Env[V]] { s => s.copy(selected = selected, expanded = false) },
+                Raise.Action(selected),
+              )
+
             PModifier(
               Option.when(closeOnMouseLeave) {
                 onMouseLeave := { _ =>
@@ -152,19 +158,18 @@ object FormWidgets {
                 onClick := { _ =>
                   rh.updateState[Env[V]](s => s.copy(expanded = !s.expanded))
                 },
+                onContextMenu := { e =>
+                  e.preventDefault()
+                  setSelected(None)
+                },
               ),
               div(
                 DefaultStyleSheet.dropdownSelect.options.visible.when(s.expanded),
                 PModifier.foreach(s.values) { v =>
                   div(
-                    DefaultStyleSheet.dropdownSelect.option,
+                    DefaultStyleSheet.dropdownSelect.option.selected.when(s.selected.contains(v)),
                     showV(v),
-                    onClick := { _ =>
-                      rh.raise(
-                        Raise.updateState[Env[V]] { s => s.copy(selected = v.some, expanded = false) },
-                        Raise.Action(v.some),
-                      )
-                    },
+                    onClick := { _ => setSelected(v.some) },
                   )
                 },
               ),

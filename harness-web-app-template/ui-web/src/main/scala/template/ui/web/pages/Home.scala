@@ -155,7 +155,7 @@ object Home {
             FormWidgets.textArea[String].labelRequired("Required Text Area (String):", "required-text-area").showValue.zoomOut[Env](_.requiredTextArea),
             FormWidgets.textArea[String].labelOptional("Optional Text Area (String):", "optional-text-area").showValue.zoomOut[Env](_.optionalTextArea),
             FormWidgets.dropdownSelect[MyEnum]().labelRequired("Required Dropdown:", "required-dropdown").showValue.zoomOut[Env](_.requiredDropdown),
-            FormWidgets.dropdownSelect[MyEnum](closeOnMouseLeave = true).labelOptional("Optional Dropdown:", "optional-dropdown").showValue.zoomOut[Env](_.optionalDropdown),
+            FormWidgets.dropdownSelect[MyEnum](closeOnMouseLeave = true).decorate(width := "150px").labelOptional("Optional Dropdown:", "optional-dropdown").showValue.zoomOut[Env](_.optionalDropdown),
             sumWidget.showValue.zoomOut[Env](_.sumOption),
           ),
         )
