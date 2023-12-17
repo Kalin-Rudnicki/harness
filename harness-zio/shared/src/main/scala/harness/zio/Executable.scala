@@ -192,6 +192,7 @@ object Executable extends ExecutableBuilders.Builder1 {
   ): Result[HTaskLayer[HarnessEnv]] =
     finalizedResultToExecutableResult(Config.parser.finalized.parse(args)).map { config =>
       implicit val loggerConfigJsonDecoder: JsonDecoder[LoggerConfig] = LoggerConfig.jsonDecoder(executableAppConfig.loggerDecoders*)
+      implicit val telemetryConfigJsonDecoder: JsonDecoder[TelemetryConfig] = TelemetryConfig.jsonDecoder(executableAppConfig.telemetryDecoders*)
 
       ZLayer.make[HarnessEnv](
         ZLayer.succeed(config.runMode),
@@ -200,7 +201,8 @@ object Executable extends ExecutableBuilders.Builder1 {
         loadConfigs(config.configStrings),
         harness.zio.Config.readLayer[LoggerConfig]("logging"),
         Logger.configLayer,
-        ZLayer.succeed(Telemetry.log), // TODO (KR) : make this configurable as well <-
+        harness.zio.Config.readLayer[TelemetryConfig]("telemetry"),
+        Telemetry.configLayer,
       )
     }
 

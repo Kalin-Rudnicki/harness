@@ -1,5 +1,6 @@
 package harness.archive.client
 
+import cats.syntax.either.*
 import harness.archive.model as D
 import harness.core.*
 import harness.http.client.*
@@ -7,18 +8,23 @@ import harness.zio.*
 import zio.*
 import zio.json.*
 
-final class ArchiveTelemetry(spec: ArchiveSpec) extends Telemetry {
+final class ArchiveTelemetry(
+    appName: String,
+    baseUrl: String,
+    httpClient: HttpClient.ClientT,
+) extends Telemetry {
 
-  private val env: ZEnvironment[HttpClient.ClientT & Logger & Telemetry] = ZEnvironment(spec.httpClient, Logger.none, Telemetry.none)
+  private val env: ZEnvironment[HttpClient.ClientT & Logger & Telemetry] = ZEnvironment(httpClient, Logger.none, Telemetry.none)
 
-  private val uploadUrl: String = s"${spec.baseUrl}/api/telemetry/upload"
+  private val uploadUrl: String = s"$baseUrl/api/telemetry/upload"
 
+  // TODO (KR) : be smarter about batching multiple requests
   override def trace(event: Telemetry.Trace): URIO[Logger, Boolean] =
     ZIO
       .suspendSucceed {
         val payload =
           D.telemetry.Upload(
-            appName = spec.appName,
+            appName = appName,
             logLevel = event.logLevel,
             label = event.label,
             startDateTime = event.startDateTime,
@@ -45,7 +51,9 @@ final class ArchiveTelemetry(spec: ArchiveSpec) extends Telemetry {
 }
 object ArchiveTelemetry {
 
-  val layer: URLayer[ArchiveSpec, Telemetry] =
-    ZLayer.fromZIO { ZIO.serviceWith[ArchiveSpec](new ArchiveTelemetry(_)) }
+  val keyedConfigDecoder: Config.KeyedConfigDecoder[Telemetry] =
+    Config.KeyedConfigDecoder.make[ArchiveConfig, Telemetry]("harness-archive") { config =>
+      new ArchiveTelemetry(config.appName, config.baseUrl, HttpClient.defaultClient).withMinLogTolerance(config.logTolerance).asRight
+    }
 
 }

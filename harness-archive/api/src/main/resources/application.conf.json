@@ -1,4 +1,11 @@
 {
+  "telemetry": {
+    "sources": {
+      "logged": {
+        "logTolerance": "TRACE"
+      }
+    }
+  },
   "logging": {
     "context": {},
     "sources": {

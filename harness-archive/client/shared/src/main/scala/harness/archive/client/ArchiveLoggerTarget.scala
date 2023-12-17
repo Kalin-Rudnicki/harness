@@ -49,17 +49,8 @@ final class ArchiveLoggerTarget(
 }
 object ArchiveLoggerTarget {
 
-  final case class Cfg(
-      logTolerance: Logger.LogLevel,
-      appName: String,
-      baseUrl: String,
-  )
-  object Cfg {
-    implicit val jsonCodec: JsonCodec[Cfg] = DeriveJsonCodec.gen
-  }
-
   val keyedConfigDecoder: Config.KeyedConfigDecoder[Logger.Source] =
-    Config.KeyedConfigDecoder.make[Cfg, Logger.Source]("harness-archive") { config =>
+    Config.KeyedConfigDecoder.make[ArchiveConfig, Logger.Source]("harness-archive") { config =>
       Logger.Source.const(new ArchiveLoggerTarget(config.appName, config.baseUrl, HttpClient.defaultClient), config.logTolerance.some).asRight
     }
 

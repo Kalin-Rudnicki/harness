@@ -18,10 +18,7 @@ trait Telemetry { self =>
   final def ||(other: Telemetry): Telemetry =
     new Telemetry {
       override def trace(event: Telemetry.Trace): URIO[Logger, Boolean] =
-        self.trace(event).flatMap {
-          case true  => ZIO.succeed(true)
-          case false => other.trace(event)
-        }
+        self.trace(event) || other.trace(event)
     }
 
   final def &&(other: Telemetry): Telemetry =
@@ -32,6 +29,8 @@ trait Telemetry { self =>
 
 }
 object Telemetry {
+
+  val configLayer: HRLayer[TelemetryConfig, Telemetry] = ZLayer.service[TelemetryConfig].project(_.telemetry)
 
   // =====| Api |=====
 

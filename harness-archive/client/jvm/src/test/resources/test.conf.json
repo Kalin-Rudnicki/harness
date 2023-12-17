@@ -1,5 +1,16 @@
 {
-
+  "telemetry": {
+    "sources": {
+      "logged": {
+        "logTolerance": "INFO"
+      },
+      "harness-archive": {
+        "appName": "testing",
+        "baseUrl": "http://localhost:3000",
+        "logTolerance": "TRACE"
+      }
+    }
+  },
   "logging": {
     "context": {},
     "sources": {
@@ -9,7 +20,7 @@
       },
       "harness-archive": {
         "appName": "testing",
-        "baseUrl":"http://localhost:3000",
+        "baseUrl": "http://localhost:3000",
         "logTolerance": "DEBUG"
       }
     }
