@@ -13,7 +13,6 @@ final case class Logger(
     sources: List[Logger.Source],
     defaultMinLogTolerance: Logger.LogLevel,
     defaultContext: Map[String, String],
-    defaultColorMode: ColorMode,
 ) { self =>
 
   private val hasSourceWithLogToleranceOverride: Boolean = sources.exists(_.minLogTolerance.nonEmpty)
@@ -21,7 +20,6 @@ final case class Logger(
   def execute(event: Logger.Event): UIO[Unit] = {
     def handle(
         sourceMinLogTolerance: Logger.LogLevel,
-        sourceColorMode: ColorMode,
         target: Logger.Target,
         logLevel: Option[Logger.LogLevel],
         event: Logger.Event,
@@ -29,18 +27,18 @@ final case class Logger(
     ): UIO[Any] =
       event match {
         case Logger.Event.Compound(events) =>
-          ZIO.foreachDiscard(events)(handle(sourceMinLogTolerance, sourceColorMode, target, logLevel, _, now))
+          ZIO.foreachDiscard(events)(handle(sourceMinLogTolerance, target, logLevel, _, now))
         case Logger.Event.Output(context, message) =>
-          val executedEvent = Logger.ExecutedEvent(logLevel, message, defaultContext ++ context, sourceColorMode, now)
+          val executedEvent = Logger.ExecutedEvent(logLevel, message, defaultContext ++ context, now)
           target.log(executedEvent)
         case e @ Logger.Event.AtLogLevel(logLevel, _) =>
           ZIO.when(logLevel.logPriority >= sourceMinLogTolerance.tolerancePriority) {
-            handle(sourceMinLogTolerance, sourceColorMode, target, logLevel.some, e.event, now)
+            handle(sourceMinLogTolerance, target, logLevel.some, e.event, now)
           }
       }
 
     def execOnSource(source: Logger.Source, now: OffsetDateTime): URIO[Scope, Any] =
-      source.target.flatMap(handle(source.minLogTolerance.getOrElse(defaultMinLogTolerance), source.colorMode.getOrElse(defaultColorMode), _, None, event, now))
+      source.target.flatMap(handle(source.minLogTolerance.getOrElse(defaultMinLogTolerance), _, None, event, now))
 
     (hasSourceWithLogToleranceOverride, event) match {
       case (false, Logger.Event.AtLogLevel(logLevel, _)) if logLevel.logPriority < defaultMinLogTolerance.tolerancePriority => ZIO.unit
@@ -60,16 +58,14 @@ final case class Logger(
 object Logger { self =>
 
   def default(
-      sources: List[Logger.Source] = Logger.Source.stdOut(None, None) :: Nil,
+      sources: List[Logger.Source] = Logger.Source.stdOut(None, ColorMode.Extended) :: Nil,
       defaultMinLogTolerance: Logger.LogLevel = Logger.LogLevel.Info,
       defaultContext: List[(String, Any)] = Nil,
-      defaultColorMode: ColorMode = ColorMode.Extended,
   ): Logger =
     Logger(
       sources = sources,
       defaultMinLogTolerance = defaultMinLogTolerance,
       defaultContext = defaultContext.map { (k, v) => (k, String.valueOf(v)) }.toMap,
-      defaultColorMode = defaultColorMode,
     )
 
   def withSources(source0: Logger.Source, sourceN: Logger.Source*): URLayer[Logger, Logger] =
@@ -78,6 +74,8 @@ object Logger { self =>
     }
 
   val none: Logger = Logger.default(sources = Nil, defaultMinLogTolerance = Logger.LogLevel.Never)
+
+  val configLayer: HRLayer[LoggerConfig, Logger] = ZLayer.service[LoggerConfig].project(_.logger)
 
   // =====| API |=====
 
@@ -179,16 +177,14 @@ object Logger { self =>
       logLevel: Option[LogLevel],
       message: String,
       context: Map[String, String],
-      colorMode: ColorMode,
       dateTime: OffsetDateTime,
   ) {
 
     // TODO (KR) : Option to show `dateTime` in log message
-    def formatted: String = {
+    def formatted(colorMode: ColorMode): String = {
       val msg: String =
         if (message.contains('\n')) message.replaceAll("\n", LogLevel.newLineIndent)
         else message
-      // TODO (KR) : Colorization config
       val contextMsg =
         if (context.isEmpty) ""
         else s"${context.map { (k, v) => s"${colorMode.fgColorize(Color.Named.Cyan, k)}=${colorMode.fgColorize(Color.Named.Magenta, v)}" }.mkString(" ; ")}${LogLevel.newLineIndent}"
@@ -227,29 +223,25 @@ object Logger { self =>
   final case class Source(
       target: URIO[Scope, Target],
       minLogTolerance: Option[LogLevel],
-      colorMode: Option[ColorMode],
   )
   object Source {
 
     def const(
         target: Target,
         minLogTolerance: Option[LogLevel],
-        colorMode: Option[ColorMode],
     ): Source =
       Source(
         ZIO.succeed(target),
         minLogTolerance,
-        colorMode,
       )
 
     def stdOut(
         minLogTolerance: Option[LogLevel],
-        colorMode: Option[ColorMode],
+        colorMode: ColorMode,
     ): Source =
       Source.const(
-        Target.fromPrintStream("StdOut", scala.Console.out, _.formatted),
+        Target.fromPrintStream("StdOut", scala.Console.out, _.formatted(colorMode)),
         minLogTolerance,
-        colorMode,
       )
 
     def stdOutJson(
@@ -258,18 +250,16 @@ object Logger { self =>
       Source.const(
         Target.fromPrintStream("StdOut", scala.Console.out, _.toEncoded.toJson),
         minLogTolerance,
-        ColorMode.Colorless.some,
       )
 
     def stringBuilder(
         sb: mutable.StringBuilder,
         minLogTolerance: Option[LogLevel],
-        colorMode: Option[ColorMode],
+        colorMode: ColorMode,
     ): Source =
       Source.const(
-        event => ZIO.succeed { sb.append(event.formatted); sb.append('\n') },
+        event => ZIO.succeed { sb.append(event.formatted(colorMode)); sb.append('\n') },
         minLogTolerance,
-        colorMode,
       )
 
   }
@@ -433,7 +423,7 @@ object Logger { self =>
       s"\n $emptyDisplayName : "
 
     val nameMap: Map[String, LogLevel] =
-      allLevels.map(l => (l.rawDisplayName.toUpperCase, l)).toMap
+      allLevels.flatMap(l => List(l.name.toUpperCase -> l, l.rawDisplayName.toUpperCase -> l)).toMap
 
     implicit val stringEncoder: StringEncoder[LogLevel] =
       _.rawDisplayName

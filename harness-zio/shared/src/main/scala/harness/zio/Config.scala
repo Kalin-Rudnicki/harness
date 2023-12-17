@@ -1,6 +1,8 @@
 package harness.zio
 
 import cats.data.NonEmptyList
+import cats.syntax.either.*
+import cats.syntax.traverse.*
 import harness.core.*
 import scala.annotation.tailrec
 import zio.*
@@ -58,6 +60,48 @@ object Config {
 
   implicit val jsonCodec: JsonCodec[Config] =
     JsonCodec(Json.encoder, Json.decoder).transform(Config(_), _.configJson)
+
+  final case class KeyedConfig(
+      key: String,
+      config: Json,
+  )
+  object KeyedConfig {
+
+    implicit val jsonCodec: JsonCodec[KeyedConfig] = DeriveJsonCodec.gen
+
+    def makeDecoder[A](decoders: KeyedConfigDecoder[A]*): JsonDecoder[A] =
+      KeyedConfig.jsonCodec.decoder.mapOrFail { keyedConfig =>
+        decoders.find(_.key == keyedConfig.key) match {
+          case Some(decoder) => decoder.decoder.decodeJson(keyedConfig.config.toString).leftMap { err => s".config($err)" }
+          case None          => s".key(Invalid key '${keyedConfig.key}', expected one of: ${decoders.map(_.key).mkString(", ")})".asLeft
+        }
+      }
+
+    def makeMapDecoder[A](decoders: KeyedConfigDecoder[A]*): JsonDecoder[List[A]] =
+      JsonDecoder.map[String, Json].mapOrFail {
+        _.toList.map(KeyedConfig.apply).traverse { keyedConfig =>
+          decoders.find(_.key == keyedConfig.key) match {
+            case Some(decoder) => decoder.decoder.decodeJson(keyedConfig.config.toString).leftMap { err => s".${keyedConfig.key}($err)" }
+            case None          => s"Invalid key '${keyedConfig.key}', expected one of: ${decoders.map(_.key).mkString(", ")}".asLeft
+          }
+        }
+      }
+
+  }
+
+  final case class KeyedConfigDecoder[A](
+      key: String,
+      decoder: JsonDecoder[A],
+  )
+  object KeyedConfigDecoder {
+
+    def make[Cfg, A](key: String)(map: Cfg => Either[String, A])(implicit rawDecoder: JsonDecoder[Cfg]): KeyedConfigDecoder[A] =
+      KeyedConfigDecoder(
+        key,
+        rawDecoder.mapOrFail(map),
+      )
+
+  }
 
   // =====| API |=====
 

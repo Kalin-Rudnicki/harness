@@ -100,8 +100,8 @@ object MigrationRunner {
         case _                                                                     => ().asRight
       }
       _ <- prevVersion match {
-        case Some(prevVersion) if inMemoryMigration.version <= prevVersion => s"Attempted to create migration ${inMemoryMigration.version} after $prevVersion".leftNel
-        case _                                                             => ().asRight
+        case Some(prevVersion) if inMemoryMigration.version < prevVersion => s"Attempted to create migration ${inMemoryMigration.version} after $prevVersion".leftNel
+        case _                                                            => ().asRight
       }
       migrationPlan <- MigrationPlan.make(dbStateBefore, dbMigration, inMemoryMigration)
       _ <- PartialState.validate(PartialState.fromDbState(migrationPlan.resultingDbState), PartialState.fromTables(migrationPlan.tables))

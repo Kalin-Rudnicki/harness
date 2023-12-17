@@ -1,4 +1,13 @@
 {
+  "logging": {
+    "context": {},
+    "sources": {
+      "std-out": {
+        "logTolerance": "INFO",
+        "colorMode": "EXTENDED"
+      }
+    }
+  },
   "db": {
     "target": {
       "database": "template",

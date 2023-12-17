@@ -8,15 +8,11 @@ import zio.*
 
 object TestMain extends ExecutableApp {
 
+  override val config: ExecutableApp.Config = ExecutableApp.Config.default.addLoggerDecoders(ArchiveLoggerTarget.keyedConfigDecoder)
+
   override val executable: Executable =
     Executable
       .withParser(Parser.unit)
-      .withLayer {
-        HttpClient.defaultLayer >>>
-          ArchiveSpec.layer("my-app", "http://localhost:3001") >>>
-          (ArchiveLoggerTarget.loggerLayerWithSource(Logger.LogLevel.Trace.some, None) ++
-            ArchiveTelemetry.layer)
-      }
       .withEffect {
         for {
           _ <- Logger.log.info("INFO", "round" -> 1)

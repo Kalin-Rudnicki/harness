@@ -24,7 +24,7 @@ trait PageApp extends ZIOApp {
         new Logger.Target {
           override def log(event: Logger.ExecutedEvent): UIO[Unit] = ZIO.hAttempt { console.log(event.formatted) }.orDie
         }
-      ZLayer.succeed(Logger.default(sources = Logger.Source.const(target, None, None) :: Nil, defaultMinLogTolerance = logTolerance))
+      ZLayer.succeed(Logger.default(sources = Logger.Source.const(target, None) :: Nil, defaultMinLogTolerance = logTolerance))
     }
 
     loggerLayer ++

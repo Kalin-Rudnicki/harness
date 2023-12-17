@@ -15,12 +15,12 @@ trait Executable { self =>
 
   def execute(args: IndexedArgs): SHTask[Any]
 
-  final def apply(args: List[String]): UIO[ExitCode] = {
+  final def apply(config: ExecutableApp.Config, args: List[String]): UIO[ExitCode] = {
     val result: Executable.Result[(HTaskLayer[HarnessEnv], SHTask[Any])] =
       for {
         args <- Executable.parseIndexedArgs(args)
         (harnessArgs, executableArgs) = Executable.parseSplitArgs(args)
-        harnessEnvLayer <- Executable.parseHarnessEnvLayer(harnessArgs)
+        harnessEnvLayer <- Executable.parseHarnessEnvLayer(config, harnessArgs)
         executableEffect = self.execute(executableArgs)
       } yield (harnessEnvLayer, executableEffect)
 
@@ -46,8 +46,8 @@ trait Executable { self =>
       .provideLayer(ZLayer.succeed(Logger.default()))
   }
 
-  final def apply(args: String*): UIO[ExitCode] =
-    self(args.toList)
+  final def apply(config: ExecutableApp.Config)(args: String*): UIO[ExitCode] =
+    self(config, args.toList)
 
 }
 object Executable extends ExecutableBuilders.Builder1 {
@@ -92,10 +92,7 @@ object Executable extends ExecutableBuilders.Builder1 {
   }
 
   private final case class Config(
-      minLogTolerance: Logger.LogLevel,
-      colorMode: ColorMode,
       runMode: RunMode,
-      logJson: Boolean,
       configStrings: List[Config.ConfigString],
   )
   private object Config {
@@ -125,7 +122,7 @@ object Executable extends ExecutableBuilders.Builder1 {
 
       private val jarResRegex: Regex = "^jar:(.*)$".r
       private val fileResRegex: Regex = "^file:(.*)$".r
-      private val jsonPathRegex: Regex = "^json:([A-Za-z_0-9]+(?:\\.[A-Za-z_0-9]+)*):(.*)$".r
+      private val jsonPathRegex: Regex = "^json:([A-Za-z_\\-0-9]+(?:\\.[A-Za-z_\\-0-9]+)*):(.*)$".r
       private val jsonRegex: Regex = "^json:(.*)$".r
       implicit val stringDecoder: StringDecoder[ConfigString] =
         StringDecoder.string.flatMap {
@@ -140,20 +137,6 @@ object Executable extends ExecutableBuilders.Builder1 {
 
     val parser: Parser[Config] = {
       Parser
-        .value[Logger.LogLevel](
-          LongName.unsafe("min-log-tolerance"),
-          Defaultable.Some(ShortName.unsafe('t')),
-          helpHint = List("Disregard log messages below this level"),
-        )
-        .default(Logger.LogLevel.Info, Defaultable.Auto) &&
-      Parser
-        .value[ColorMode](
-          LongName.unsafe("color-mode"),
-          Defaultable.Some(ShortName.unsafe('c')),
-          helpHint = List("Default logger colorization"),
-        )
-        .default(ColorMode.Extended, Defaultable.Auto) &&
-      Parser
         .flag(
           LongName.unsafe("dev"),
           helpHint = List("Set RunMode to 'Dev'"),
@@ -162,12 +145,6 @@ object Executable extends ExecutableBuilders.Builder1 {
           case true  => RunMode.Dev
           case false => RunMode.Prod
         } &&
-      Parser
-        .flag(
-          LongName.unsafe("log-json"),
-          shortParam = Defaultable.None,
-          helpHint = List("Log messages in JSON format"),
-        ) &&
       Parser.values.list[Config.ConfigString](
         LongName.unsafe("config-path"),
         Defaultable.Some(ShortName.unsafe('C')),
@@ -209,22 +186,21 @@ object Executable extends ExecutableBuilders.Builder1 {
   private def loadConfigs(configStrings: List[Config.ConfigString]): HRLayer[FileSystem, harness.zio.Config] =
     ZLayer.fromZIO { ZIO.foreach(configStrings)(loadConfig).map(harness.zio.Config.flatten) }
 
-  private def parseHarnessEnvLayer(args: IndexedArgs): Result[HTaskLayer[HarnessEnv]] =
+  private def parseHarnessEnvLayer(
+      executableAppConfig: ExecutableApp.Config,
+      args: IndexedArgs,
+  ): Result[HTaskLayer[HarnessEnv]] =
     finalizedResultToExecutableResult(Config.parser.finalized.parse(args)).map { config =>
-      val logger: Logger =
-        Logger.default(
-          sources = (if (config.logJson) Logger.Source.stdOutJson(None) else Logger.Source.stdOut(None, None)) :: Nil,
-          defaultMinLogTolerance = config.minLogTolerance,
-          defaultColorMode = config.colorMode,
-        )
+      implicit val loggerConfigJsonDecoder: JsonDecoder[LoggerConfig] = LoggerConfig.jsonDecoder(executableAppConfig.loggerDecoders*)
 
       ZLayer.make[HarnessEnv](
-        ZLayer.succeed(logger),
-        ZLayer.succeed(Telemetry.log),
         ZLayer.succeed(config.runMode),
         ZLayer.succeed(HError.UserMessage.IfHidden.default),
         FileSystem.liveLayer,
         loadConfigs(config.configStrings),
+        harness.zio.Config.readLayer[LoggerConfig]("logging"),
+        Logger.configLayer,
+        ZLayer.succeed(Telemetry.log), // TODO (KR) : make this configurable as well <-
       )
     }
 

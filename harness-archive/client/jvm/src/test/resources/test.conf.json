@@ -1,0 +1,17 @@
+{
+
+  "logging": {
+    "context": {},
+    "sources": {
+      "std-out": {
+        "logTolerance": "INFO",
+        "colorMode": "EXTENDED"
+      },
+      "harness-archive": {
+        "appName": "testing",
+        "baseUrl":"http://localhost:3000",
+        "logTolerance": "DEBUG"
+      }
+    }
+  }
+}
