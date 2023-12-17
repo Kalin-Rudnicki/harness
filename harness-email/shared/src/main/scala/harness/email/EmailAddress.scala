@@ -29,4 +29,5 @@ object EmailAddress {
 
 extension (self: EmailAddress) {
   def unwrap: String = self
+  def toLowerEmail: EmailAddress = EmailAddress.parseUnsafe(self.unwrap.toLowerCase)
 }
