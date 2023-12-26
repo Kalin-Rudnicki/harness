@@ -59,8 +59,6 @@ object Partial {
           Partial.Unspecified
         override def unsafeDecode(trace: List[JsonError], in: RetractReader): Partial[T] =
           Partial.Specified(tDecoder.unsafeDecode(trace, in))
-        override def fromJsonAST(json: Json): Either[String, Partial[T]] =
-          tDecoder.fromJsonAST(json).map(Partial.Specified.apply)
       }
 
     implicit def jsonCodec[T: JsonEncoder: JsonDecoder]: JsonCodec[Partial[T]] = JsonCodec(jsonEncoder[T], jsonDecoder[T])
@@ -80,7 +78,6 @@ object Partial {
     new JsonDecoder[Partial[T]] {
       override def unsafeDecode(trace: List[JsonError], in: RetractReader): Partial[T] = parent.unsafeDecode(trace, in)
       override def unsafeDecodeMissing(trace: List[JsonError]): Partial[T] = Partial.Unspecified
-      override def fromJsonAST(json: Json): Either[String, Partial[T]] = parent.fromJsonAST(json)
     }
   }
 

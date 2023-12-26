@@ -10,7 +10,7 @@ object DockerNeedsSudo {
 
   def layer(value: Boolean): ULayer[DockerNeedsSudo] = ZLayer.succeed(DockerNeedsSudo(value))
 
-  def configLayer(jsonPath: String*): HRLayer[Config, DockerNeedsSudo] =
-    Config.readLayer[Boolean](jsonPath*).project(DockerNeedsSudo(_))
+  def configLayer(jsonPath: String*): HRLayer[HConfig, DockerNeedsSudo] =
+    HConfig.readLayer[Boolean](jsonPath*).project(DockerNeedsSudo(_))
 
 }

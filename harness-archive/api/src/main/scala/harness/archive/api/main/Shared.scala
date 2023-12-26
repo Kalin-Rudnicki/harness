@@ -6,7 +6,7 @@ import zio.*
 
 object Shared {
 
-  val poolLayer: HRLayer[Config & Logger & Scope, JDBCConnectionPool] =
+  val poolLayer: HRLayer[HConfig & Logger & Scope, JDBCConnectionPool] =
     DbConfig.configLayer >>> JDBCConnectionPool.configLayer
 
 }

@@ -310,7 +310,7 @@ object Tmp extends ExecutableApp {
     Executable
       .withParser(Parser.unit)
       .withLayer {
-        Config.layer.append.jsonString("""{
+        HConfig.layer.append.jsonString("""{
             |  "db": {
             |    "target": {
             |      "database": "tmp"

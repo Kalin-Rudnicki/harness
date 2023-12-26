@@ -13,16 +13,16 @@ final case class TelemetryConfig(
 }
 object TelemetryConfig {
 
-  def jsonDecoder(configDecoders: Config.KeyedConfigDecoder[Telemetry]*): JsonDecoder[TelemetryConfig] = {
+  def jsonDecoder(configDecoders: HConfig.KeyedConfigDecoder[Telemetry]*): JsonDecoder[TelemetryConfig] = {
     implicit val sourceDecoder: JsonDecoder[List[Telemetry]] =
-      Config.KeyedConfig
+      HConfig.KeyedConfig
         .makeMapDecoder[Telemetry](configDecoders*)
     // .orElse(JsonDecoder.list(Config.KeyedConfig.makeDecoder(configDecoders*)))
 
     DeriveJsonDecoder.gen
   }
 
-  val loggedDecoder: Config.KeyedConfigDecoder[Telemetry] =
-    Config.KeyedConfigDecoder.make[StdConfigs.Tolerance, Telemetry]("logged") { config => Telemetry.log.withMinLogTolerance(config.logTolerance).asRight }
+  val loggedDecoder: HConfig.KeyedConfigDecoder[Telemetry] =
+    HConfig.KeyedConfigDecoder.make[StdConfigs.Tolerance, Telemetry]("logged") { config => Telemetry.log.withMinLogTolerance(config.logTolerance).asRight }
 
 }

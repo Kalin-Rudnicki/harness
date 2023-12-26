@@ -21,9 +21,9 @@ final case class LoggerConfig(
 }
 object LoggerConfig {
 
-  def jsonDecoder(configDecoders: Config.KeyedConfigDecoder[Logger.Source]*): JsonDecoder[LoggerConfig] = {
+  def jsonDecoder(configDecoders: HConfig.KeyedConfigDecoder[Logger.Source]*): JsonDecoder[LoggerConfig] = {
     implicit val sourceDecoder: JsonDecoder[List[Logger.Source]] =
-      Config.KeyedConfig
+      HConfig.KeyedConfig
         .makeMapDecoder[Logger.Source](configDecoders*)
     // .orElse(JsonDecoder.list(Config.KeyedConfig.makeDecoder(configDecoders*)))
 
@@ -33,10 +33,10 @@ object LoggerConfig {
   // =====|  |=====
 
 
-  val stdOutDecoder: Config.KeyedConfigDecoder[Logger.Source] =
-    Config.KeyedConfigDecoder.make[StdConfigs.ToleranceAndColorMode, Logger.Source]("std-out") { config => Logger.Source.stdOut(config.logTolerance.some, config.colorMode).asRight }
+  val stdOutDecoder: HConfig.KeyedConfigDecoder[Logger.Source] =
+    HConfig.KeyedConfigDecoder.make[StdConfigs.ToleranceAndColorMode, Logger.Source]("std-out") { config => Logger.Source.stdOut(config.logTolerance.some, config.colorMode).asRight }
 
-  val stdOutJsonDecoder: Config.KeyedConfigDecoder[Logger.Source] =
-    Config.KeyedConfigDecoder.make[StdConfigs.Tolerance, Logger.Source]("std-out-json") { config => Logger.Source.stdOutJson(config.logTolerance.some).asRight }
+  val stdOutJsonDecoder: HConfig.KeyedConfigDecoder[Logger.Source] =
+    HConfig.KeyedConfigDecoder.make[StdConfigs.Tolerance, Logger.Source]("std-out-json") { config => Logger.Source.stdOutJson(config.logTolerance.some).asRight }
 
 }

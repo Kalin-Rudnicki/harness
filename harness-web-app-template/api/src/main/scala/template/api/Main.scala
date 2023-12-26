@@ -24,11 +24,11 @@ object Main extends ExecutableApp {
   // This layer will be evaluated once when the server starts
   val serverLayer: SHRLayer[Scope, ServerEnv] =
     ZLayer.makeSome[HarnessEnv & Scope, ServerEnv](
-      Config.readLayer[DbConfig]("db"),
+      HConfig.readLayer[DbConfig]("db"),
       JDBCConnectionPool.configLayer,
-      Config.readLayer[EmailConfig]("email", "client"),
+      HConfig.readLayer[EmailConfig]("email", "client"),
       EmailClient.liveLayer,
-      Config.readLayer[EmailService.Config]("email", "service"),
+      HConfig.readLayer[EmailService.Config]("email", "service"),
       EmailService.liveLayer,
     )
 
@@ -58,7 +58,7 @@ object Main extends ExecutableApp {
       "server" ->
         Executable
           .withLayer[ServerEnv & ServerConfig] {
-            serverLayer ++ Config.readLayer[ServerConfig]("http")
+            serverLayer ++ HConfig.readLayer[ServerConfig]("http")
           }
           .withEffect {
             MigrationRunner.runMigrationsFromPool(migrations) *>
@@ -68,7 +68,7 @@ object Main extends ExecutableApp {
         (DockerPostgres.containerManager).toExecutable {
           DbConfig.configLayer ++
             DockerNeedsSudo.configLayer("docker", "needsSudo") ++
-            Config.readLayer[DockerPostgres.Config]("docker", "postgres")
+            HConfig.readLayer[DockerPostgres.Config]("docker", "postgres")
         },
     )
 

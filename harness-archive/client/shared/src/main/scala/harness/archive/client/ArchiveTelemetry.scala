@@ -51,8 +51,8 @@ final class ArchiveTelemetry(
 }
 object ArchiveTelemetry {
 
-  val keyedConfigDecoder: Config.KeyedConfigDecoder[Telemetry] =
-    Config.KeyedConfigDecoder.make[ArchiveConfig, Telemetry]("harness-archive") { config =>
+  val keyedConfigDecoder: HConfig.KeyedConfigDecoder[Telemetry] =
+    HConfig.KeyedConfigDecoder.make[ArchiveConfig, Telemetry]("harness-archive") { config =>
       new ArchiveTelemetry(config.appName, config.baseUrl, HttpClient.defaultClient).withMinLogTolerance(config.logTolerance).asRight
     }
 

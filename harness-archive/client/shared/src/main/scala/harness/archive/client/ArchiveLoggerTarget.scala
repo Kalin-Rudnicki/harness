@@ -49,8 +49,8 @@ final class ArchiveLoggerTarget(
 }
 object ArchiveLoggerTarget {
 
-  val keyedConfigDecoder: Config.KeyedConfigDecoder[Logger.Source] =
-    Config.KeyedConfigDecoder.make[ArchiveConfig, Logger.Source]("harness-archive") { config =>
+  val keyedConfigDecoder: HConfig.KeyedConfigDecoder[Logger.Source] =
+    HConfig.KeyedConfigDecoder.make[ArchiveConfig, Logger.Source]("harness-archive") { config =>
       Logger.Source.const(new ArchiveLoggerTarget(config.appName, config.baseUrl, HttpClient.defaultClient), config.logTolerance.some).asRight
     }
 

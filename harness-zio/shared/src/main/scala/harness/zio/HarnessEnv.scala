@@ -3,7 +3,7 @@ package harness.zio
 import harness.core.*
 import zio.*
 
-type HarnessEnv = Logger & Telemetry & RunMode & HError.UserMessage.IfHidden & FileSystem & Config
+type HarnessEnv = Logger & Telemetry & RunMode & HError.UserMessage.IfHidden & FileSystem & HConfig
 object HarnessEnv {
 
   def defaultLayer: HTaskLayer[HarnessEnv] =
@@ -12,7 +12,7 @@ object HarnessEnv {
       ZLayer.succeed(RunMode.Prod) ++
       ZLayer.succeed(HError.UserMessage.IfHidden.default) ++
       FileSystem.liveLayer ++
-      Config.layer.empty
+      HConfig.layer.empty
 
   def defaultLayer(logLevel: Logger.LogLevel): HTaskLayer[HarnessEnv] =
     ZLayer.succeed(Logger.default(defaultMinLogTolerance = logLevel)) ++
@@ -20,6 +20,6 @@ object HarnessEnv {
       ZLayer.succeed(RunMode.Prod) ++
       ZLayer.succeed(HError.UserMessage.IfHidden.default) ++
       FileSystem.liveLayer ++
-      Config.layer.empty
+      HConfig.layer.empty
 
 }

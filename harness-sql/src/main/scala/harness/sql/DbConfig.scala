@@ -69,7 +69,7 @@ object DbConfig {
     implicit val jsonCodec: JsonCodec[Raw] = DeriveJsonCodec.gen
   }
 
-  def configLayer: HRLayer[Config, DbConfig] =
-    Config.readLayer[DbConfig]("db")
+  def configLayer: HRLayer[HConfig, DbConfig] =
+    HConfig.readLayer[DbConfig]("db")
 
 }

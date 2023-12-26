@@ -33,7 +33,7 @@ trait PageApp extends ZIOApp {
       ZLayer.succeed(HError.UserMessage.IfHidden.default) ++
       FileSystem.liveLayer ++
       HttpClient.defaultLayer ++
-      Config.layer.empty
+      HConfig.layer.empty
   }
 
   // TODO (KR) : Come up with a better system for this

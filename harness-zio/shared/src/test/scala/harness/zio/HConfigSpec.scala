@@ -9,7 +9,7 @@ import zio.json.ast.Json
 import zio.test.*
 import zio.test.Assertion.*
 
-object ConfigSpec extends HarnessSpec[Config] {
+object HConfigSpec extends HarnessSpec[HConfig] {
 
   private final case class Cfg(
       a: Int,
@@ -23,8 +23,8 @@ object ConfigSpec extends HarnessSpec[Config] {
   private val cfg1: Cfg = Cfg(1, "a", None)
   private val cfg2: Cfg = Cfg(2, "b", 2.some)
 
-  override val rLayer: HTaskLayer[Config] =
-    Config.layer.json(
+  override val rLayer: HTaskLayer[HConfig] =
+    HConfig.layer.json(
       Json.Obj(
         "key-1" -> cfg1.toJsonAST.toOption.get,
         "key-2" -> Json.Obj(
@@ -32,11 +32,11 @@ object ConfigSpec extends HarnessSpec[Config] {
         ),
       ),
     ) >>>
-      Config.layer.append.jarResource("config-spec.json")
+      HConfig.layer.append.jarResource("config-spec.json")
 
   private def makeTest(i: Int)(path: String*)(assertion: Assertion[Either[HError, Cfg]]): TestSpec =
     test(s"test-$i") {
-      assertZIO(Config.read[Cfg](path*).either)(assertion)
+      assertZIO(HConfig.read[Cfg](path*).either)(assertion)
     }
 
   override def spec: TestSpec =

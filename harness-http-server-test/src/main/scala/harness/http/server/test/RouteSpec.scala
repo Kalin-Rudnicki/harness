@@ -89,10 +89,12 @@ abstract class RouteSpec[
 
   // =====| Implement |=====
 
-  override def bootstrap: ZLayer[Scope, Any, Environment] =
-    harnessLayer ++
-      ZLayer.fromZIO(evalRoute) ++
-      testEnvironment
+  override def bootstrap: HTaskLayer[Environment] =
+    Scope.default >>> (
+      harnessLayer ++
+        ZLayer.fromZIO(evalRoute) ++
+        testEnvironment
+    )
 
   override final def spec: Spec[Environment & Scope, Any] =
     (routeSpec @@ runInTransaction)

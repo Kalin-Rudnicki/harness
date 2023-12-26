@@ -182,8 +182,8 @@ lazy val `harness-zio` =
       miscSettings,
       testSettings,
       libraryDependencies ++= Seq(
-        "dev.zio" %%% "zio" % "2.0.0",
-        "dev.zio" %%% "zio-json" % "0.3.0",
+        "dev.zio" %%% "zio" % "2.0.20",
+        "dev.zio" %%% "zio-json" % "0.6.2",
       ),
     )
     .jvmSettings(

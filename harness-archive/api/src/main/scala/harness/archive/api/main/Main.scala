@@ -25,7 +25,7 @@ object Main extends ExecutableApp {
         (DockerPostgres.containerManager).toExecutable {
           DbConfig.configLayer ++
             DockerNeedsSudo.configLayer("docker", "needsSudo") ++
-            Config.readLayer[DockerPostgres.Config]("docker", "postgres")
+            HConfig.readLayer[DockerPostgres.Config]("docker", "postgres")
         },
       "stale-data-cleanser" -> StaleDataCleanserMain.executable,
     )

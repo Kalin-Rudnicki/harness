@@ -19,14 +19,14 @@ trait ExecutableApp extends ZIOAppDefault {
 object ExecutableApp {
 
   final case class Config(
-      loggerDecoders: List[harness.zio.Config.KeyedConfigDecoder[Logger.Source]],
-      telemetryDecoders: List[harness.zio.Config.KeyedConfigDecoder[Telemetry]],
+      loggerDecoders: List[HConfig.KeyedConfigDecoder[Logger.Source]],
+      telemetryDecoders: List[HConfig.KeyedConfigDecoder[Telemetry]],
   ) { self =>
 
-    def addLoggerDecoders(loggerDecoders: harness.zio.Config.KeyedConfigDecoder[Logger.Source]*): Config =
+    def addLoggerDecoders(loggerDecoders: HConfig.KeyedConfigDecoder[Logger.Source]*): Config =
       self.copy(loggerDecoders = self.loggerDecoders ++ loggerDecoders)
 
-    def addTelemetryDecoders(telemetryDecoders: harness.zio.Config.KeyedConfigDecoder[Telemetry]*): Config =
+    def addTelemetryDecoders(telemetryDecoders: HConfig.KeyedConfigDecoder[Telemetry]*): Config =
       self.copy(telemetryDecoders = self.telemetryDecoders ++ telemetryDecoders)
 
   }

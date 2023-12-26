@@ -4,7 +4,7 @@ import cats.data.{EitherNel, NonEmptyList}
 import cats.syntax.either.*
 import harness.cli.*
 import harness.core.*
-import harness.zio.Config as Cfg
+import harness.zio.HConfig
 import scala.annotation.tailrec
 import scala.util.matching.Regex
 import zio.*
@@ -184,15 +184,15 @@ object Executable extends ExecutableBuilders.Builder1 {
       case FinalizedParser.Result.InvalidArg(msg)           => Result.Fail(HError.UserError(msg))
     }
 
-  private def loadConfig(cfg: Config.ConfigString): HRIO[FileSystem, Cfg] =
+  private def loadConfig(cfg: Config.ConfigString): HRIO[FileSystem, HConfig] =
     cfg match {
-      case Config.ConfigString.FilePath(path)   => Cfg.fromPathString(path)
-      case Config.ConfigString.JarResPath(path) => Cfg.fromJarResource(path)
-      case Config.ConfigString.JsonConfig(json) => ZIO.succeed(Cfg.fromJson(json))
+      case Config.ConfigString.FilePath(path)   => HConfig.fromPathString(path)
+      case Config.ConfigString.JarResPath(path) => HConfig.fromJarResource(path)
+      case Config.ConfigString.JsonConfig(json) => ZIO.succeed(HConfig.fromJson(json))
     }
 
-  private def loadConfigs(configStrings: List[Config.ConfigString]): HRLayer[FileSystem, harness.zio.Config] =
-    ZLayer.fromZIO { ZIO.foreach(configStrings)(loadConfig).map(harness.zio.Config.flatten) }
+  private def loadConfigs(configStrings: List[Config.ConfigString]): HRLayer[FileSystem, HConfig] =
+    ZLayer.fromZIO { ZIO.foreach(configStrings)(loadConfig).map(HConfig.flatten) }
 
   private def parseHarnessEnvLayer(
       executableAppConfig: ExecutableApp.Config,
@@ -202,7 +202,7 @@ object Executable extends ExecutableBuilders.Builder1 {
       implicit val loggerConfigJsonDecoder: JsonDecoder[LoggerConfig] = LoggerConfig.jsonDecoder(executableAppConfig.loggerDecoders*)
       implicit val telemetryConfigJsonDecoder: JsonDecoder[TelemetryConfig] = TelemetryConfig.jsonDecoder(executableAppConfig.telemetryDecoders*)
 
-      val loggerAndTelemetryLayer: HRLayer[harness.zio.Config, Logger & Telemetry] =
+      val loggerAndTelemetryLayer: HRLayer[HConfig, Logger & Telemetry] =
         config.stdOutLogTolerance match {
           case Some(stdOutLogTolerance) =>
             ZLayer.make[Logger & Telemetry](
@@ -210,10 +210,10 @@ object Executable extends ExecutableBuilders.Builder1 {
               ZLayer.succeed(Telemetry.log),
             )
           case None =>
-            ZLayer.makeSome[harness.zio.Config, Logger & Telemetry](
-              harness.zio.Config.readLayer[LoggerConfig]("logging"),
+            ZLayer.makeSome[HConfig, Logger & Telemetry](
+              HConfig.readLayer[LoggerConfig]("logging"),
               Logger.configLayer,
-              harness.zio.Config.readLayer[TelemetryConfig]("telemetry"),
+              HConfig.readLayer[TelemetryConfig]("telemetry"),
               Telemetry.configLayer,
             )
         }
