@@ -1,5 +1,6 @@
 package harness.zio
 
+import java.time.Instant
 import zio.*
 
 final case class AppliedCache[R, E, K, V](_cache: Cache[K, V], _get: K => ZIO[R, E, V]) {
@@ -23,5 +24,11 @@ final case class AppliedCache[R, E, K, V](_cache: Cache[K, V], _get: K => ZIO[R,
 
   inline def refreshAll: ZIO[R, E, Unit] = _cache.refreshAll(_get)
   inline def refreshAllPar: ZIO[R, E, Unit] = _cache.refreshAllPar(_get)
+
+}
+object AppliedCache {
+
+  def make[R, E, K: Tag, V: Tag](name: String, expireDuration: Option[Duration], get: K => ZIO[R, E, V]): UIO[AppliedCache[R, E, K, V]] =
+    Cache.make[K, V](name, expireDuration).map(AppliedCache(_, get))
 
 }
