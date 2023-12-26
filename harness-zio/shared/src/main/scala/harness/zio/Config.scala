@@ -41,6 +41,34 @@ final case class Config(configJson: Json) { self =>
     loop(jsonPath.toList, configJson, Nil)
   }
 
+  def readOpt[A](jsonPath: String*)(implicit decoder: JsonDecoder[A]): HTask[Option[A]] = {
+    @tailrec
+    def loop(jsonPath: List[String], json: Json, rSeenJsonPath: List[String]): HTask[Option[A]] = {
+      inline def fail(msg: String): HTask[Nothing] =
+        ZIO.fail(HError.InternalDefect(s"Unable to decode at path ${rSeenJsonPath.reverse.mkString("[", ".", "]")}: $msg\njson:\n${json.toJsonPretty}"))
+
+      jsonPath match {
+        case head :: tail =>
+          json match {
+            case Json.Obj(fields) =>
+              fields.find(_._1 == head) match {
+                case Some((_, json)) => loop(tail, json, head :: rSeenJsonPath)
+                case None            => ZIO.none
+              }
+            case _ => ZIO.none
+          }
+        case Nil =>
+          // NOTE : `fromJsonAST` is not used, because ZIO json doesn't properly decode missing values to None with that function
+          decoder.decodeJson(json.toString) match {
+            case Right(value) => ZIO.some(value)
+            case Left(error)  => fail(error)
+          }
+      }
+    }
+
+    loop(jsonPath.toList, configJson, Nil)
+  }
+
 }
 object Config {
 
@@ -107,6 +135,9 @@ object Config {
 
   def read[A](jsonPath: String*)(implicit decoder: JsonDecoder[A]): HRIO[Config, A] =
     ZIO.serviceWithZIO[Config](_.read[A](jsonPath*)(decoder))
+
+  def readOpt[A](jsonPath: String*)(implicit decoder: JsonDecoder[A]): HRIO[Config, Option[A]] =
+    ZIO.serviceWithZIO[Config](_.readOpt[A](jsonPath*)(decoder))
 
   def readLayer[A: Tag](jsonPath: String*)(implicit decoder: JsonDecoder[A]): HRLayer[Config, A] =
     ZLayer.fromZIO { Config.read[A](jsonPath*)(decoder) }

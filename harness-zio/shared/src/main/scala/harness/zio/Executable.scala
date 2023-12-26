@@ -94,6 +94,7 @@ object Executable extends ExecutableBuilders.Builder1 {
   private final case class Config(
       runMode: RunMode,
       configStrings: List[Config.ConfigString],
+      stdOutLogTolerance: Option[Logger.LogLevel],
   )
   private object Config {
 
@@ -154,7 +155,14 @@ object Executable extends ExecutableBuilders.Builder1 {
           """json:{ "js": { "path": "some-json" } }""",
           """json:js.path:"some-json"""",
         ),
-      )
+      ) &&
+      Parser
+        .value[Logger.LogLevel](
+          LongName.unsafe("std-out-log-tolerance"),
+          Defaultable.None,
+          helpHint = List("Don't look for logger/telemetry in config, and instead just use std-out"),
+        )
+        .optional
     }.map(Config.apply)
 
   }
@@ -194,15 +202,28 @@ object Executable extends ExecutableBuilders.Builder1 {
       implicit val loggerConfigJsonDecoder: JsonDecoder[LoggerConfig] = LoggerConfig.jsonDecoder(executableAppConfig.loggerDecoders*)
       implicit val telemetryConfigJsonDecoder: JsonDecoder[TelemetryConfig] = TelemetryConfig.jsonDecoder(executableAppConfig.telemetryDecoders*)
 
+      val loggerAndTelemetryLayer: HRLayer[harness.zio.Config, Logger & Telemetry] =
+        config.stdOutLogTolerance match {
+          case Some(stdOutLogTolerance) =>
+            ZLayer.make[Logger & Telemetry](
+              ZLayer.succeed(Logger.default(defaultMinLogTolerance = stdOutLogTolerance)),
+              ZLayer.succeed(Telemetry.log),
+            )
+          case None =>
+            ZLayer.makeSome[harness.zio.Config, Logger & Telemetry](
+              harness.zio.Config.readLayer[LoggerConfig]("logging"),
+              Logger.configLayer,
+              harness.zio.Config.readLayer[TelemetryConfig]("telemetry"),
+              Telemetry.configLayer,
+            )
+        }
+
       ZLayer.make[HarnessEnv](
         ZLayer.succeed(config.runMode),
         ZLayer.succeed(HError.UserMessage.IfHidden.default),
         FileSystem.liveLayer,
         loadConfigs(config.configStrings),
-        harness.zio.Config.readLayer[LoggerConfig]("logging"),
-        Logger.configLayer,
-        harness.zio.Config.readLayer[TelemetryConfig]("telemetry"),
-        Telemetry.configLayer,
+        loggerAndTelemetryLayer,
       )
     }
 
