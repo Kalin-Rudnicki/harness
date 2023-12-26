@@ -36,7 +36,7 @@ trait RouteMatcher[+O] private[server] { self =>
             val code = errorHandler.httpCode(hError.error)
             val mappedHError = hError.mapSameCause(errorHandler.showError)
             Logger.log
-              .info(s"Received expected error:\n${mappedHError.fullInternalMessage}")
+              .info(s"Resulted in expected error:\n${mappedHError.fullInternalMessage}")
               .as(errorHandler.modifyHttpResponse(HttpResponse(mappedHError.error, code), hError.error))
           }
         case RouteMatcher.Result.Success(_, _)        => ZIO.succeed(HttpResponse.NotFound)

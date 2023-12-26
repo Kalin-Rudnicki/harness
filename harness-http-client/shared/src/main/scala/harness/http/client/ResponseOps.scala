@@ -2,57 +2,84 @@ package harness.http.client
 
 import cats.data.NonEmptyList
 import harness.core.*
+import harness.web.HttpCode
 import harness.zio.*
 import harness.zio.ZIOJsonInstances.catsNelJsonCodec
 import zio.*
 import zio.json.*
 
-trait ResponseOps[GetResponseR, GetBodyR, ResponseT] { self =>
+object ResponseOps {
 
-  protected def getResponse: HRIO[GetResponseR & Scope, HttpResponse[ResponseT]]
+  private def decodeHError(response: HttpResponse[String]): HError = {
+    val internalMessage = s"Error from HTTP response (${response.responseCode})"
+    response.body.fromJson[NonEmptyList[String]] match {
+      case Right(errors) => HError(errors.map(HError.UserError(_, internalMessage)))
+      case Left(_)       => HError.UserError(response.body, internalMessage)
+    }
+  }
 
-  // =====| Body |=====
+  trait Builder1[GetResponseR, ResponseT] extends Builder2[GetResponseR, ResponseT, HError] { self =>
 
-  def bodyAsString: HRIO[GetResponseR & GetBodyR & Logger, String] = ZIO.scoped { self.getResponse.flatMap(_.bodyAsString) }
+    override protected def decodeError(response: HttpResponse[String]): HError = decodeHError(response)
 
-  final def rawDecodedBody[T](implicit decoder: StringDecoder[T]): HRIO[GetResponseR & GetBodyR & Logger, T] =
-    self.bodyAsString.flatMap { string => ZIO.eitherNelToUserErrors(decoder.decodeAccumulating(string)) }
-  final def rawJsonBody[T: JsonDecoder]: HRIO[GetResponseR & GetBodyR & Logger, T] =
-    self.rawDecodedBody[T](StringDecoder.fromJsonDecoder[T])
+    private def withDecodeError[ErrorT >: HError <: AnyHError](f: HttpResponse[String] => ErrorT): Builder2[GetResponseR, ResponseT, ErrorT] =
+      new Builder2[GetResponseR, ResponseT, ErrorT] {
+        override protected def getResponse: HRIO[GetResponseR & Scope, HttpResponse[ResponseT]] = self.getResponse
+        override protected def decodeError(response: HttpResponse[String]): ErrorT = f(response)
+      }
 
-  final def decodedBody[T](implicit decoder: StringDecoder[T]): HRIO[GetResponseR & GetBodyR & Logger, T] =
-    ZIO.scoped {
-      self.getResponse.flatMap { response =>
-        response.bodyAsString.flatMap { string =>
-          if (response.responseCode.is2xx) ZIO.eitherNelToUserErrors(decoder.decodeAccumulating(string))
-          else if (response.responseCode.is4xxOr5xx)
-            string.fromJson[NonEmptyList[String]] match {
-              case Right(errors) => ZIO.fail(HError(errors.map(HError.UserError(_, "Error from HTTP response"))))
-              case Left(_)       => ZIO.fail(HError.UserError(string, "Error from HTTP response"))
-            }
-          else
-            Logger.log.warning("Received HTTP response that is not 2xx, 4xx, or 5xx.") *>
-              (decoder.decodeAccumulating(string) match {
-                case Right(value) => ZIO.succeed(value)
-                case Left(errors) =>
-                  Logger.log.warning(s"Was unable to decode: ${errors.toList.mkString("[", ", ", "]")}, failing...") *>
-                    ZIO.fail(HError.UserError(string, "Error from HTTP response (response code was not 2xx, 4xx, or 5xx)"))
-              })
+    final def hErrorResponse: Builder2[GetResponseR, ResponseT, HError] =
+      self.withDecodeError(decodeHError)
+    final def hErrorOrResponse[E: StringDecoder]: Builder2[GetResponseR, ResponseT, HErrorOr[E]] =
+      self.withDecodeError { response =>
+        StringDecoder[E].decodeAccumulating(response.body) match {
+          case Right(error) => HError.Or(error, HError.UserError(s"Error from HTTP response (${response.responseCode})"))
+          case Left(_)      => decodeHError(response)
         }
       }
-    }
-  final def jsonBody[T: JsonDecoder]: HRIO[GetResponseR & GetBodyR & Logger, T] =
-    self.decodedBody[T](StringDecoder.fromJsonDecoder[T])
+    final def hErrorOrJsonResponse[E: JsonDecoder]: Builder2[GetResponseR, ResponseT, HErrorOr[E]] =
+      self.hErrorOrResponse[E](using StringDecoder.fromJsonDecoder[E])
 
-  // =====| Other |=====
+  }
 
-  final def unit2xx: HRIO[GetResponseR & Logger, Unit] =
-    ZIO.scoped {
-      self.getResponse.flatMap { response =>
-        if (response.responseCode.is2xx) ZIO.unit
-        else
-          response.bodyAsString.flatMap { body => ZIO.fail(HError.UserError(body, s"Expected 2xx response code, but got: ${response.responseCode}")) }
+  trait Builder2[GetResponseR, ResponseT, ErrorT >: HError <: AnyHError] { self =>
+
+    protected def getResponse: HRIO[GetResponseR & Scope, HttpResponse[ResponseT]]
+    protected def decodeError(response: HttpResponse[String]): ErrorT
+
+    private def decodeErrorInternal(response: HttpResponse[String]): URIO[Logger, ErrorT] =
+      Logger.log.warning(s"Attempting to decode error for non-(4xx/5xx) error code: ${response.responseCode}").unless(response.responseCode.is4xxOr5xx).as(decodeError(response))
+
+    private def attemptToDecode[T](f: HttpResponse[String] => HRIO[Logger, Option[T]]): ZIO[GetResponseR & Logger, ErrorT, T] =
+      getResponseStringBody.flatMap { response =>
+        f(response).someOrElseZIO(decodeErrorInternal(response).flip)
       }
-    }
+
+    // =====|  |=====
+
+    final def getResponseStringBody: HRIO[GetResponseR & Logger, HttpResponse[String]] =
+      ZIO.scoped { self.getResponse.flatMap(_.toResponseStringBody) }
+
+    def stringBody: ZIO[GetResponseR & Logger, ErrorT, String] =
+      attemptToDecode { response => ZIO.succeed(response.body).when(response.responseCode.is2xx) }
+
+    def encodedBody[T: StringDecoder]: ZIO[GetResponseR & Logger, ErrorT, T] =
+      attemptToDecode { response => ZIO.eitherNelToInternalDefects(StringDecoder[T].decodeAccumulating(response.body)).when(response.responseCode.is2xx) }
+    def jsonBody[T: JsonDecoder]: ZIO[GetResponseR & Logger, ErrorT, T] =
+      self.encodedBody[T](using StringDecoder.fromJsonDecoder[T])
+
+    def unit2xx: ZIO[GetResponseR & Logger, ErrorT, Unit] =
+      attemptToDecode { response => ZIO.unit.when(response.responseCode.is2xx) }
+
+    // =====|  |=====
+
+    final def forwardBodyToPath(path: Path): HRIO[GetResponseR, Long] =
+      ZIO.scoped {
+        self.getResponse.flatMap { response =>
+          response.result.ops.forwardBodyToPath(path, response.body)
+        }
+      }
+
+  }
 
 }

@@ -57,7 +57,10 @@ final class JavaClient extends HttpClient[JavaClient.RequestT, JavaClient.Respon
         else
           Logger.log.warning("Response is not 2xx, 4xx, or 5xx. Assuming to use 'inputStream' and not 'errorStream'") *>
             ZIO.acquireClosable { ZIO.hAttempt { con.getInputStream() } }
-    } yield JavaResponseResult(responseCode, scalaHeaders, contentLength.some, body)
+    } yield HttpResponse.Result[JavaClient.ResponseT](
+      HttpResponse.ResultFields.make[JavaClient.ResponseT](responseCode, scalaHeaders, contentLength.some, body),
+      JavaClient.bodyOps,
+    )
 
   override def sendImpl(request: HttpRequest[JavaClient.RequestT]): HRIO[Logger & Scope, HttpResponse.Result[JavaClient.ResponseT]] =
     for {
@@ -76,8 +79,31 @@ object JavaClient {
 
   type RequestT = String
   type ResponseT = InputStream
-  
+
   val client: HttpClient.ClientT = new JavaClient
   val layer: ULayer[HttpClient.ClientT] = ZLayer.succeed(JavaClient.client)
+
+  private val bodyOps: HttpResponse.BodyOps[JavaClient.ResponseT] =
+    HttpResponse.BodyOps[JavaClient.ResponseT](
+      fields =>
+        for {
+          cl <- fields.contentLengthInt
+          getBytes = cl match {
+            case Some(cl) =>
+              Logger.log.debug(s"Reading body with content length of ${cl.toStringCommas}") *>
+                ZIO.hAttempt { fields.body.readNBytes(cl) }
+            case None =>
+              Logger.log.warning("Reading body without content length") *>
+                ZIO.hAttempt { fields.body.readAllBytes() }
+          }
+          bytes: Array[Byte] <- getBytes.mapError(HError.SystemFailure("Error getting bytes for response body", _))
+        } yield new String(bytes),
+      (path, body) =>
+        ZIO.scoped {
+          path.outputStream.flatMap { os =>
+            ZIO.hAttempt { body.transferTo(os) }.mapError(HError.SystemFailure(s"Error forwarding response body to path $path", _))
+          }
+        },
+    )
 
 }

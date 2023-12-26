@@ -41,7 +41,10 @@ final class JsClient extends HttpClient[JsClient.RequestT, JsClient.ResponseT] {
       body: JsClient.ResponseT <- ZIO.hAttempt { xhr.responseText }
       // TODO (KR) : response headers
       // TODO (KR) : content length
-    } yield JsResponseResult(responseCode, Map.empty, None, body)
+    } yield HttpResponse.Result[JsClient.ResponseT](
+      HttpResponse.ResultFields.make[JsClient.ResponseT](responseCode, Map.empty, None, body),
+      JsClient.bodyOps,
+    )
 
   private inline def setReturn(xhr: XMLHttpRequest, register: HRIO[Logger, HttpResponse.Result[JsClient.ResponseT]] => Unit): HTask[Unit] =
     ZIO.hAttempt {
@@ -75,4 +78,7 @@ object JsClient {
   val client: HttpClient.ClientT = new JsClient
   val layer: ULayer[HttpClient.ClientT] = ZLayer.succeed(JsClient.client)
 
+  private val bodyOps: HttpResponse.BodyOps[JsClient.ResponseT] =
+    HttpResponse.BodyOps.forStringBody
+  
 }

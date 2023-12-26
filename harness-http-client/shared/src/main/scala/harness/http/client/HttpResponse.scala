@@ -9,32 +9,35 @@ import harness.zio.ZIOJsonInstances.catsNelJsonCodec
 import zio.*
 import zio.json.*
 
-final class HttpResponse[ResponseBody] private (
-    result: HttpResponse.Result[ResponseBody],
-    // TODO (KR) : setCookies: Map[String, ???]
-    bodyRef: Ref.Synchronized[Option[String]],
-) extends ResponseOps[Any, Logger, ResponseBody] { self =>
+sealed abstract class HttpResponse[ResponseBody] private (
+    final val result: HttpResponse.Result[ResponseBody],
+) extends ResponseOps.Builder1[Any, ResponseBody] { self =>
 
-  val responseCode: HttpCode = self.result.responseCode
-  val headers: Map[String, List[String]] = self.result.headers
-  val contentLength: Option[Long] = self.result.contentLength
-  val _rawBody: ResponseBody = result.body
+  final val responseCode: HttpCode = self.result.fields.responseCode
+  final val headers: Map[String, List[String]] = self.result.fields.headers
+  final val contentLength: Option[Long] = self.result.fields.contentLength
+  final val body: ResponseBody = self.result.fields.body
 
   // =====| Content Length |=====
 
-  def getContentLength: HTask[Long] = self.result.getContentLength
-  def contentLengthInt: HTask[Option[Int]] = self.result.contentLengthInt
-  def getContentLengthInt: HTask[Int] = self.result.getContentLengthInt
+  final def getContentLength: HTask[Long] = self.result.fields.getContentLength
+  final def contentLengthInt: HTask[Option[Int]] = self.result.fields.contentLengthInt
+  final def getContentLengthInt: HTask[Int] = self.result.fields.getContentLengthInt
 
   // =====| Body |=====
 
-  def forwardBodyToPath(path: Path): HTask[Long] = self.result.forwardBodyToPath(path)
+  def bodyAsString: HRIO[Logger, String]
 
-  override def bodyAsString: HRIO[Logger, String] =
-    self.bodyRef.modifyZIO {
-      case b @ Some(value) => Logger.log.debug("Already loaded body").as((value, b))
-      case None            => self.result.bodyAsStringImpl(self.result.body).map(b => (b, b.some))
-    }
+  final def withBody[ResponseBody2](body: ResponseBody2, bodyOps: HttpResponse.BodyOps[ResponseBody2]): HttpResponse[ResponseBody2] =
+    HttpResponse.Const[ResponseBody2](
+      HttpResponse.Result[ResponseBody2](
+        self.result.fields.withBody(body),
+        bodyOps,
+      ),
+    )
+
+  final def toResponseStringBody: HRIO[Logger, HttpResponse[String]] =
+    bodyAsString.map(self.withBody(_, HttpResponse.BodyOps.forStringBody))
 
   // =====| Headers |=====
 
@@ -89,43 +92,82 @@ final class HttpResponse[ResponseBody] private (
 }
 object HttpResponse {
 
+  final class Cached[ResponseBody] private[HttpResponse] (
+      result: Result[ResponseBody],
+      bodyRef: Ref.Synchronized[Option[String]],
+  ) extends HttpResponse[ResponseBody](result) { self =>
+
+    override def bodyAsString: HRIO[Logger, String] =
+      self.bodyRef.modifyZIO {
+        case b @ Some(value) => Logger.log.debug("Already loaded body").as((value, b))
+        case None            => self.result.ops.getStringBody(self.result.fields).map(b => (b, b.some))
+      }
+
+  }
+
+  final class Const[ResponseBody] private[HttpResponse] (
+      result: Result[ResponseBody],
+  ) extends HttpResponse[ResponseBody](result) { self =>
+    override def bodyAsString: HRIO[Logger, String] = self.result.ops.getStringBody(self.result.fields)
+  }
+
   def fromResult[ResponseBody](result: HttpResponse.Result[ResponseBody]): UIO[HttpResponse[ResponseBody]] =
     for {
       bodyRef <- Ref.Synchronized.make(Option.empty[String])
-    } yield new HttpResponse(result, bodyRef)
+    } yield new HttpResponse.Cached(result, bodyRef)
 
-  trait Result[ResponseBody] { self =>
+  final case class ResultFields[ResponseBody] private (
+      responseCode: HttpCode,
+      headers: Map[String, List[String]],
+      contentLength: Option[Long],
+      body: ResponseBody,
+  ) { self =>
 
-    // =====|  |=====
+    def withBody[ResponseBody2](body: ResponseBody2): ResultFields[ResponseBody2] = self.copy(body = body)
 
-    val responseCode: HttpCode
-    protected val _headers: Map[String, List[String]]
-    protected val _contentLength: Option[Long]
-    val body: ResponseBody
+    def getContentLength: HTask[Long] =
+      ZIO.getOrFailWith(HError.InternalDefect("Expected to have content length, but it was not present in response"))(contentLength)
 
-    // =====|  |=====
-
-    def bodyAsStringImpl(body: ResponseBody): HRIO[Logger, String]
-    def forwardBodyToPath(path: Path): HTask[Long]
-
-    // =====|  |=====
-
-    final val headers: Map[String, List[String]] = self._headers.map { (k, vs) => (k.toLowerCase, vs) }
-    final val contentLength: Option[Long] = self._contentLength.flatMap(cl => Option.when(cl != -1L)(cl))
-
-    final def getContentLength: HTask[Long] =
-      self.contentLength match {
-        case Some(contentLength) => ZIO.succeed(contentLength)
-        case None                => ZIO.fail(HError.InternalDefect("Expected to have content length, but it was not present in response"))
-      }
-
-    final def contentLengthInt: HTask[Option[Int]] =
+    def contentLengthInt: HTask[Option[Int]] =
       ZIO.foreach(self.contentLength)(safeConvertContentLength)
 
-    final def getContentLengthInt: HTask[Int] =
+    def getContentLengthInt: HTask[Int] =
       self.getContentLength.flatMap(safeConvertContentLength)
 
   }
+  object ResultFields {
+
+    def make[ResponseBody](
+        responseCode: HttpCode,
+        headers: Map[String, List[String]],
+        contentLength: Option[Long],
+        body: ResponseBody,
+    ): ResultFields[ResponseBody] =
+      ResultFields(
+        responseCode,
+        headers.map { (k, vs) => (k.toLowerCase, vs) },
+        contentLength.flatMap(cl => Option.when(cl != -1L)(cl)),
+        body,
+      )
+
+  }
+
+  final case class BodyOps[ResponseBody](
+      getStringBody: ResultFields[ResponseBody] => HRIO[Logger, String],
+      forwardBodyToPath: (Path, ResponseBody) => HTask[Long],
+  )
+  object BodyOps {
+    val forStringBody: BodyOps[String] =
+      BodyOps[String](
+        fields => ZIO.succeed(fields.body),
+        (path, body) => path.writeString(body).as(body.length.toLong),
+      )
+  }
+
+  final case class Result[ResponseBody](
+      fields: ResultFields[ResponseBody],
+      ops: BodyOps[ResponseBody],
+  )
 
   private def safeConvertContentLength(contentLength: Long): HTask[Int] =
     if (contentLength <= Int.MaxValue) ZIO.succeed(contentLength.toInt)

@@ -28,8 +28,8 @@ object TestMain extends ExecutableApp {
               for {
                 // response <- HttpClient.send(req)
                 // _ <- response.show.flatMap(Logger.log.info(_))
-                // _ <- response.decodedBody[String].flatMap(Logger.log.info(_))
-                _ <- req.response.decodedBody[String].flatMap(Logger.log.important(_))
+                // _ <- response.encodedBody[String].flatMap(Logger.log.info(_))
+                _ <- req.response.encodedBody[String].flatMap(Logger.log.important(_))
               } yield ()
 
             ZIO

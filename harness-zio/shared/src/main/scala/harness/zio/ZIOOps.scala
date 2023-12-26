@@ -5,6 +5,7 @@ import cats.syntax.list.*
 import harness.core.*
 import scala.annotation.tailrec
 import zio.*
+import zio.stream.*
 
 // =====| ZIO._ |=====
 
@@ -58,6 +59,8 @@ extension (self: ZIO.type) {
 
   def hAttempt[A](thunk: => A): HTask[A] =
     ZIO.attempt(thunk).wrapHError
+  def hAttemptOr[E, A](error: => E)(thunk: => A): IO[HError.Or[E], A] =
+    ZIO.hAttempt(thunk).mapError(HError.Or(error, _))
 
   def acquireClosable[R, E, A <: java.io.Closeable](acq: => ZIO[R, E, A]): ZIO[R & Scope, E, A] =
     ZIO.acquireRelease(acq)(c => ZIO.attempt(c.close()).orDie)
@@ -72,16 +75,20 @@ extension (self: ZIO.type) {
   def hFailInternalDefects(strings: NonEmptyList[String]): HTask[Nothing] = ZIO.fail(HError(strings.map(HError.InternalDefect(_))))
   def hFailInternalDefects(string0: String, stringN: String*): HTask[Nothing] = hFailInternalDefects(NonEmptyList(string0, stringN.toList))
 
-  def eitherNelToUserErrors[T](eitherNel: EitherNel[String, T]): HTask[T] =
-    eitherNel match {
-      case Right(value) => ZIO.succeed(value)
-      case Left(errors) => ZIO.hFailUserErrors(errors)
+  def eitherNelToUserErrors[T](eitherNel: => EitherNel[String, T]): HTask[T] =
+    ZIO.suspendSucceed {
+      eitherNel match {
+        case Right(value) => ZIO.succeed(value)
+        case Left(errors) => ZIO.hFailUserErrors(errors)
+      }
     }
 
-  def eitherNelToInternalDefects[T](eitherNel: EitherNel[String, T]): HTask[T] =
-    eitherNel match {
-      case Right(value) => ZIO.succeed(value)
-      case Left(errors) => ZIO.hFailInternalDefects(errors)
+  def eitherNelToInternalDefects[T](eitherNel: => EitherNel[String, T]): HTask[T] =
+    ZIO.suspendSucceed {
+      eitherNel match {
+        case Right(value) => ZIO.succeed(value)
+        case Left(errors) => ZIO.hFailInternalDefects(errors)
+      }
     }
 
 }
@@ -110,6 +117,16 @@ extension [R, A](zLayer: RLayer[R, A]) {
 }
 extension [R, A](zStream: RStream[R, A]) {
   def wrapHError: HRStream[R, A] = zStream.mapError(HError.fromThrowable)
+}
+
+extension [R, E, A](zio: ZIO[R, E, A]) {
+  def mapErrorToOr: ZIO[R, HError.Or[E], A] = zio.mapError(HError.Or(_))
+}
+extension [R, E, A](zLayer: ZLayer[R, E, A]) {
+  def mapErrorToOr: ZLayer[R, HError.Or[E], A] = zLayer.mapError(HError.Or(_))
+}
+extension [R, E, A](zStream: ZStream[R, E, A]) {
+  def mapErrorToOr: ZStream[R, HError.Or[E], A] = zStream.mapError(HError.Or(_))
 }
 
 extension [R, A](zio: HZIO[R, Nothing, A]) {
@@ -161,7 +178,7 @@ extension [R, E, A](zStream: HZStream[R, E, A]) {
 
 // =====| Error Recovery |=====
 
-extension [R, E, A](zio: HZIO[R, E, A]) {
+implicit class HZioOps[R, E, A](zio: HZIO[R, E, A]) {
   def recoverFromErrorOr[A2 >: A](f: E => A2): HRIO[R, A2] =
     zio.foldZIO(
       {
@@ -194,6 +211,27 @@ extension [R, E, A](zio: HZIO[R, E, A]) {
       },
       ZIO.succeed(_),
     )
+  def hErrorOrToEither: HRIO[R, Either[E, A]] =
+    zio.foldZIO(
+      {
+        case hError: HError      => ZIO.fail(hError)
+        case HError.Or(error, _) => ZIO.left(error)
+      },
+      ZIO.right,
+    )
+  def hErrorOrCauseToEither: HRIO[R, Either[HError.Or[E], A]] =
+    zio.foldZIO(
+      {
+        case hError: HError          => ZIO.fail(hError)
+        case error @ HError.Or(_, _) => ZIO.left(error)
+      },
+      ZIO.right,
+    )
+  def logHErrorOr(logLevel: Logger.LogLevel): HZIO[R & Logger, E, A] =
+    zio.tapError {
+      case error @ HError.Or(_, _) => Logger.log(logLevel, error.fullInternalMessage)
+      case _: HError               => ZIO.unit
+    }
 }
 
 // =====| Logging |=====
