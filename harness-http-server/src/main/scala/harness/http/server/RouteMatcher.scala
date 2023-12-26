@@ -7,6 +7,7 @@ import harness.web.*
 import harness.zio.*
 import scala.annotation.tailrec
 import zio.*
+import zio.json.*
 
 trait RouteMatcher[+O] private[server] { self =>
 
@@ -24,8 +25,23 @@ trait RouteMatcher[+O] private[server] { self =>
       self.routeInternal(method, path) match {
         case RouteMatcher.Result.Success(Nil, value) => f(value)
         case RouteMatcher.Result.Success(_, _)       => ZIO.succeed(HttpResponse.NotFound)
-        case RouteMatcher.Result.Fail(error)         => ZIO.fail(error)
+        case RouteMatcher.Result.Fail(hError)        => ZIO.fail(hError)
         case RouteMatcher.Result.NotFound            => ZIO.succeed(HttpResponse.NotFound)
+      }
+  final def implementOr[R, E](f: O => SHZIO[BuiltInRequestEnv & R, E, HttpResponse])(implicit errorHandler: RouteMatcher.ErrorHandler[E]): Route[R] =
+    (method, path) =>
+      self.routeInternal(method, path) match {
+        case RouteMatcher.Result.Success(Nil, value) =>
+          f(value).recoverFromErrorOrCauseZIO { hError =>
+            val code = errorHandler.httpCode(hError.error)
+            val mappedHError = hError.mapSameCause(errorHandler.showError)
+            Logger.log
+              .info(s"Received expected error:\n${mappedHError.fullInternalMessage}")
+              .as(errorHandler.modifyHttpResponse(HttpResponse(mappedHError.error, code), hError.error))
+          }
+        case RouteMatcher.Result.Success(_, _)        => ZIO.succeed(HttpResponse.NotFound)
+        case RouteMatcher.Result.Fail(hError: HError) => ZIO.fail(hError)
+        case RouteMatcher.Result.NotFound             => ZIO.succeed(HttpResponse.NotFound)
       }
 
   def routeInternal(
@@ -57,6 +73,38 @@ object RouteMatcher {
     final case class Success[+O](remainingPath: List[String], value: O) extends Result[O]
     final case class Fail(error: HError) extends Result[Nothing]
     case object NotFound extends Result[Nothing]
+  }
+
+  final case class ErrorHandler[-E](
+      showError: E => String,
+      httpCode: E => HttpCode,
+      modifyHttpResponse: (HttpResponse.Found, E) => HttpResponse.Found,
+  )
+  object ErrorHandler {
+
+    final case class Builder1[E](
+        showError: E => String,
+    ) {
+      def withHttpCode(httpCode: E => HttpCode): ErrorHandler.Builder2[E] = ErrorHandler.Builder2(showError, httpCode)
+      def with400HttpCode: ErrorHandler.Builder2[E] = withHttpCode(_ => HttpCode.`400`)
+      def with500HttpCode: ErrorHandler.Builder2[E] = withHttpCode(_ => HttpCode.`500`)
+    }
+
+    final case class Builder2[E](
+        showError: E => String,
+        httpCode: E => HttpCode,
+    ) {
+      def withUnmodifiedResponse: ErrorHandler[E] = ErrorHandler[E](showError, httpCode, (response, _) => response)
+      def withModifiedResponse(modifyHttpResponse: (HttpResponse.Found, E) => HttpResponse.Found): ErrorHandler[E] = ErrorHandler[E](showError, httpCode, modifyHttpResponse)
+    }
+
+    def fromToString[E]: ErrorHandler.Builder1[E] = ErrorHandler.Builder1[E](_.toString)
+
+    def fromStringEncoder[E: StringEncoder]: ErrorHandler.Builder1[E] = ErrorHandler.Builder1[E](StringEncoder[E].encode)
+
+    def fromJsonEncoder[E: JsonEncoder]: ErrorHandler.Builder1[E] = ErrorHandler.Builder1[E](_.toJson)
+    def fromJsonEncoderPretty[E: JsonEncoder]: ErrorHandler.Builder1[E] = ErrorHandler.Builder1[E](_.toJsonPretty)
+
   }
 
   // =====| Builders |=====

@@ -170,11 +170,27 @@ extension [R, E, A](zio: HZIO[R, E, A]) {
       },
       ZIO.succeed(_),
     )
+  def recoverFromErrorOrCause[A2 >: A](f: HError.Or[E] => A2): HRIO[R, A2] =
+    zio.foldZIO(
+      {
+        case hError: HError          => ZIO.fail(hError)
+        case error @ HError.Or(_, _) => ZIO.succeed(f(error))
+      },
+      ZIO.succeed(_),
+    )
   def recoverFromErrorOrZIO[R2, E2 >: HError <: AnyHError, A2 >: A](f: E => ZIO[R2, E2, A2]): ZIO[R & R2, E2, A2] =
     zio.foldZIO(
       {
         case hError: HError      => ZIO.fail(hError)
         case HError.Or(error, _) => f(error)
+      },
+      ZIO.succeed(_),
+    )
+  def recoverFromErrorOrCauseZIO[R2, E2 >: HError <: AnyHError, A2 >: A](f: HError.Or[E] => ZIO[R2, E2, A2]): ZIO[R & R2, E2, A2] =
+    zio.foldZIO(
+      {
+        case hError: HError          => ZIO.fail(hError)
+        case error @ HError.Or(_, _) => f(error)
       },
       ZIO.succeed(_),
     )

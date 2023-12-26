@@ -8,7 +8,17 @@ import scala.annotation.targetName
 
 sealed abstract class HErrorOr[+E](
     final val causes: List[Throwable],
-) extends Throwable
+) extends Throwable {
+
+  final lazy val fullInternalMessage: String =
+    HError.throwableMessage(this, false)
+
+  final lazy val fullInternalMessageWithTrace: String =
+    HError.throwableMessage(this, true)
+
+  override final def toString: String = fullInternalMessage
+
+}
 type AnyHError = HErrorOr[_]
 
 sealed abstract class HError(
@@ -21,15 +31,7 @@ sealed abstract class HError(
   //           : and the same for internalMessage
   //           : turn current `fullInternalMessage` into a sort of `verboseInternalMessage`
 
-  final lazy val fullInternalMessage: String =
-    HError.throwableMessage(this, false)
-
-  final lazy val fullInternalMessageWithTrace: String =
-    HError.throwableMessage(this, true)
-
   override final def getMessage: String = userMessage.show(HError.UserMessage.IfHidden.default)
-
-  override final def toString: String = fullInternalMessage
 
   final def toNel: NonEmptyList[HError.Single] = HError.unwrap(this)
 
@@ -64,6 +66,24 @@ object HError {
 
   // =====|  |=====
 
+  final case class Or[+E](
+      error: E,
+      cause: Option[Throwable],
+  ) extends HErrorOr[E](cause.toList) {
+
+    def mapSameCause[E2](f: E => E2): HError.Or[E2] = HError.Or(f(error), cause)
+    def mapPushCause[E2](f: E => E2): HError.Or[E2] = HError.Or(f(error), this)
+
+    override def getMessage: String = error.toString
+
+  }
+  object Or {
+    def apply[E](error: E): HError.Or[E] = HError.Or(error, None)
+    def apply[E](error: E, cause: Throwable): HError.Or[E] = HError.Or(error, cause.some)
+  }
+
+  // =====|  |=====
+
   trait UserMessage {
 
     def show(ifHidden: UserMessage.IfHidden): String
@@ -93,17 +113,6 @@ object HError {
       val default: IfHidden = IfHidden("There was an internal system error")
     }
 
-  }
-
-  // =====|  |=====
-
-  final case class Or[+E](
-      error: E,
-      cause: Option[Throwable],
-  ) extends HErrorOr[E](cause.toList)
-  object Or {
-    def apply[E](error: E): HError.Or[E] = HError.Or(error, None)
-    def apply[E](error: E, cause: Throwable): HError.Or[E] = HError.Or(error, cause.some)
   }
 
   // =====| Direct Children of HError |=====
@@ -187,7 +196,7 @@ object HError {
 
   // =====| Helpers |=====
 
-  private def throwableMessage(throwable: Throwable, stackTrace: Boolean): String = {
+  private[core] def throwableMessage(throwable: Throwable, stackTrace: Boolean): String = {
     val parts: (String, List[List[(String, String)]]) =
       throwable match {
         case hError: HError =>
@@ -200,6 +209,15 @@ object HError {
                 case _                                                       => ("Internal Message", hError.internalMessage) :: Nil
               },
               hError.causes.zipWithIndex.map { (c, i) => (s"Cause[$i]", throwableMessage(c, stackTrace)) },
+              Option.when(stackTrace)(("Stack Trace", formatExceptionTrace(hError.getStackTrace))).toList,
+            ),
+          )
+        case hError @ HError.Or(error, cause) =>
+          (
+            s"HError.Or[${error.getClass.getSimpleName}]",
+            List(
+              ("Error", error.toString) :: Nil,
+              cause.map { c => (s"Cause", throwableMessage(c, stackTrace)) }.toList,
               Option.when(stackTrace)(("Stack Trace", formatExceptionTrace(hError.getStackTrace))).toList,
             ),
           )
