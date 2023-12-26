@@ -6,11 +6,16 @@ import cats.syntax.traverse.*
 import harness.core.RunMode.{Dev, Prod}
 import scala.annotation.targetName
 
+sealed abstract class HErrorOr[+E](
+    final val causes: List[Throwable],
+) extends Throwable
+type AnyHError = HErrorOr[_]
+
 sealed abstract class HError(
     final val userMessage: HError.UserMessage,
     final val internalMessage: String,
-    final val causes: List[Throwable],
-) extends Throwable {
+    causes: List[Throwable],
+) extends HErrorOr[Nothing](causes) {
 
   // TODO (KR) : Tweak these (`baseUserMessage`, `userMessage` = s"${baseUserMessage}\n${causes.flatMap(_.userMessage.toOption}" ...
   //           : and the same for internalMessage
@@ -88,6 +93,17 @@ object HError {
       val default: IfHidden = IfHidden("There was an internal system error")
     }
 
+  }
+
+  // =====|  |=====
+
+  final case class Or[+E](
+      error: E,
+      cause: Option[Throwable],
+  ) extends HErrorOr[E](cause.toList)
+  object Or {
+    def apply[E](error: E): HError.Or[E] = HError.Or(error, None)
+    def apply[E](error: E, cause: Throwable): HError.Or[E] = HError.Or(error, cause.some)
   }
 
   // =====| Direct Children of HError |=====

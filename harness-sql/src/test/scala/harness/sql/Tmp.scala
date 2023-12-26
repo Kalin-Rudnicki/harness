@@ -294,11 +294,11 @@ object Tmp extends ExecutableApp {
       batch2 <- randomNote.replicateZIO(numIters).map(Chunk.fromIterable)
 
       _ <- Logger.log.info("Starting raw-inserts")
-      _ <- ZIO.foreachDiscard(batch1)(NoteQueries.insert(_).single).trace("raw-inserts", Logger.LogLevel.Info)
-      _ <- ZIO.foreachDiscard(batch1)(n => NoteQueries.deleteById(n.id).single).trace("raw-deletes", Logger.LogLevel.Info)
+      _ <- ZIO.foreachDiscard(batch1)(NoteQueries.insert(_).single).telemetrize("raw-inserts", Logger.LogLevel.Info)
+      _ <- ZIO.foreachDiscard(batch1)(n => NoteQueries.deleteById(n.id).single).telemetrize("raw-deletes", Logger.LogLevel.Info)
       _ <- Logger.log.info("Starting batch-inserts")
-      _ <- NoteQueries.insert.batched(batch2).unit.trace("batch-inserts", Logger.LogLevel.Info)
-      _ <- NoteQueries.deleteById.batched(batch2.map(_.id)).expectSize(batch2.length).trace("batch-deletes", Logger.LogLevel.Info)
+      _ <- NoteQueries.insert.batched(batch2).unit.telemetrize("batch-inserts", Logger.LogLevel.Info)
+      _ <- NoteQueries.deleteById.batched(batch2.map(_.id)).expectSize(batch2.length).telemetrize("batch-deletes", Logger.LogLevel.Info)
     } yield ()
 
   private def showMigration(migration: MigrationPlan): URIO[Logger, Unit] =

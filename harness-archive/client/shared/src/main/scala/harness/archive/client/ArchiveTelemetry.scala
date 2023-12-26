@@ -19,7 +19,7 @@ final class ArchiveTelemetry(
   private val uploadUrl: String = s"$baseUrl/api/telemetry/upload"
 
   // TODO (KR) : be smarter about batching multiple requests
-  override def trace(event: Telemetry.Trace): URIO[Logger, Boolean] =
+  override def telemetrize(event: Telemetry.Trace): URIO[Logger, Boolean] =
     ZIO
       .suspendSucceed {
         val payload =

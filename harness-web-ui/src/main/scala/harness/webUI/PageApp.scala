@@ -95,7 +95,7 @@ trait PageApp extends ZIOApp {
           ZIO
             .succeed(urlToPage(url))
             .flatMap(_.replaceNoTrace(renderer, runtime, urlToPage, url))
-            .trace("Load Page", Logger.LogLevel.Debug, "url" -> url.path.mkString("/", "/", ""), "stage" -> "attempt-to-load-page")
+            .telemetrize("Load Page", Logger.LogLevel.Debug, "url" -> url.path.mkString("/", "/", ""), "stage" -> "attempt-to-load-page")
         }
       cssClassMap = CssClassMap.mergeAll(styleSheets.map(_.toCssClassMap))
       _ <- ZIO.foreachDiscard(cssClassMap.renderOpt) { renderedCss =>

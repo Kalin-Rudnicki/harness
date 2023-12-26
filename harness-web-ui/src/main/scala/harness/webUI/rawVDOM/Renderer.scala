@@ -25,7 +25,7 @@ final class Renderer private (ref: Ref.Synchronized[Option[VDom.State]]) {
 
         runSetTitle *> runRender *> ZIO.some(newVDomState)
       }
-      .trace("Renderer.render", "title" -> title)
+      .telemetrize("Renderer.render", "title" -> title)
 
 }
 object Renderer {

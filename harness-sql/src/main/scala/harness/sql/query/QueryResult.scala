@@ -32,7 +32,7 @@ final class QueryResult[O] private (queryName: String, fragment: Fragment, _stre
 
   inline def list: HRIO[JDBCConnection & Logger & Telemetry, List[O]] = chunk.map(_.toList)
 
-  inline def chunk: HRIO[JDBCConnection & Logger & Telemetry, Chunk[O]] = ZIO.scoped { stream.runCollect }.trace("Executed SQL query", "query-name" -> queryName)
+  inline def chunk: HRIO[JDBCConnection & Logger & Telemetry, Chunk[O]] = ZIO.scoped { stream.runCollect }.telemetrize("Executed SQL query", "query-name" -> queryName)
 
   def stream: HRStream[JDBCConnection & Logger & Scope, O] = _stream
 

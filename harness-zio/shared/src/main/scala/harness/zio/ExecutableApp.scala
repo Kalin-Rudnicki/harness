@@ -8,7 +8,7 @@ trait ExecutableApp extends ZIOAppDefault {
 
   val executable: Executable
 
-  override def run: ZIO[ZIOAppArgs with Scope, Any, Any] =
+  override final def run: ZIO[ZIOAppArgs with Scope, Any, Any] =
     for {
       args <- ZIOAppArgs.getArgs
       exitCode <- executable(config, args.toList)

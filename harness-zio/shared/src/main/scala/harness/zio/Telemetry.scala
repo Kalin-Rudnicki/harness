@@ -7,24 +7,24 @@ import zio.json.*
 
 trait Telemetry { self =>
 
-  def trace(event: Telemetry.Trace): URIO[Logger, Boolean]
+  def telemetrize(event: Telemetry.Trace): URIO[Logger, Boolean]
 
   final def withMinLogTolerance(min: Logger.LogLevel): Telemetry =
     new Telemetry {
-      override def trace(event: Telemetry.Trace): URIO[Logger, Boolean] =
-        ZIO.when(event.logLevel.logPriority >= min.tolerancePriority)(self.trace(event)).map(_.getOrElse(false))
+      override def telemetrize(event: Telemetry.Trace): URIO[Logger, Boolean] =
+        ZIO.when(event.logLevel.logPriority >= min.tolerancePriority)(self.telemetrize(event)).map(_.getOrElse(false))
     }
 
   final def ||(other: Telemetry): Telemetry =
     new Telemetry {
-      override def trace(event: Telemetry.Trace): URIO[Logger, Boolean] =
-        self.trace(event) || other.trace(event)
+      override def telemetrize(event: Telemetry.Trace): URIO[Logger, Boolean] =
+        self.telemetrize(event) || other.telemetrize(event)
     }
 
   final def &&(other: Telemetry): Telemetry =
     new Telemetry {
-      override def trace(event: Telemetry.Trace): URIO[Logger, Boolean] =
-        (self.trace(event) <&> other.trace(event)).map { _ || _ }
+      override def telemetrize(event: Telemetry.Trace): URIO[Logger, Boolean] =
+        (self.telemetrize(event) <&> other.telemetrize(event)).map { _ || _ }
     }
 
 }
@@ -34,7 +34,7 @@ object Telemetry {
 
   // =====| Api |=====
 
-  def trace[R, E, A](
+  def telemetrize[R, E, A](
       effect: ZIO[R, E, A],
       label: String,
       logLevel: Logger.LogLevel,
@@ -44,18 +44,18 @@ object Telemetry {
       effect.foldCauseZIO(
         { cause =>
           Clock.currentDateTime.flatMap { endDateTime =>
-            Telemetry.trace(label, logLevel, startDateTime, endDateTime, false, telemetryContext) *> ZIO.failCause(cause)
+            Telemetry.telemetrize(label, logLevel, startDateTime, endDateTime, false, telemetryContext) *> ZIO.failCause(cause)
           }
         },
         { a =>
           Clock.currentDateTime.flatMap { endDateTime =>
-            Telemetry.trace(label, logLevel, startDateTime, endDateTime, true, telemetryContext) *> ZIO.succeed(a)
+            Telemetry.telemetrize(label, logLevel, startDateTime, endDateTime, true, telemetryContext) *> ZIO.succeed(a)
           }
         },
       )
     }
 
-  def trace(
+  def telemetrize(
       label: String,
       logLevel: Logger.LogLevel,
       startDateTime: OffsetDateTime,
@@ -66,7 +66,7 @@ object Telemetry {
     for {
       telemetry <- ZIO.service[Telemetry]
       logContext <- Logger.getContext
-      _ <- telemetry.trace(Telemetry.Trace(logLevel, label, startDateTime, endDateTime, success, telemetryContext, logContext))
+      _ <- telemetry.telemetrize(Telemetry.Trace(logLevel, label, startDateTime, endDateTime, success, telemetryContext, logContext))
     } yield ()
 
   // =====| Types |=====
@@ -103,12 +103,12 @@ object Telemetry {
 
   val none: Telemetry =
     new Telemetry {
-      override def trace(event: Telemetry.Trace): URIO[Logger, Boolean] = ZIO.succeed(false)
+      override def telemetrize(event: Telemetry.Trace): URIO[Logger, Boolean] = ZIO.succeed(false)
     }
 
   val log: Telemetry =
     new Telemetry {
-      override def trace(event: Telemetry.Trace): URIO[Logger, Boolean] =
+      override def telemetrize(event: Telemetry.Trace): URIO[Logger, Boolean] =
         Logger.execute { event.toLoggerEvent }.as(true)
     }
 

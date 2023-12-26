@@ -9,7 +9,7 @@ trait HttpClient[-RequestBody, ResponseBody] { self =>
 
   final def send(request: HttpRequest[RequestBody]): HRIO[Logger & Telemetry & Scope, HttpResponse[ResponseBody]] =
     Logger.log.debug(s"Sending HTTP request to: ${request.url}") *>
-      self.sendImpl(request).flatMap(HttpResponse.fromResult).trace("HTTP Client Send", "url" -> request.url)
+      self.sendImpl(request).flatMap(HttpResponse.fromResult).telemetrize("HTTP Client Send", "url" -> request.url)
 
   final def sendAndUse[R, T](request: HttpRequest[RequestBody])(use: HttpResponse[ResponseBody] => HRIO[R & Scope, T]): HRIO[R & Logger & Telemetry, T] =
     ZIO.scoped { self.send(request).flatMap(use) }

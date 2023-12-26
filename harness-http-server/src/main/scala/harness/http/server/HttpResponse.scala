@@ -70,7 +70,7 @@ object HttpResponse {
             len <- sendResponseHeaders(bytes.length)
             _ <- ZIO.hAttempt(responseBody.write(bytes)).mapError(HError.SystemFailure("Unable to write response body", _))
           } yield len
-      }).trace("Returning HTTP response body", "type" -> r.getClass.getSimpleName)
+      }).telemetrize("Returning HTTP response body", "type" -> r.getClass.getSimpleName)
     }
 
   }

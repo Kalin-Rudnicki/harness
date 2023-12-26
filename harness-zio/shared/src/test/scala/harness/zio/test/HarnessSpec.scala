@@ -48,7 +48,7 @@ object HarnessSpec {
               Spec.TestCase(
                 ZIO.clock.flatMap { clock =>
                   Logger.addContext("test-path" -> rPath.reverse.map(n => s"\"$n\"").mkString("[", "/", "]")) {
-                    test.withClock(clock).trace("Test Duration").withClock(Clock.ClockLive)
+                    test.withClock(clock).telemetrize("Test Duration").withClock(Clock.ClockLive)
                   }
                 },
                 annotations,

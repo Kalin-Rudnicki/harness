@@ -1,5 +1,6 @@
 package harness.sql
 
+import harness.core.*
 import harness.sql.query.QueryInputMapper
 import harness.sql.typeclass.*
 import harness.zio.*
@@ -8,7 +9,7 @@ import zio.*
 
 final class JDBCConnection(val jdbcConnection: java.sql.Connection) {
 
-  def use[R, A](zio: HRIO[R & JDBCConnection, A]): HRIO[R, A] =
+  def use[R, E <: AnyHError, A](zio: ZIO[R & JDBCConnection, E, A]): ZIO[R, E, A] =
     zio.provideSomeEnvironment[R](_.add(this))
 
 }

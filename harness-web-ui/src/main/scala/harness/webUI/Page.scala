@@ -26,7 +26,7 @@ sealed trait Page {
       url: Url,
   )(actionWithTitle: String => HTask[Unit]): SHRIO[HttpClient.ClientT, Unit] =
     fetchState
-      .trace("Load Page", Logger.LogLevel.Debug, "url" -> url.path.mkString("/", "/", ""), "stage" -> "fetch-state")
+      .telemetrize("Load Page", Logger.LogLevel.Debug, "url" -> url.path.mkString("/", "/", ""), "stage" -> "fetch-state")
       .asRight
       .catchSome { case Page.PageLoadRedirect(url) => ZIO.left(url) }
       .flatMap {

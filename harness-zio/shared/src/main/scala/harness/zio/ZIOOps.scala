@@ -112,12 +112,81 @@ extension [R, A](zStream: RStream[R, A]) {
   def wrapHError: HRStream[R, A] = zStream.mapError(HError.fromThrowable)
 }
 
+extension [R, A](zio: HZIO[R, Nothing, A]) {
+  def removeErrorOr: HRIO[R, A] =
+    zio.mapError {
+      case error: HError           => error
+      case HError.Or(error, cause) => throw new RuntimeException(s"zio.removeErrorOr : should not be possible... ($error, $cause)")
+    }
+}
+extension [R, A](zLayer: HZLayer[R, Nothing, A]) {
+  def removeErrorOr: HRLayer[R, A] =
+    zLayer.mapError {
+      case error: HError           => error
+      case HError.Or(error, cause) => throw new RuntimeException(s"zLayer.removeErrorOr : should not be possible... ($error, $cause)")
+    }
+}
+extension [R, A](zStream: HZStream[R, Nothing, A]) {
+  def removeErrorOr: HRStream[R, A] =
+    zStream.mapError {
+      case error: HError           => error
+      case HError.Or(error, cause) => throw new RuntimeException(s"zStream.removeErrorOr : should not be possible... ($error, $cause)")
+    }
+}
+
+extension [R, E, A](zio: HZIO[R, E, A]) {
+  def widenE[E2 >: E]: HZIO[R, E2, A] = zio
+  def mapErrorOr[E2](f: E => E2): HZIO[R, E2, A] =
+    zio.mapError {
+      case hError: HError           => hError
+      case or @ HError.Or(error, _) => HError.Or(f(error), or)
+    }
+}
+extension [R, E, A](zLayer: HZLayer[R, E, A]) {
+  def widenE[E2 >: E]: HZLayer[R, E2, A] = zLayer
+  def mapErrorOr[E2](f: E => E2): HZLayer[R, E2, A] =
+    zLayer.mapError {
+      case hError: HError           => hError
+      case or @ HError.Or(error, _) => HError.Or(f(error), or)
+    }
+}
+extension [R, E, A](zStream: HZStream[R, E, A]) {
+  def widenE[E2 >: E]: HZStream[R, E2, A] = zStream
+  def mapErrorOr[E2](f: E => E2): HZStream[R, E2, A] =
+    zStream.mapError {
+      case hError: HError           => hError
+      case or @ HError.Or(error, _) => HError.Or(f(error), or)
+    }
+}
+
+// =====| Error Recovery |=====
+
+extension [R, E, A](zio: HZIO[R, E, A]) {
+  def recoverFromErrorOr[A2 >: A](f: E => A2): HRIO[R, A2] =
+    zio.foldZIO(
+      {
+        case hError: HError      => ZIO.fail(hError)
+        case HError.Or(error, _) => ZIO.succeed(f(error))
+      },
+      ZIO.succeed(_),
+    )
+  def recoverFromErrorOrZIO[R2, E2 >: HError <: AnyHError, A2 >: A](f: E => ZIO[R2, E2, A2]): ZIO[R & R2, E2, A2] =
+    zio.foldZIO(
+      {
+        case hError: HError      => ZIO.fail(hError)
+        case HError.Or(error, _) => f(error)
+      },
+      ZIO.succeed(_),
+    )
+}
+
 // =====| Logging |=====
 
 extension [R, E, A](self: ZIO[R, E, A]) {
-  inline def trace(label: String, telemetryContext: (String, Any)*): ZIO[Telemetry & Logger & R, E, A] = self.trace(label, Logger.LogLevel.Trace, telemetryContext*)
-  def trace(label: String, logLevel: Logger.LogLevel, telemetryContext: (String, Any)*): ZIO[Telemetry & Logger & R, E, A] =
-    Telemetry.trace(self, label, logLevel, telemetryContext.map { (k, v) => (k, String.valueOf(v)) }.toMap)
+  inline def telemetrize(label: String, telemetryContext: (String, Any)*): ZIO[Telemetry & Logger & R, E, A] =
+    self.telemetrize(label, Logger.LogLevel.Trace, telemetryContext*)
+  def telemetrize(label: String, logLevel: Logger.LogLevel, telemetryContext: (String, Any)*): ZIO[Telemetry & Logger & R, E, A] =
+    Telemetry.telemetrize(self, label, logLevel, telemetryContext.map { (k, v) => (k, String.valueOf(v)) }.toMap)
 }
 
 extension [R, A](self: HRIO[R, A]) {
