@@ -15,7 +15,6 @@ object DockerKafka {
 
     final case class Zookeeper(
         imageTag: Option[String],
-        allowAnonymousLogin: Boolean,
         tickTime: Option[Int],
     )
     object Zookeeper {
@@ -24,7 +23,6 @@ object DockerKafka {
 
     final case class Broker(
         imageTag: Option[String],
-        allowPlaintextListener: Boolean,
         brokerId: Int,
     )
     object Broker {
@@ -57,10 +55,10 @@ object DockerKafka {
           DockerContainer
             .init(zookeeperName, "confluentinc/cp-zookeeper")
             .iv(dockerConfig.zookeeper.imageTag)
-            .e("ZOOKEEPER_CLIENT_PORT", 2181.toString)
+            .e("ZOOKEEPER_CLIENT_PORT", zookeeperPort.toString)
             .e("ZOOKEEPER_TICK_TIME", dockerConfig.zookeeper.tickTime.getOrElse(2000).toString)
             // .e("ALLOW_ANONYMOUS_LOGIN", yesNo(dockerConfig.zookeeper.allowAnonymousLogin))
-            .p(zookeeperPort, 2181)
+            .p(zookeeperPort, zookeeperPort)
         // TODO (KR) : volume?
 
         brokerContainer =
@@ -78,8 +76,8 @@ object DockerKafka {
             // TODO (KR) :
             // .e("ALLOW_PLAINTEXT_LISTENER", yesNo(dockerConfig.broker.allowPlaintextListener))
             // jmx?
-            .p(brokerPlainTextPort, 29092)
-            .p(brokerPlainTextHostPort, 9092)
+            .p(brokerPlainTextPort, brokerPlainTextPort)
+            .p(brokerPlainTextHostPort, brokerPlainTextHostPort)
             .d(zookeeperContainer)
         // TODO (KR) : volume?
 

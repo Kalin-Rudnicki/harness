@@ -30,8 +30,11 @@
   },
   "kafka": {
     "zookeeper": {
+      "port": 6001
     },
     "broker": {
+      "plainTextPort": 6101,
+      "plainTextHostPort": 6201
     },
     "consumer": {
       "groupId": "my-group",
