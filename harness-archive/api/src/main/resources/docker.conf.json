@@ -1,6 +1,7 @@
 {
   "docker": {
     "needsSudo": true,
+    "appName": "harness-archive",
     "postgres": {}
   }
 }

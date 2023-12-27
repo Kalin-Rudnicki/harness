@@ -20,9 +20,9 @@ object Sys {
   }
 
   abstract class CmdBuilder[O](run: NonEmptyList[String] => HTask[O]) {
-    def apply(cmdAndArgs: NonEmptyList[String]): HTask[O] = run(cmdAndArgs)
-    def apply(cmd: Command): HTask[O] = run(cmd.cmdAndArgs)
-    def apply(cmd: String, args: String*): HTask[O] = run(NonEmptyList(cmd, args.toList))
+    final def apply(cmdAndArgs: NonEmptyList[String]): HTask[O] = run(cmdAndArgs)
+    final def apply(cmd: Command): HTask[O] = run(cmd.cmdAndArgs)
+    final def apply(cmd: String, args: String*): HTask[O] = run(NonEmptyList(cmd, args.toList))
   }
 
   object execute

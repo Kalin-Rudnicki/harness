@@ -35,7 +35,7 @@ final case class ContainerManager[R](
                 if (runningDesired.nonEmpty && !config.autoStop) ZIO.fail(HError.UserError(s"Containers are already running: ${runningDesired.map(_.Names).mkString("[", ", ", "]")}"))
                 else ZIO.foreachDiscard(runningDesired)(DockerCommands.stopAndRemoveContainer)
 
-              _ <- ZIO.foreachDiscard(desiredContainers)(DockerCommands.runContainer)
+              _ <- DockerCommands.runDockerCompose("up", desiredContainers)
             } yield ()
           },
       "stop" ->
@@ -60,7 +60,7 @@ final case class ContainerManager[R](
 }
 object ContainerManager {
 
-  type BaseEnv = DockerNeedsSudo
+  type BaseEnv = DockerNeedsSudo & DockerAppName
 
   final case class StartConfig(
       autoStop: Boolean,

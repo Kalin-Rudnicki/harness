@@ -83,7 +83,9 @@ lazy val `harness-root` =
       `harness-email`.js,
       `harness-docker`,
       `harness-docker-sql`,
+      `harness-docker-kafka`,
       `harness-sql`,
+      `harness-kafka`,
       `harness-web`.js,
       `harness-web`.jvm,
       `harness-http-client`.js,
@@ -215,6 +217,19 @@ lazy val `harness-docker-sql` =
     )
     .dependsOn(`harness-docker`, `harness-sql`)
 
+
+lazy val `harness-docker-kafka` =
+  project
+    .in(file("harness-docker-kafka"))
+    .settings(
+      name := "harness-docker-kafka",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      Test / fork := true,
+    )
+    .dependsOn(`harness-docker`, `harness-kafka`)
+
 lazy val `harness-pk` =
   crossProject(JSPlatform, JVMPlatform)
     .in(file("harness-pk"))
@@ -242,6 +257,21 @@ lazy val `harness-sql` =
       Test / fork := true,
     )
     .dependsOn(`harness-pk`.jvm % "test->test;compile->compile")
+
+lazy val `harness-kafka` =
+  project
+    .in(file("harness-kafka"))
+    .settings(
+      name := "harness-kafka",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      libraryDependencies ++= Seq(
+        "dev.zio" %% "zio-kafka" % "2.7.1",
+      ),
+      Test / fork := true,
+    )
+    .dependsOn(`harness-zio`.jvm % "test->test;compile->compile")
 
 lazy val `harness-email` =
   crossProject(JSPlatform, JVMPlatform)

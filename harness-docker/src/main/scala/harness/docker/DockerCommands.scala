@@ -20,11 +20,10 @@ object DockerCommands {
     override def toString: String = s"$PublicPort->$PrivatePort"
   }
   implicit val portsDecoder: JsonDecoder[List[Port]] =
-    JsonDecoder.string.mapOrFail {
-      _.split(", ").toList.filter(_.nonEmpty).grouped(2).toList.traverse {
-        case List(_, portMappingRegex(publicPort, privatePort)) => Port(publicPort.toInt, privatePort.toInt).asRight
-        case list                                               => s"Malformed list: $list".asLeft
-      }
+    JsonDecoder.string.map {
+      _.split(", ").toList
+        .filter(_.nonEmpty)
+        .collect { case portMappingRegex(publicPort, privatePort) => Port(publicPort.toInt, privatePort.toInt) }
     }
 
   private implicit val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss Z z")
@@ -75,6 +74,35 @@ object DockerCommands {
         })
     }
 
+  private def generateDockerComposeFile(containers: List[DockerContainer]): HRIO[FileSystem & Logger & Scope, Unit] =
+    for {
+      path <- Path("docker-compose.yml")
+      _ <- ZIO.fail(HError.UserError("'docker-compose.yml' already exists")).whenZIO(path.exists)
+      yamlString =
+        IndentedString
+          .inline(
+            "version: '3'",
+            "services:",
+            IndentedString.indented(
+              containers.map(_.toYamlString),
+            ),
+          )
+          .toString("  ") + "\n"
+      _ <- Logger.log.debug(s"Yaml string:\n\n$yamlString")
+      _ <- path.writeString(yamlString).withFinalizer(_ => path.delete.orDie)
+    } yield ()
+
+  def runDockerCompose(command: String, containers: List[DockerContainer]): HRIO[DockerAppName & DockerNeedsSudo & FileSystem & Logger, Unit] =
+    ZIO.scoped {
+      for {
+        dockerAppName <- DockerAppName.value
+        _ <- Logger.log.info(s"Running docker compose for '$dockerAppName'")
+        _ <- generateDockerComposeFile(containers)
+        dockerNeedsSudo <- DockerNeedsSudo.value
+        _ <- Sys.execute0(Sys.Command("docker", "compose", command, "-d").sudoIf(dockerNeedsSudo))
+      } yield ()
+    }
+
   def runContainer(container: DockerContainer): HRIO[DockerNeedsSudo & FileSystem & Logger, Unit] =
     for {
       _ <- Logger.log.info(s"Running docker container '${container.name}'")
@@ -87,10 +115,11 @@ object DockerCommands {
           "docker",
           List(
             List("run", "--name", container.name),
+            container.hostName.toList.flatMap { hostName => List("--hostname", hostName) },
             container.envVars.flatMap(_.toArgs),
             container.portMappings.flatMap(_.toArgs("-p")),
             container.volumeMappings.flatMap(_.toArgs("-v")),
-            List("-d", container.image),
+            List("-d", s"${container.image}:${container.imageVersion}"),
           ).flatten,
         ),
       )

@@ -1,7 +1,7 @@
 package template.api
 
 import harness.core.*
-import harness.docker.DockerNeedsSudo
+import harness.docker.*
 import harness.docker.sql.DockerPostgres
 import harness.email.*
 import harness.http.server.{given, *}
@@ -66,8 +66,9 @@ object Main extends ExecutableApp {
           },
       "docker" ->
         (DockerPostgres.containerManager).toExecutable {
-          DbConfig.configLayer ++
-            DockerNeedsSudo.configLayer("docker", "needsSudo") ++
+          DockerNeedsSudo.configLayer("docker", "needsSudo") ++
+            DockerAppName.configLayer("docker", "appName") ++
+            DbConfig.configLayer ++
             HConfig.readLayer[DockerPostgres.Config]("docker", "postgres")
         },
     )

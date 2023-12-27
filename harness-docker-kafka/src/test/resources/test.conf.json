@@ -1,0 +1,44 @@
+{
+  "logging": {
+    "context": {},
+    "sources": {
+      "std-out": {
+        "logTolerance": "TRACE",
+        "colorMode": "EXTENDED"
+      }
+    }
+  },
+  "telemetry": {
+    "sources": {
+      "logged": {
+        "logTolerance": "TRACE"
+      }
+    }
+  },
+  "docker": {
+    "needsSudo": true,
+    "appName": "kafka-test-main",
+    "kafka": {
+      "zookeeper": {
+        "allowAnonymousLogin": true
+      },
+      "broker": {
+        "allowPlaintextListener": true,
+        "brokerId": 1
+      }
+    }
+  },
+  "kafka": {
+    "zookeeper": {
+    },
+    "broker": {
+    },
+    "consumer": {
+      "groupId": "my-group",
+      "topicName": "my-topic"
+    },
+    "producer": {
+      "topicName": "my-topic"
+    }
+  }
+}

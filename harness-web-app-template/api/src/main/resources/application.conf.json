@@ -1,17 +1,17 @@
 {
-  "telemetry": {
-    "sources": {
-      "logged": {
-        "logTolerance": "TRACE"
-      }
-    }
-  },
   "logging": {
     "context": {},
     "sources": {
       "std-out": {
-        "logTolerance": "INFO",
+        "logTolerance": "DEBUG",
         "colorMode": "EXTENDED"
+      }
+    }
+  },
+  "telemetry": {
+    "sources": {
+      "logged": {
+        "logTolerance": "TRACE"
       }
     }
   },
