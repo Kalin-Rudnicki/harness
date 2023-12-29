@@ -30,7 +30,8 @@ trait Telemetry { self =>
 }
 object Telemetry {
 
-  val configLayer: HRLayer[TelemetryConfig, Telemetry] = ZLayer.service[TelemetryConfig].project(_.telemetry)
+  val configLayer: HRLayer[TelemetryConfig & Scope, Telemetry] =
+    ZLayer.fromZIO { ZIO.serviceWithZIO[TelemetryConfig](_.telemetry) }
 
   // =====| Api |=====
 

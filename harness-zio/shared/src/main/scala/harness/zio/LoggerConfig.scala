@@ -3,28 +3,33 @@ package harness.zio
 import cats.syntax.either.*
 import cats.syntax.option.*
 import harness.core.*
+import zio.*
 import zio.json.*
 import zio.json.ast.*
 
 final case class LoggerConfig(
     context: Map[String, String],
-    sources: List[Logger.Source],
+    sources: List[LoggerConfig.Src],
 ) {
 
-  def logger: Logger =
-    Logger(
-      sources = sources,
-      defaultMinLogTolerance = Logger.LogLevel.Never,
-      defaultContext = context,
-    )
+  def logger: URIO[Scope, Logger] =
+    ZIO.foreach(sources)(_.getSource).map { sources =>
+      Logger(
+        sources = sources,
+        defaultMinLogTolerance = Logger.LogLevel.Never,
+        defaultContext = context,
+      )
+    }
 
 }
 object LoggerConfig {
 
-  def jsonDecoder(configDecoders: HConfig.KeyedConfigDecoder[Logger.Source]*): JsonDecoder[LoggerConfig] = {
-    implicit val sourceDecoder: JsonDecoder[List[Logger.Source]] =
+  final case class Src(getSource: URIO[Scope, Logger.Source])
+
+  def jsonDecoder(configDecoders: HConfig.KeyedConfigDecoder[Src]*): JsonDecoder[LoggerConfig] = {
+    implicit val sourceDecoder: JsonDecoder[List[Src]] =
       HConfig.KeyedConfig
-        .makeMapDecoder[Logger.Source](configDecoders*)
+        .makeMapDecoder[Src](configDecoders*)
     // .orElse(JsonDecoder.list(Config.KeyedConfig.makeDecoder(configDecoders*)))
 
     DeriveJsonDecoder.gen
@@ -32,11 +37,14 @@ object LoggerConfig {
 
   // =====|  |=====
 
+  val stdOutDecoder: HConfig.KeyedConfigDecoder[LoggerConfig.Src] =
+    HConfig.KeyedConfigDecoder.makeEither[StdConfigs.ToleranceAndColorMode, LoggerConfig.Src]("std-out") { config =>
+      LoggerConfig.Src(ZIO.succeed(Logger.Source.stdOut(config.logTolerance.some, config.colorMode))).asRight
+    }
 
-  val stdOutDecoder: HConfig.KeyedConfigDecoder[Logger.Source] =
-    HConfig.KeyedConfigDecoder.make[StdConfigs.ToleranceAndColorMode, Logger.Source]("std-out") { config => Logger.Source.stdOut(config.logTolerance.some, config.colorMode).asRight }
-
-  val stdOutJsonDecoder: HConfig.KeyedConfigDecoder[Logger.Source] =
-    HConfig.KeyedConfigDecoder.make[StdConfigs.Tolerance, Logger.Source]("std-out-json") { config => Logger.Source.stdOutJson(config.logTolerance.some).asRight }
+  val stdOutJsonDecoder: HConfig.KeyedConfigDecoder[LoggerConfig.Src] =
+    HConfig.KeyedConfigDecoder.makeEither[StdConfigs.Tolerance, LoggerConfig.Src]("std-out-json") { config =>
+      LoggerConfig.Src(ZIO.succeed(Logger.Source.stdOutJson(config.logTolerance.some))).asRight
+    }
 
 }

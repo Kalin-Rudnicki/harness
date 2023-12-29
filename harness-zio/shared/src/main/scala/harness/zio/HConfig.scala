@@ -123,10 +123,16 @@ object HConfig {
   )
   object KeyedConfigDecoder {
 
-    def make[Cfg, A](key: String)(map: Cfg => Either[String, A])(implicit rawDecoder: JsonDecoder[Cfg]): KeyedConfigDecoder[A] =
+    def makeEither[Cfg, A](key: String)(map: Cfg => Either[String, A])(implicit rawDecoder: JsonDecoder[Cfg]): KeyedConfigDecoder[A] =
       KeyedConfigDecoder(
         key,
         rawDecoder.mapOrFail(map),
+      )
+
+    def make[Cfg, A](key: String)(map: Cfg => A)(implicit rawDecoder: JsonDecoder[Cfg]): KeyedConfigDecoder[A] =
+      KeyedConfigDecoder(
+        key,
+        rawDecoder.map(map),
       )
 
   }

@@ -1,28 +1,36 @@
 package harness.zio
 
 import cats.syntax.either.*
+import zio.*
 import zio.json.*
 
 final case class TelemetryConfig(
-    sources: List[Telemetry],
+    sources: List[TelemetryConfig.Src],
 ) {
 
-  def telemetry: Telemetry =
-    sources.foldLeft(Telemetry.none)(_ && _)
+  def telemetry: URIO[Scope, Telemetry] =
+    ZIO.foreach(sources)(_.getSource).map {
+      case head :: tail => tail.foldLeft(head)(_ && _)
+      case Nil          => Telemetry.none
+    }
 
 }
 object TelemetryConfig {
 
-  def jsonDecoder(configDecoders: HConfig.KeyedConfigDecoder[Telemetry]*): JsonDecoder[TelemetryConfig] = {
-    implicit val sourceDecoder: JsonDecoder[List[Telemetry]] =
+  final case class Src(getSource: URIO[Scope, Telemetry])
+
+  def jsonDecoder(configDecoders: HConfig.KeyedConfigDecoder[Src]*): JsonDecoder[TelemetryConfig] = {
+    implicit val sourceDecoder: JsonDecoder[List[Src]] =
       HConfig.KeyedConfig
-        .makeMapDecoder[Telemetry](configDecoders*)
+        .makeMapDecoder[Src](configDecoders*)
     // .orElse(JsonDecoder.list(Config.KeyedConfig.makeDecoder(configDecoders*)))
 
     DeriveJsonDecoder.gen
   }
 
-  val loggedDecoder: HConfig.KeyedConfigDecoder[Telemetry] =
-    HConfig.KeyedConfigDecoder.make[StdConfigs.Tolerance, Telemetry]("logged") { config => Telemetry.log.withMinLogTolerance(config.logTolerance).asRight }
+  val loggedDecoder: HConfig.KeyedConfigDecoder[TelemetryConfig.Src] =
+    HConfig.KeyedConfigDecoder.make[StdConfigs.Tolerance, TelemetryConfig.Src]("logged") { config =>
+      TelemetryConfig.Src(ZIO.succeed(Telemetry.log.withMinLogTolerance(config.logTolerance)))
+    }
 
 }

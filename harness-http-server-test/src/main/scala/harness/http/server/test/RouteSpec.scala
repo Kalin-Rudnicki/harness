@@ -90,7 +90,7 @@ abstract class RouteSpec[
   // =====| Implement |=====
 
   override def bootstrap: HTaskLayer[Environment] =
-    Scope.default >>> (
+    Scope.default >+> (
       harnessLayer ++
         ZLayer.fromZIO(evalRoute) ++
         testEnvironment

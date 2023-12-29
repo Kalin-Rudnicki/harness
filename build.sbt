@@ -19,6 +19,8 @@ ThisBuild / watchBeforeCommand := Watch.clearScreen
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 ThisBuild / sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
 
+lazy val testAndCompile = "test->test;compile->compile"
+
 lazy val miscSettings =
   Seq(
     scalaVersion := Scala_3,
@@ -120,7 +122,10 @@ lazy val `harness-zio-test` =
       publishSettings,
       miscSettings,
     )
-    .dependsOn(`harness-zio`, `harness-test`)
+    .dependsOn(
+      `harness-zio` % testAndCompile,
+      `harness-test` % testAndCompile,
+    )
 
 lazy val `harness-core` =
   crossProject(JSPlatform, JVMPlatform)
@@ -147,7 +152,9 @@ lazy val `harness-csv` =
       testSettings,
       sonatypeCredentialHost := "s01.oss.sonatype.org",
     )
-    .dependsOn(`harness-core` % "test->test;compile->compile")
+    .dependsOn(
+      `harness-core` % testAndCompile,
+    )
 
 lazy val `harness-xml` =
   project
@@ -162,7 +169,9 @@ lazy val `harness-xml` =
       ),
       sonatypeCredentialHost := "s01.oss.sonatype.org",
     )
-    .dependsOn(`harness-core`.jvm % "test->test;compile->compile")
+    .dependsOn(
+      `harness-core`.jvm % testAndCompile,
+    )
 
 lazy val `harness-cli` =
   crossProject(JSPlatform, JVMPlatform)
@@ -173,7 +182,9 @@ lazy val `harness-cli` =
       miscSettings,
       testSettings,
     )
-    .dependsOn(`harness-core` % "test->test;compile->compile")
+    .dependsOn(
+      `harness-core` % testAndCompile,
+    )
 
 lazy val `harness-zio` =
   crossProject(JSPlatform, JVMPlatform)
@@ -191,7 +202,9 @@ lazy val `harness-zio` =
     .jvmSettings(
       Test / fork := true,
     )
-    .dependsOn(`harness-cli` % "test->test;compile->compile")
+    .dependsOn(
+      `harness-cli` % testAndCompile,
+    )
 
 lazy val `harness-docker` =
   project
@@ -203,7 +216,9 @@ lazy val `harness-docker` =
       testSettings,
       Test / fork := true,
     )
-    .dependsOn(`harness-zio`.jvm)
+    .dependsOn(
+      `harness-zio`.jvm % testAndCompile,
+    )
 
 lazy val `harness-docker-sql` =
   project
@@ -215,8 +230,10 @@ lazy val `harness-docker-sql` =
       testSettings,
       Test / fork := true,
     )
-    .dependsOn(`harness-docker`, `harness-sql`)
-
+    .dependsOn(
+      `harness-docker` % testAndCompile,
+      `harness-sql` % testAndCompile,
+    )
 
 lazy val `harness-docker-kafka` =
   project
@@ -228,7 +245,10 @@ lazy val `harness-docker-kafka` =
       testSettings,
       Test / fork := true,
     )
-    .dependsOn(`harness-docker`, `harness-kafka`)
+    .dependsOn(
+      `harness-docker` % testAndCompile,
+      `harness-kafka` % testAndCompile,
+    )
 
 lazy val `harness-pk` =
   crossProject(JSPlatform, JVMPlatform)
@@ -240,7 +260,9 @@ lazy val `harness-pk` =
       testSettings,
       Test / fork := true,
     )
-    .dependsOn(`harness-zio` % "test->test;compile->compile")
+    .dependsOn(
+      `harness-zio` % testAndCompile,
+    )
 
 lazy val `harness-sql` =
   project
@@ -256,7 +278,9 @@ lazy val `harness-sql` =
       ),
       Test / fork := true,
     )
-    .dependsOn(`harness-pk`.jvm % "test->test;compile->compile")
+    .dependsOn(
+      `harness-pk`.jvm % testAndCompile,
+    )
 
 lazy val `harness-kafka` =
   project
@@ -271,7 +295,9 @@ lazy val `harness-kafka` =
       ),
       Test / fork := true,
     )
-    .dependsOn(`harness-zio`.jvm % "test->test;compile->compile")
+    .dependsOn(
+      `harness-zio`.jvm % testAndCompile,
+    )
 
 lazy val `harness-email` =
   crossProject(JSPlatform, JVMPlatform)
@@ -288,7 +314,9 @@ lazy val `harness-email` =
         "com.sun.mail" % "javax.mail" % "1.6.2",
       ),
     )
-    .dependsOn(`harness-zio` % "test->test;compile->compile")
+    .dependsOn(
+      `harness-zio` % testAndCompile,
+    )
 
 lazy val `harness-web` =
   crossProject(JSPlatform, JVMPlatform)
@@ -307,7 +335,9 @@ lazy val `harness-web` =
         "com.github.julien-truffaut" %%% "monocle-macro" % "3.0.0-M6",
       ),
     )
-    .dependsOn(`harness-pk` % "test->test;compile->compile")
+    .dependsOn(
+      `harness-pk` % testAndCompile,
+    )
 
 lazy val `harness-http-client` =
   crossProject(JSPlatform, JVMPlatform)
@@ -319,7 +349,9 @@ lazy val `harness-http-client` =
       testSettings,
       Test / fork := true,
     )
-    .dependsOn(`harness-web` % "test->test;compile->compile")
+    .dependsOn(
+      `harness-web` % testAndCompile,
+    )
 
 lazy val `harness-http-server` =
   project
@@ -330,7 +362,9 @@ lazy val `harness-http-server` =
       miscSettings,
       testSettings,
     )
-    .dependsOn(`harness-web`.jvm % "test->test;compile->compile")
+    .dependsOn(
+      `harness-web`.jvm % testAndCompile,
+    )
 
 lazy val `harness-http-server-test` =
   project
@@ -341,9 +375,9 @@ lazy val `harness-http-server-test` =
       miscSettings,
     )
     .dependsOn(
-      `harness-test`.jvm,
-      `harness-http-server`,
-      `harness-sql`,
+      `harness-test`.jvm % testAndCompile,
+      `harness-http-server` % testAndCompile,
+      `harness-sql` % testAndCompile,
     )
 
 lazy val `harness-web-ui` =
@@ -356,7 +390,9 @@ lazy val `harness-web-ui` =
       miscSettings,
       testSettings,
     )
-    .dependsOn(`harness-http-client`.js % "test->test;compile->compile")
+    .dependsOn(
+      `harness-http-client`.js % testAndCompile,
+    )
 
 lazy val `harness-js-plugin` =
   project
@@ -396,7 +432,10 @@ lazy val `harness-archive-client` =
       miscSettings,
       testSettings,
     )
-    .dependsOn(`harness-http-client`, `harness-archive-model`)
+    .dependsOn(
+      `harness-http-client` % testAndCompile,
+      `harness-archive-model` % testAndCompile,
+    )
 
 lazy val `harness-archive-model` =
   crossProject(JSPlatform, JVMPlatform)
@@ -407,7 +446,10 @@ lazy val `harness-archive-model` =
       miscSettings,
       testSettings,
     )
-    .dependsOn(`harness-web`, `harness-email`)
+    .dependsOn(
+      `harness-web` % testAndCompile,
+      `harness-email` % testAndCompile,
+    )
 
 lazy val `harness-archive-db-model` =
   project
@@ -418,7 +460,10 @@ lazy val `harness-archive-db-model` =
       miscSettings,
       testSettings,
     )
-    .dependsOn(`harness-sql`, `harness-archive-model`.jvm)
+    .dependsOn(
+      `harness-sql` % testAndCompile,
+      `harness-archive-model`.jvm % testAndCompile,
+    )
 
 lazy val `harness-archive-api` =
   project
@@ -433,11 +478,11 @@ lazy val `harness-archive-api` =
       ),
     )
     .dependsOn(
-      `harness-archive-model`.jvm,
-      `harness-archive-db-model`,
-      `harness-http-server`,
+      `harness-archive-model`.jvm % testAndCompile,
+      `harness-archive-db-model` % testAndCompile,
+      `harness-http-server` % testAndCompile,
+      `harness-docker-sql` % testAndCompile,
       `harness-http-server-test` % Test,
-      `harness-docker-sql`,
     )
 
 lazy val `harness-archive-ui-web` =
@@ -455,7 +500,10 @@ lazy val `harness-archive-ui-web` =
       testSettings,
       scalaJSUseMainModuleInitializer := true,
     )
-    .dependsOn(`harness-archive-model`.js, `harness-web-ui`)
+    .dependsOn(
+      `harness-archive-model`.js % testAndCompile,
+      `harness-web-ui` % testAndCompile,
+    )
 
 // =====| Harness Web App Template |=====
 
@@ -481,7 +529,10 @@ lazy val `harness-web-app-template--model` =
       miscSettings,
       testSettings,
     )
-    .dependsOn(`harness-web`, `harness-email`)
+    .dependsOn(
+      `harness-web` % testAndCompile,
+      `harness-email` % testAndCompile,
+    )
 
 lazy val `harness-web-app-template--db-model` =
   project
@@ -492,7 +543,10 @@ lazy val `harness-web-app-template--db-model` =
       miscSettings,
       testSettings,
     )
-    .dependsOn(`harness-sql`, `harness-web-app-template--model`.jvm)
+    .dependsOn(
+      `harness-sql` % testAndCompile,
+      `harness-web-app-template--model`.jvm % testAndCompile,
+    )
 
 lazy val `harness-web-app-template--api` =
   project
@@ -507,11 +561,11 @@ lazy val `harness-web-app-template--api` =
       ),
     )
     .dependsOn(
-      `harness-web-app-template--model`.jvm,
-      `harness-web-app-template--db-model`,
-      `harness-http-server`,
+      `harness-web-app-template--model`.jvm % testAndCompile,
+      `harness-web-app-template--db-model` % testAndCompile,
+      `harness-http-server` % testAndCompile,
+      `harness-docker-sql` % testAndCompile,
       `harness-http-server-test` % Test,
-      `harness-docker-sql`,
     )
 
 lazy val `harness-web-app-template--ui-web` =
@@ -529,4 +583,7 @@ lazy val `harness-web-app-template--ui-web` =
       testSettings,
       scalaJSUseMainModuleInitializer := true,
     )
-    .dependsOn(`harness-web-app-template--model`.js, `harness-web-ui`)
+    .dependsOn(
+      `harness-web-app-template--model`.js % testAndCompile,
+      `harness-web-ui` % testAndCompile,
+    )

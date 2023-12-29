@@ -9,49 +9,50 @@ import harness.zio.*
 import zio.*
 import zio.json.*
 
-final class ArchiveLoggerTarget(
-    appName: String,
-    baseUrl: String,
-    httpClient: HttpClient.ClientT,
-) extends Logger.Target {
+final class ArchiveLoggerTarget(sender: QueuedSender[Any, Logger.ExecutedEvent]) extends Logger.Target {
 
-  private val env: ZEnvironment[HttpClient.ClientT & Logger & Telemetry] = ZEnvironment(httpClient, Logger.none, Telemetry.none)
-
-  private val uploadUrl: String = s"$baseUrl/api/log/upload"
-
-  // TODO (KR) : be smarter about batching multiple requests
   override def log(event: Logger.ExecutedEvent): UIO[Unit] =
-    ZIO
-      .suspendSucceed {
-        val payload =
-          D.log.Upload(
-            appName = appName,
-            logLevel = event.logLevel,
-            message = event.message,
-            context = event.context,
-            dateTime = event.dateTime,
-          )
-
-        HttpRequest
-          .post(uploadUrl)
-          .withBodyJsonEncoded(payload :: Nil)
-          .response
-          .unit2xx
-          .provideEnvironment(env)
-          .foldZIO(
-            error => Util.logToConsole(error.toNel.toList.map(_.fullInternalMessage).mkString("\n")) *> Util.logToConsole(payload.toJson),
-            _ => ZIO.unit,
-          )
-      }
-      .fork
-      .unit
+    sender.push(event)
 
 }
 object ArchiveLoggerTarget {
 
-  val keyedConfigDecoder: HConfig.KeyedConfigDecoder[Logger.Source] =
-    HConfig.KeyedConfigDecoder.make[ArchiveConfig, Logger.Source]("harness-archive") { config =>
-      Logger.Source.const(new ArchiveLoggerTarget(config.appName, config.baseUrl, HttpClient.defaultClient), config.logTolerance.some).asRight
+  private def makeConfigSource(cfg: ArchiveConfig): LoggerConfig.Src =
+    LoggerConfig.Src {
+      for {
+        httpClient <- ZIO.succeed(HttpClient.defaultClient)
+        env: ZEnvironment[HttpClient.ClientT & Logger & Telemetry] = ZEnvironment(httpClient, Logger.none, Telemetry.none)
+        uploadUrl: String = s"${cfg.baseUrl}/api/log/upload"
+        sender <- QueuedSender.make[Any, Logger.ExecutedEvent]("ArchiveLoggerTarget", cfg.queueChunkSize, cfg.queueDumpEvery, true) { events =>
+          ZIO
+            .suspendSucceed {
+              val payload =
+                events.map { event =>
+                  D.log.Upload(
+                    appName = cfg.appName,
+                    logLevel = event.logLevel,
+                    message = event.message,
+                    context = event.context,
+                    dateTime = event.dateTime,
+                  )
+                }
+
+              HttpRequest
+                .post(uploadUrl)
+                .withBodyJsonEncoded(payload)
+                .response
+                .unit2xx
+                .provideEnvironment(env)
+                .foldZIO(
+                  error => Util.logToConsole(error.toNel.toList.map(_.fullInternalMessage).mkString("\n")) *> Util.logToConsole(payload.toJson),
+                  _ => ZIO.unit,
+                )
+            }
+        }
+      } yield Logger.Source.const(new ArchiveLoggerTarget(sender), cfg.logTolerance.some)
     }
+
+  val keyedConfigDecoder: HConfig.KeyedConfigDecoder[LoggerConfig.Src] =
+    HConfig.KeyedConfigDecoder.make[ArchiveConfig, LoggerConfig.Src]("harness-archive") { ArchiveLoggerTarget.makeConfigSource }
 
 }

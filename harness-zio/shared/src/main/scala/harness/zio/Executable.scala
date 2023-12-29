@@ -13,10 +13,10 @@ import zio.json.ast.Json
 
 trait Executable { self =>
 
-  def execute(args: IndexedArgs): SHTask[Any]
+  def execute(args: IndexedArgs): SHRIO[Scope, Any]
 
   final def apply(config: ExecutableApp.Config, args: List[String]): UIO[ExitCode] = {
-    val result: Executable.Result[(HTaskLayer[HarnessEnv], SHTask[Any])] =
+    val result: Executable.Result[(HRLayer[Scope, HarnessEnv], SHRIO[Scope, Any])] =
       for {
         args <- Executable.parseIndexedArgs(args)
         (harnessArgs, executableArgs) = Executable.parseSplitArgs(args)
@@ -24,13 +24,13 @@ trait Executable { self =>
         executableEffect = self.execute(executableArgs)
       } yield (harnessEnvLayer, executableEffect)
 
-    val execute: HRIO[Logger, ExitCode] =
+    val execute: HRIO[Logger & Scope, ExitCode] =
       result match {
         case Executable.Result.Success((layer, effect)) =>
           effect.collapseCause
             .tapError(Logger.logHErrorMessageWithTrace.debug(_))
             .dumpErrorsAndContinue(Logger.LogLevel.Fatal)
-            .provideLayer(layer)
+            .provideSomeLayer[Scope](layer)
             .map {
               case Some(_) => ExitCode.success
               case None    => ExitCode.failure
@@ -43,7 +43,7 @@ trait Executable { self =>
 
     execute.collapseCause
       .catchAll(Logger.logHErrorMessageWithTrace.fatal(_).as(ExitCode.failure))
-      .provideLayer(ZLayer.succeed(Logger.default()))
+      .provideLayer(Scope.default ++ ZLayer.succeed(Logger.default()))
   }
 
   final def apply(config: ExecutableApp.Config)(args: String*): UIO[ExitCode] =
@@ -197,12 +197,12 @@ object Executable extends ExecutableBuilders.Builder1 {
   private def parseHarnessEnvLayer(
       executableAppConfig: ExecutableApp.Config,
       args: IndexedArgs,
-  ): Result[HTaskLayer[HarnessEnv]] =
+  ): Result[HRLayer[Scope, HarnessEnv]] =
     finalizedResultToExecutableResult(Config.parser.finalized.parse(args)).map { config =>
       implicit val loggerConfigJsonDecoder: JsonDecoder[LoggerConfig] = LoggerConfig.jsonDecoder(executableAppConfig.loggerDecoders*)
       implicit val telemetryConfigJsonDecoder: JsonDecoder[TelemetryConfig] = TelemetryConfig.jsonDecoder(executableAppConfig.telemetryDecoders*)
 
-      val loggerAndTelemetryLayer: HRLayer[HConfig, Logger & Telemetry] =
+      val loggerAndTelemetryLayer: HRLayer[HConfig & Scope, Logger & Telemetry] =
         config.stdOutLogTolerance match {
           case Some(stdOutLogTolerance) =>
             ZLayer.make[Logger & Telemetry](
@@ -210,7 +210,7 @@ object Executable extends ExecutableBuilders.Builder1 {
               ZLayer.succeed(Telemetry.log),
             )
           case None =>
-            ZLayer.makeSome[HConfig, Logger & Telemetry](
+            ZLayer.makeSome[HConfig & Scope, Logger & Telemetry](
               HConfig.readLayer[LoggerConfig]("logging"),
               Logger.configLayer,
               HConfig.readLayer[TelemetryConfig]("telemetry"),
@@ -218,7 +218,7 @@ object Executable extends ExecutableBuilders.Builder1 {
             )
         }
 
-      ZLayer.make[HarnessEnv](
+      ZLayer.makeSome[Scope, HarnessEnv](
         ZLayer.succeed(config.runMode),
         ZLayer.succeed(HError.UserMessage.IfHidden.default),
         FileSystem.liveLayer,
@@ -253,12 +253,9 @@ object ExecutableBuilders {
 
     final def withEffect(effect: P => SHRIO[R & Scope, Any]): Executable = { args =>
       Executable.finalizedResultToExecutableResult(parser.finalized.parse(args)) match {
-        case Executable.Result.Success(parseT) =>
-          ZIO.scoped {
-            effect(parseT).provideSomeLayer(layer(parseT))
-          }
-        case Executable.Result.Help(message) => Logger.log.info(message)
-        case Executable.Result.Fail(error)   => ZIO.fail(error)
+        case Executable.Result.Success(parseT) => effect(parseT).provideSomeLayer(layer(parseT))
+        case Executable.Result.Help(message)   => Logger.log.info(message)
+        case Executable.Result.Fail(error)     => ZIO.fail(error)
       }
     }
 

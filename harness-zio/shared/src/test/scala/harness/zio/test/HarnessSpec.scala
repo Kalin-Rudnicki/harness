@@ -29,7 +29,7 @@ abstract class HarnessSpec[R: EnvironmentTag] extends ZIOSpec[HarnessEnv & R] {
   // =====| Concrete |=====
 
   override final def bootstrap: HTaskLayer[Environment] =
-    Scope.default >>> (harnessEnv >+> rLayer)
+    Scope.default >+> (harnessEnv >+> rLayer)
 
 }
 object HarnessSpec {

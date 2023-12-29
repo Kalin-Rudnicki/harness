@@ -75,7 +75,8 @@ object Logger { self =>
 
   val none: Logger = Logger.default(sources = Nil, defaultMinLogTolerance = Logger.LogLevel.Never)
 
-  val configLayer: HRLayer[LoggerConfig, Logger] = ZLayer.service[LoggerConfig].project(_.logger)
+  val configLayer: HRLayer[LoggerConfig & Scope, Logger] =
+    ZLayer.fromZIO { ZIO.serviceWithZIO[LoggerConfig](_.logger) }
 
   // =====| API |=====
 
