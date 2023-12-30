@@ -26,6 +26,15 @@ sealed trait ParsedQuery {
       case Key.Message      => log.message.some
       case Key.Context(key) => log.context.get(key)
     }
+  private def getKey(key: ParsedQuery.Key)(app: M.App.Identity, trace: M.Trace.Identity): Option[String] =
+    key match {
+      case Key.AppName      => app.name.some
+      case Key.AppId        => app.id.toString.some
+      case Key.LogLevel     => trace.logLevel.name.toUpperCase.some
+      case Key.Timestamp    => trace.startDateTime.toString.some
+      case Key.Message      => trace.label.some
+      case Key.Context(key) => trace.telemetryContext.get(key).orElse(trace.logContext.get(key))
+    }
 
   private def like(value: String, compValue: String): Boolean =
     value.toUpperCase.contains(compValue.toUpperCase)
@@ -40,6 +49,40 @@ sealed trait ParsedQuery {
         val leftF = left.toLogFilterFunction
         val rightF = right.toLogFilterFunction
         (app, log) => leftF(app, log) || rightF(app, log)
+      case ParsedQuery.EqualMany(key, values) =>
+        val compValues = values.toList.toSet
+        getKey(key)(_, _).fold(false)(compValues.contains)
+      case ParsedQuery.Exists(key) =>
+        getKey(key)(_, _).nonEmpty
+      case ParsedQuery.LikeMany(key, values) =>
+        val compValues = values.toList
+        getKey(key)(_, _).fold(false)(value => compValues.exists(like(value, _)))
+      case ParsedQuery.Comp(key, op, compValue) =>
+        // TODO (KR) : `!=` None -> true?
+        // TODO (KR) : better comparison
+        getKey(key)(_, _).fold(false) { value =>
+          op match {
+            case ParsedQuery.CompOp.Eq        => value == compValue
+            case ParsedQuery.CompOp.NotEq     => value != compValue
+            case ParsedQuery.CompOp.Like      => like(value, compValue)
+            case ParsedQuery.CompOp.Greater   => value > compValue
+            case ParsedQuery.CompOp.Less      => value < compValue
+            case ParsedQuery.CompOp.GreaterEq => value >= compValue
+            case ParsedQuery.CompOp.LessEq    => value <= compValue
+          }
+        }
+    }
+
+  final def toTraceFilterFunction: (M.App.Identity, M.Trace.Identity) => Boolean =
+    this match {
+      case ParsedQuery.And(left, right) =>
+        val leftF = left.toTraceFilterFunction
+        val rightF = right.toTraceFilterFunction
+        (app, trace) => leftF(app, trace) && rightF(app, trace)
+      case ParsedQuery.Or(left, right) =>
+        val leftF = left.toTraceFilterFunction
+        val rightF = right.toTraceFilterFunction
+        (app, trace) => leftF(app, trace) || rightF(app, trace)
       case ParsedQuery.EqualMany(key, values) =>
         val compValues = values.toList.toSet
         getKey(key)(_, _).fold(false)(compValues.contains)

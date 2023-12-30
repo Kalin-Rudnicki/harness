@@ -1,15 +1,19 @@
 package harness.archive.api.routes
 
+import cats.data.NonEmptyList
+import cats.syntax.either.*
 import harness.archive.api.db.model as M
 import harness.archive.api.service.storage.*
 import harness.archive.api.util.*
 import harness.archive.model as D
+import harness.archive.parsers.*
 import harness.core.*
 import harness.http.server.{given, *}
 import harness.sql.*
 import harness.sql.query.Transaction
 import harness.web.*
 import harness.zio.*
+import slyce.core.*
 import zio.*
 
 object Telemetry {
@@ -47,7 +51,7 @@ object Telemetry {
           } yield HttpResponse.fromHttpCode.Ok
         }
       },
-      (HttpMethod.GET / "get").implement { _ =>
+      (HttpMethod.GET / "get-for-app").implement { _ =>
         Transaction.inTransaction {
           for {
             // TODO (KR) :
@@ -56,8 +60,25 @@ object Telemetry {
 
             appName <- HttpRequest.query.get[String]("app-name")
             app <- Misc.appByName(appName)
-            dbTraces <- TraceStorage.byAppId(app.id)
+            dbTraces <- TraceStorage.forAppId(app.id)
           } yield HttpResponse.encodeJson(dbTraces.map(DbToDomain.trace))
+        }
+      },
+      (HttpMethod.GET / "get").implement { _ =>
+        Transaction.inTransaction {
+          for {
+            // TODO (KR) :
+            _ <- Misc.warnUserPermissions
+            // dbUser <- SessionUtils.userFromSession
+
+            query <- HttpRequest.query.get[String]("query")
+            parsedQuery <- QueryParser.parse(Source(query, None)) match {
+              case Right(value) => ZIO.succeed(value)
+              case Left(errors) => ZIO.fail(HError.UserError(Source.markAll(errors.toList)))
+            }
+            convertedQuery <- ZIO.eitherNelToUserErrors(ParsedQuery.from(parsedQuery.toExpr).leftMap(NonEmptyList.one))
+            dbTraces <- TraceStorage.allForQuery(convertedQuery.toTraceFilterFunction)
+          } yield HttpResponse.encodeJson(dbTraces.map(DbToDomain.trace).sortBy(_.startDateTime).reverse)
         }
       },
     )

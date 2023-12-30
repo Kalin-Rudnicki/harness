@@ -21,6 +21,8 @@ object Main extends PageApp {
       "sign-up" /: RouteMatcher.const { pages.SignUp.page },
       "logs" /: RouteMatcher.ParamArg[String]("query") ??*:
         RouteMatcher.finish[Option[String]] { pages.Logs.page },
+      "traces" /: RouteMatcher.ParamArg[String]("query") ??*:
+        RouteMatcher.finish[Option[String]] { pages.Traces.page },
     )
 
 }

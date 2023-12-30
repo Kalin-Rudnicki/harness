@@ -12,7 +12,7 @@ import java.time.{ZonedDateTime, ZoneId}
 import java.time.format.DateTimeFormatter
 import zio.*
 
-object Logs {
+object Traces {
 
   private val timezone = ZoneId.systemDefault()
 
@@ -20,24 +20,25 @@ object Logs {
       user: D.user.User,
       query: String,
       apps: Map[D.app.AppId, D.app.App],
-      logs: Chunk[Env.Log],
+      traces: Chunk[Env.Trace],
   )
+
   object Env {
 
-    final case class Log(
+    final case class Trace(
         app: D.app.App,
         zonedDateTime: ZonedDateTime,
         contexts: List[(String, String)],
-        log: D.log.Log,
+        trace: D.telemetry.Trace,
     )
-    object Log {
+    object Trace {
 
-      def apply(apps: Map[D.app.AppId, D.app.App], log: D.log.Log): Env.Log =
-        Env.Log(
-          apps(log.appId),
-          log.dateTime.atZoneSameInstant(timezone),
-          log.context.toList.sortBy(_._1),
-          log,
+      def apply(apps: Map[D.app.AppId, D.app.App], trace: D.telemetry.Trace): Env.Trace =
+        Env.Trace(
+          apps(trace.appId),
+          trace.startDateTime.atZoneSameInstant(timezone),
+          (trace.logContext ++ trace.telemetryContext).toList.sortBy(_._1),
+          trace,
         )
 
     }
@@ -55,13 +56,13 @@ object Logs {
     PModifier.builder.withState[Env] { env =>
       FormWidgets
         .textInput[String]
-        .labelRequired("Logs Query:", "logs-query", inputModifier = width := "100%")
+        .labelRequired("Traces Query:", "traces-query", inputModifier = width := "100%")
         .zoomOut[Env](_.query)
         .flatMapActionVZM { case (_, query) =>
-          Api.log.get(query).map { logs =>
+          Api.telemetry.get(query).map { traces =>
             List(
-              Raise.History.PushWithoutNavigation(Url("page", "logs")("query" -> query)),
-              Raise.updateState[Env](_.copy(logs = logs.map(Env.Log(env.apps, _)))),
+              Raise.History.PushWithoutNavigation(Url("page", "traces")("query" -> query)),
+              Raise.updateState[Env](_.copy(traces = traces.map(Env.Trace(env.apps, _)))),
             )
           }
         }
@@ -71,13 +72,13 @@ object Logs {
   private val showDate: DateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy")
   private val showTime: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
 
-  private def logRows(rh: RaiseHandler[Nothing, Env], env: Env, log: Env.Log): CModifier = {
+  private def traceRows(rh: RaiseHandler[Nothing, Env], env: Env, trace: Env.Trace): CModifier = {
     def appendQuery(q: String): Unit = {
       val newQuery = s"${env.query} & $q"
-      rh.pushUrlWithoutNavigation(Url("page", "logs")("query" -> newQuery))
+      rh.pushUrlWithoutNavigation(Url("page", "traces")("query" -> newQuery))
       rh.raiseZIO {
-        Api.log.get(newQuery).map { logs =>
-          Raise.updateState[Env](_.copy(query = newQuery, logs = logs.map(Env.Log(env.apps, _))))
+        Api.telemetry.get(newQuery).map { logs =>
+          Raise.updateState[Env](_.copy(query = newQuery, traces = logs.map(Env.Trace(env.apps, _))))
         }
       }
     }
@@ -99,24 +100,20 @@ object Logs {
 
     PModifier(
       tr(
-        td(textAlign := "center", log.app.name),
-        td(textAlign := "center", log.zonedDateTime.format(showDate)),
-        td(textAlign := "center", log.zonedDateTime.format(showTime)),
+        td(textAlign := "center", trace.app.name),
+        td(textAlign := "center", trace.zonedDateTime.format(showDate)),
+        td(textAlign := "center", trace.zonedDateTime.format(showTime)),
         td(
           textAlign := "center",
-          PModifier.foreach(log.log.logLevel) { c =>
-            PModifier(
-              colorToCssColor(c.extendedColor),
-              color.black,
-              c.name,
-            )
-          },
+          colorToCssColor(trace.trace.logLevel.extendedColor),
+          color.black,
+          trace.trace.logLevel.name,
         ),
-        td(whiteSpace.preWrap, colSpan := 2, log.log.message),
+        td(whiteSpace.preWrap, colSpan := 2, trace.trace.label),
       ),
-      log.contexts match {
+      trace.contexts match {
         case (cHeadKey, cHeadValue) :: tail =>
-          val myRowSpan = log.contexts.size
+          val myRowSpan = trace.contexts.size
           PModifier(
             tr(
               td(rowSpan := myRowSpan, colSpan := 4),
@@ -138,11 +135,11 @@ object Logs {
           apps <- Api.app.getAll
           appMap = apps.map(a => a.id -> a).toMap
           logs <- query match {
-            case Some(query) => Api.log.get(query)
+            case Some(query) => Api.telemetry.get(query)
             case None        => ZIO.succeed(Chunk.empty)
           }
           // TODO (KR) : get query from URL?
-        } yield Env(user, query.getOrElse(""), appMap, logs.map(Env.Log(appMap, _)))
+        } yield Env(user, query.getOrElse(""), appMap, logs.map(Env.Trace(appMap, _)))
       }
       .constTitle("Logs")
       .body {
@@ -166,7 +163,7 @@ object Logs {
                   th("Context Key", width := "250px"),
                   th("Context Value", width := "750px"),
                 ),
-                PModifier.foreach(env.logs)(logRows(rh, env, _)),
+                PModifier.foreach(env.traces)(traceRows(rh, env, _)),
               )
             },
           ),

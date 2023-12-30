@@ -23,6 +23,7 @@ object Widgets {
     )(
       NavBar.linkItem(Url("page", "home")(), "Home"),
       NavBar.linkItem(Url("page", "logs")(), "Logs"),
+      NavBar.linkItem(Url("page", "traces")(), "Traces"),
       PModifier.builder.withState[D.user.User] { s =>
         NavBar.linkItem(Url("page", "account")(), s.firstName)
       },
