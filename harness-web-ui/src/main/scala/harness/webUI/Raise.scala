@@ -25,6 +25,7 @@ object Raise {
   sealed trait History extends Raise.Standard
   object History {
     final case class Push(page: Url) extends History
+    final case class PushWithoutNavigation(page: Url) extends History
     final case class Replace(page: Url) extends History
     final case class Go(delta: Int) extends History
 

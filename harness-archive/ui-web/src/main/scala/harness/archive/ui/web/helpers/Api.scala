@@ -80,6 +80,15 @@ object Api {
         .response
         .jsonBody[Chunk[D.log.Log]]
 
+    def get(query: String): HRIO[HttpClient.ClientT & Logger & Telemetry, Chunk[D.log.Log]] =
+      Logger.log.info(s"query:\n$query") *>
+        HttpRequest
+          .get("/api/log/get")
+          .withQueryParam("query", query)
+          .withNoBody
+          .response
+          .jsonBody[Chunk[D.log.Log]]
+
   }
 
 }

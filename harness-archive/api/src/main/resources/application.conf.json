@@ -10,7 +10,7 @@
     "context": {},
     "sources": {
       "std-out": {
-        "logTolerance": "INFO",
+        "logTolerance": "DETAILED",
         "colorMode": "EXTENDED"
       }
     }

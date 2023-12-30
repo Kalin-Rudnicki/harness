@@ -1,15 +1,19 @@
 package harness.archive.api.routes
 
+import cats.data.NonEmptyList
+import cats.syntax.either.*
 import harness.archive.api.db.model as M
 import harness.archive.api.service.storage.*
 import harness.archive.api.util.*
 import harness.archive.model as D
+import harness.archive.parsers.*
 import harness.core.*
 import harness.http.server.{given, *}
 import harness.sql.*
 import harness.sql.query.Transaction
 import harness.web.*
 import harness.zio.*
+import slyce.core.*
 import zio.*
 
 object Log {
@@ -54,6 +58,30 @@ object Log {
             app <- Misc.appByName(appName)
             dbLogs <- LogStorage.forAppId(app.id)
           } yield HttpResponse.encodeJson(dbLogs.map(DbToDomain.log))
+        }
+      },
+      (HttpMethod.GET / "get").implement { _ =>
+        Transaction.inTransaction {
+          for {
+            // TODO (KR) :
+            _ <- Misc.warnUserPermissions
+            // dbUser <- SessionUtils.userFromSession
+
+            _ <- HttpRequest.query.logAll(Logger.LogLevel.Detailed)
+
+            query <- HttpRequest.query.get[String]("query")
+            source = Source(query, None)
+            _ <- ZIO.foreachDiscard(QueryParser.lexer.tokenize(source).toOption) { tokens =>
+              Logger.log.info(Source.markAll(tokens.map(tok => Marked(tok.text, tok.span))))
+            }
+            parsedQuery <- QueryParser.parse(source) match {
+              case Right(value) => ZIO.succeed(value)
+              case Left(errors) => ZIO.fail(HError.UserError(Source.markAll(errors.toList)))
+            }
+            convertedQuery <- ZIO.eitherNelToUserErrors(ParsedQuery.from(parsedQuery.toExpr).leftMap(NonEmptyList.one))
+            _ <- Logger.log.info(s"query:\n$query\n${parsedQuery.toExpr}\n$convertedQuery")
+            dbLogs <- LogStorage.allForQuery(convertedQuery.toLogFilterFunction)
+          } yield HttpResponse.encodeJson(dbLogs.map(DbToDomain.log).sortBy(_.dateTime).reverse)
         }
       },
     )

@@ -1,0 +1,15 @@
+
+@start: General
+
+@mode: General
+[ \n\t]                               ;
+"                                     ; @ -> Str
+=|!=|~=|<|>|<=|>=                     ; @
+[&|\?]                                ; @
+[()\[\],]                             ; @
+[A-Za-z0-9_\-\.]+                     ; chars
+
+@mode: Str
+"                                     ; @ <-
+\\.                                   ; escChar[1]
+[^\n\\"]+                             ; chars

@@ -475,6 +475,7 @@ lazy val `harness-archive-api` =
       testSettings,
       libraryDependencies ++= Seq(
         "org.mindrot" % "jbcrypt" % "0.4",
+        MyOrg %% "slyce-parse" % "2.0.5",
       ),
     )
     .dependsOn(

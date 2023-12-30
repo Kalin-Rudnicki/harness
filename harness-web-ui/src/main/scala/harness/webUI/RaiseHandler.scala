@@ -6,6 +6,7 @@ import harness.http.client.HttpClient
 import harness.webUI.vdom.*
 import harness.zio.*
 import monocle.{Lens, Optional}
+import org.scalajs.dom.{document, window}
 import scala.annotation.nowarn
 import zio.*
 
@@ -54,6 +55,7 @@ abstract class RaiseHandler[-A, -S] private (
   // --- History ---
 
   inline final def pushUrl(url: Url): Unit = raise(Raise.History.Push(url))
+  inline final def pushUrlWithoutNavigation(url: Url): Unit = raise(Raise.History.PushWithoutNavigation(url))
   inline final def replaceUrl(url: Url): Unit = raise(Raise.History.Replace(url))
 
   // --- Transform ---
@@ -113,7 +115,9 @@ object RaiseHandler {
               raise match {
                 case history: Raise.History =>
                   history match {
-                    case Raise.History.Push(url)    => urlToPage(url).push(renderer, runtime, urlToPage, url)
+                    case Raise.History.Push(url) => urlToPage(url).push(renderer, runtime, urlToPage, url)
+                    case Raise.History.PushWithoutNavigation(url) =>
+                      ZIO.hAttempt(window.history.pushState(null, document.title, url.toString))
                     case Raise.History.Replace(url) => urlToPage(url).replace(renderer, runtime, urlToPage, url)
                     case Raise.History.Go(_)        =>
                       // TODO (KR) : This probably needs to have access to the RouteMatcher, or a way to store the page in the history somehow

@@ -8,7 +8,7 @@ import harness.core.*
 import harness.web.*
 import harness.zio.*
 import java.io.InputStream
-import java.net.{InetSocketAddress, URI}
+import java.net.{InetSocketAddress, URI, URLDecoder}
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
 import zio.*
@@ -119,14 +119,19 @@ object HttpRequest {
     val uri = exchange.getRequestURI
     val headerMap = exchange.getRequestHeaders.asScala.toMap.map { (k, v) => (k.toLowerCase, v.asScala.toList) }
 
-    def getMap(raw: Option[String], firstSplit: String, map: String => String): Map[String, String] =
+    def getMap(
+        raw: Option[String],
+        firstSplit: String,
+        mapPair: String => String,
+        mapValue: String => String,
+    ): Map[String, String] =
       raw match {
         case Some(raw) =>
           raw
             .split(firstSplit)
             .map { pair =>
-              map(pair).split("=", 2) match {
-                case Array(k, v) => (k, v)
+              mapPair(pair).split("=", 2) match {
+                case Array(k, v) => (k, mapValue(v))
                 case _           => throw new RuntimeException(s"Invalid pair: $pair")
               }
             }
@@ -138,9 +143,9 @@ object HttpRequest {
       requestId = requestId,
       method = HttpMethod(exchange.getRequestMethod),
       path = uri.getPath.split("/").toList.filter(_.nonEmpty),
-      queries = getMap(Option(uri.getQuery), "&", identity),
+      queries = getMap(Option(uri.getRawQuery), "&", identity, URLDecoder.decode(_, "UTF-8")),
       headers = headerMap,
-      cookies = getMap(headerMap.get("cookie").flatMap(_.headOption), ";", _.trim),
+      cookies = getMap(headerMap.get("cookie").flatMap(_.headOption), ";", _.trim, identity),
       rawInputStream = exchange.getRequestBody,
       remoteAddress = exchange.getRemoteAddress,
     )
