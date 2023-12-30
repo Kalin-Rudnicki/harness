@@ -8,7 +8,7 @@ import zio.*
 
 trait LogStorage {
   def insertAll(logs: Chunk[M.Log.Identity]): HRIO[Logger & Telemetry, Unit]
-  def byAppId(appId: M.App.Id): HRIO[Logger & Telemetry, Chunk[M.Log.Identity]]
+  def forAppId(appId: M.App.Id): HRIO[Logger & Telemetry, Chunk[M.Log.Identity]]
   def deleteOutdated(now: Long): HRIO[Logger & Telemetry, Int]
 }
 object LogStorage {
@@ -18,8 +18,8 @@ object LogStorage {
   def insertAll(logs: Chunk[M.Log.Identity]): HRIO[LogStorage & Logger & Telemetry, Unit] =
     ZIO.serviceWithZIO[LogStorage](_.insertAll(logs))
 
-  def byAppId(appId: M.App.Id): HRIO[LogStorage & Logger & Telemetry, Chunk[M.Log.Identity]] =
-    ZIO.serviceWithZIO[LogStorage](_.byAppId(appId))
+  def forAppId(appId: M.App.Id): HRIO[LogStorage & Logger & Telemetry, Chunk[M.Log.Identity]] =
+    ZIO.serviceWithZIO[LogStorage](_.forAppId(appId))
 
   def deleteOutdated(now: Long): HRIO[LogStorage & Logger & Telemetry, Int] =
     ZIO.serviceWithZIO[LogStorage](_.deleteOutdated(now))
@@ -32,10 +32,10 @@ object LogStorage {
   final class Live(con: JDBCConnection) extends LogStorage {
 
     override def insertAll(logs: Chunk[M.Log.Identity]): HRIO[Logger & Telemetry, Unit] =
-      con.use { Q.insert.batched(logs).single }
+      con.use { Q.insert.batched(logs).expectSize(logs.length) }
 
-    override def byAppId(appId: M.App.Id): HRIO[Logger & Telemetry, Chunk[M.Log.Identity]] =
-      con.use { Q.byAppId(appId).chunk }
+    override def forAppId(appId: M.App.Id): HRIO[Logger & Telemetry, Chunk[M.Log.Identity]] =
+      con.use { Q.forAppId(appId).chunk }
 
     override def deleteOutdated(now: Long): HRIO[Logger & Telemetry, Int] =
       con.use { Q.deleteOutdated(now).execute }
@@ -44,7 +44,7 @@ object LogStorage {
 
     private object Q extends TableQueries[M.Log.Id, M.Log] {
 
-      val byAppId: QueryIO[M.App.Id, M.Log.Identity] =
+      val forAppId: QueryIO[M.App.Id, M.Log.Identity] =
         Prepare.selectIO("Log - byAppId") { Input[M.App.Id] } { appId =>
           Select
             .from[M.Log]("l")

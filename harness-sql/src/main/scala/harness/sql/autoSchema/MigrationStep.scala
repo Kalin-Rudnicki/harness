@@ -2,7 +2,10 @@ package harness.sql.autoSchema
 
 import harness.sql.{Col, JDBCConnection}
 import harness.zio.*
+import zio.*
 import zio.json.*
+import zio.json.ast.*
+import zio.json.internal.RetractReader
 
 object MigrationStep {
 
@@ -13,7 +16,30 @@ object MigrationStep {
     }
     final case class Code(name: String, reversible: Boolean) extends MigrationStep.Encoded
 
-    implicit val jsonCodec: JsonCodec[MigrationStep.Encoded] = DeriveJsonCodec.gen
+    implicit val jsonCodec: JsonCodec[MigrationStep.Encoded] = {
+      val derived = DeriveJsonCodec.gen[MigrationStep.Encoded]
+
+      JsonCodec(
+        derived.encoder,
+        derived.decoder.orElse(
+          Json.decoder.mapOrFail {
+            case Json.Obj(fields) =>
+              derived.decoder.decodeJson(
+                Json
+                  .Obj(
+                    fields.map {
+                      case ("SqlEncoded", Json.Obj(Chunk(tuple0))) => tuple0
+                      case default                                 => default
+                    },
+                  )
+                  .toJson,
+              )
+            case default => derived.decoder.decodeJson(default.toJson)
+          },
+        ),
+      )
+    }
+
   }
 
   sealed trait InMemory

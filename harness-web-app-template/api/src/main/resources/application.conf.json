@@ -3,7 +3,7 @@
     "context": {},
     "sources": {
       "std-out": {
-        "logTolerance": "DEBUG",
+        "logTolerance": "DETAILED",
         "colorMode": "EXTENDED"
       }
     }

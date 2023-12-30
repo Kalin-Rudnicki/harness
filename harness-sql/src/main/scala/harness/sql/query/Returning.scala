@@ -29,11 +29,11 @@ object Returning {
       )
 
   given convertCol[T]: Conversion[AppliedCol[T], Returning[T]] =
-    t => Returning(List(t.ref.toString), RowDecoder.fromColDecoder(t.col.colCodec.decoder), QueryInputMapper.empty)
+    t => Returning(List(t.ref.toString), RowDecoder.fromCol(t.col), QueryInputMapper.empty)
 
   // TODO (KR) : use low-priority to have `AppliedCol.Opt[Option[Int]]` decode to `Option[Int]` instead of `Option[Option[Int]]`
   given convertOptCol[T]: Conversion[AppliedCol.Opt[T], Returning[Option[T]]] =
-    t => Returning(List(t.wrapped.ref.toString), RowDecoder.fromColDecoder(t.wrapped.col.colCodec.decoder.optional), QueryInputMapper.empty)
+    t => Returning(List(t.wrapped.ref.toString), RowDecoder.fromCol(t.wrapped.col.optional), QueryInputMapper.empty)
 
   given convertReturningJson[T]: Conversion[Select.Query[T] with Select.JsonReturn, Returning[T]] =
     t => Returning(List(s"(${t.fragment.sql})"), t.decoder, t.fragment.qim)

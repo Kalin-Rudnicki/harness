@@ -6,6 +6,7 @@ import harness.archive.api.routes as R
 import harness.archive.api.service.*
 import harness.archive.api.service.email.EmailService
 import harness.archive.api.service.storage.*
+import harness.cli.*
 import harness.core.*
 import harness.email.*
 import harness.http.server.{given, *}
@@ -19,8 +20,26 @@ import zio.*
 object ServerMain {
 
   type StorageEnv = Transaction & SessionStorage & UserStorage & AppStorage & LogStorage & TraceStorage
-  type ServerEnv = JDBCConnectionPool & EmailService
+  type ServerEnv = JDBCConnectionPool & EmailService & StaleDataCleanser
   type ReqEnv = StorageEnv
+
+  private final case class Config(
+      startStaleDataCleanser: Boolean,
+  )
+  private object Config {
+
+    val parser: Parser[Config] =
+      (
+        Parser
+          .flag(
+            LongName.unsafe("start-stale-data-cleanser"),
+            shortParam = Defaultable.Some(ShortName.unsafe('C')),
+            helpHint = List("Run the stale data cleanser in parallel with server"),
+          ),
+        )
+        .map(Config.apply)
+
+  }
 
   // This layer will be evaluated once when the server starts
   val serverLayer: SHRLayer[Scope, ServerEnv] =
@@ -31,6 +50,7 @@ object ServerMain {
       EmailClient.liveLayer,
       HConfig.readLayer[EmailService.Config]("email", "service"),
       EmailService.liveLayer,
+      StaleDataCleanser.live(1.minute, 1.minute, 1.minute, 5.minutes, 15.minutes),
     )
 
   val storageLayer: URLayer[JDBCConnection, StorageEnv] =
@@ -48,6 +68,7 @@ object ServerMain {
   val routes: URIO[ServerConfig, Route[ServerEnv & ReqEnv]] =
     Route.stdRoot(
       R.User.routes,
+      R.App.routes,
       R.Log.routes,
       R.Telemetry.routes,
     )
@@ -60,11 +81,13 @@ object ServerMain {
 
   val executable: Executable =
     Executable
+      .withParser(Config.parser)
       .withLayer[ServerEnv & ServerConfig] {
         serverLayer ++ HConfig.readLayer[ServerConfig]("http")
       }
-      .withEffect {
-        MigrationRunner.runMigrationsFromPool(migrations) *>
+      .withEffect { config =>
+        StaleDataCleanser.startFiber.when(config.startStaleDataCleanser) *>
+          MigrationRunner.runMigrationsFromPool(migrations) *>
           routes.flatMap { Server.start[ServerEnv, ReqEnv](JDBCConnection.poolLayer >>> reqLayer) }
       }
 

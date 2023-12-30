@@ -1,5 +1,6 @@
 package template.api
 
+import harness.archive.client.*
 import harness.core.*
 import harness.docker.*
 import harness.docker.sql.DockerPostgres
@@ -16,6 +17,8 @@ import template.api.service.storage.*
 import zio.*
 
 object Main extends ExecutableApp {
+
+  override val config: ExecutableApp.Config = ExecutableApp.Config.default.addArchiveDecoders
 
   type StorageEnv = Transaction & SessionStorage & UserStorage
   type ServerEnv = JDBCConnectionPool & EmailService

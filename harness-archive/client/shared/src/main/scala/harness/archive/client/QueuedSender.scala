@@ -80,7 +80,10 @@ object QueuedSender {
         .succeed(new QueuedSender[R, A](name, send, chunkSize, forked, ref, open))
         .withFinalizer { _.close }
       _ <- ZIO.foreachDiscard(dumpEvery) { dumpEvery =>
-        sender.dump.repeat(Schedule.spaced(dumpEvery)).interruptible.fork.withFinalizer { _.interrupt }
+        (
+          Clock.sleep(dumpEvery) *>
+            sender.dump.repeat(Schedule.spaced(dumpEvery)),
+        ).interruptible.fork.withFinalizer { _.interrupt }
       }
     } yield sender
 

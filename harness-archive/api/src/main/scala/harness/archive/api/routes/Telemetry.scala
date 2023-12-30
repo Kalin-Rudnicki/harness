@@ -24,6 +24,7 @@ object Telemetry {
             // dbUser <- SessionUtils.userFromSession
 
             body <- HttpRequest.jsonBody[Chunk[D.telemetry.Upload]]
+            _ <- Logger.log.info(s"Received request to create ${body.length.pluralizeOn("telemetr", "ies", "y")}")
             appNameMap <- Misc.getOrCreateApps(body.map(_.appName).toSet)
             dbTraces = body.map { trace =>
               val app = appNameMap(trace.appName)

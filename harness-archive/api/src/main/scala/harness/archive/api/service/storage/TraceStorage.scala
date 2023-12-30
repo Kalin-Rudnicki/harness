@@ -32,7 +32,7 @@ object TraceStorage {
   final class Live(con: JDBCConnection) extends TraceStorage {
 
     override def insertAll(traces: Chunk[M.Trace.Identity]): HRIO[Logger & Telemetry, Unit] =
-      con.use { Q.insert.batched(traces).single }
+      con.use { Q.insert.batched(traces).expectSize(traces.length) }
 
     override def byAppId(appId: M.App.Id): HRIO[Logger & Telemetry, Chunk[M.Trace.Identity]] =
       con.use { Q.byAppId(appId).chunk }

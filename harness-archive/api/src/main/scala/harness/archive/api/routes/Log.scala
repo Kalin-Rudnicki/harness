@@ -24,6 +24,7 @@ object Log {
             // dbUser <- SessionUtils.userFromSession
 
             body <- HttpRequest.jsonBody[Chunk[D.log.Upload]]
+            _ <- Logger.log.info(s"Received request to create ${body.length.pluralizeOn("log")}")
             appNameMap <- Misc.getOrCreateApps(body.map(_.appName).toSet)
             dbLogs = body.map { log =>
               val app = appNameMap(log.appName)
@@ -42,7 +43,7 @@ object Log {
           } yield HttpResponse.fromHttpCode.Ok
         }
       },
-      (HttpMethod.GET / "get").implement { _ =>
+      (HttpMethod.GET / "get-for-app").implement { _ =>
         Transaction.inTransaction {
           for {
             // TODO (KR) :
@@ -51,7 +52,7 @@ object Log {
 
             appName <- HttpRequest.query.get[String]("app-name")
             app <- Misc.appByName(appName)
-            dbLogs <- LogStorage.byAppId(app.id)
+            dbLogs <- LogStorage.forAppId(app.id)
           } yield HttpResponse.encodeJson(dbLogs.map(DbToDomain.log))
         }
       },

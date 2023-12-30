@@ -42,4 +42,12 @@ object DbToDomain {
       keepUntilEpochMS = trace.keepUntilEpochMS,
     )
 
+  def app(app: M.App.Identity): D.app.App =
+    D.app.App(
+      id = app.id,
+      name = app.name,
+      logDurationMap = app.logDurationMap,
+      traceDurationMap = app.traceDurationMap,
+    )
+
 }

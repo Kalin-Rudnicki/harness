@@ -58,9 +58,20 @@ object RowDecoder {
       override lazy val classes: IArray[Option[Class[_]]] = IArray(cd.klass)
     }
 
-  def forTable[T[_[_]] <: Table](t: T[ColDecoder])(using inst: => K11.ProductGeneric[T]): RowDecoder[T[Id]] =
+  def fromCol[T](c: Col[T]): RowDecoder[T] =
+    new RowDecoder[T] {
+      private val cd: ColDecoder[T] = c.colCodec.decoder
+      override lazy val width: Int = 1
+      override def decodeRow(o: Int, arr: IArray[Object]): EitherNel[String, T] = cd.decodeColumn(arr(o)).leftMap(_.map(err => s"Error decoding column '${c.colName}': $err"))
+      override lazy val classes: IArray[Option[Class[_]]] = IArray(cd.klass)
+    }
+
+  def forTable[T[_[_]] <: Table](t: T[Col])(using inst: => K11.ProductGeneric[T]): RowDecoder[T[Id]] =
     new RowDecoder[T[Id]] {
-      lazy val decoders: IArray[ColDecoder[Any]] = inst.toRepr(t).toIArray.map(_.asInstanceOf[ColDecoder[Any]])
+      private lazy val cols: IArray[Col[Any]] = inst.toRepr(t).toIArray.map(_.asInstanceOf[Col[Any]])
+      private lazy val colNames: IArray[String] = cols.map(_.colName)
+      private lazy val decoders: IArray[ColDecoder[Any]] = cols.map(_.colCodec.decoder)
+
       override lazy val width: Int = decoders.length
       override def decodeRow(o: Int, arr: IArray[Object]): EitherNel[String, T[Id]] = {
         val parsed: Array[Any] = new Array[Any](width)
@@ -73,7 +84,7 @@ object RowDecoder {
                 parsed(idx) = value
                 loop(idx + 1)
               case Left(errors) =>
-                errors.asLeft
+                errors.map(err => s"Error decoding column '${colNames(idx)}': $err").asLeft
             }
           else
             inst.fromRepr(Tuple.fromArray(parsed).asInstanceOf).asInstanceOf[T[Id]].asRight

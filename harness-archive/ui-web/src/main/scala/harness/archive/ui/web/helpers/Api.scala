@@ -33,9 +33,9 @@ object Api {
     def redirectToHomeIfLoggedIn: HRIO[HttpClient.ClientT & Logger & Telemetry, Unit] =
       fromSessionTokenOptional.flatMap {
         case Some(_) => ZIO.fail(Page.PageLoadRedirect(Url("page", "home")()))
-        case None => ZIO.unit
+        case None    => ZIO.unit
       }
-    
+
     def signUp(d: D.user.SignUp): HRIO[HttpClient.ClientT & Logger & Telemetry, Unit] =
       HttpRequest
         .post("/api/user/sign-up")
@@ -56,6 +56,29 @@ object Api {
         .withNoBody
         .response
         .unit2xx
+
+  }
+
+  object app {
+
+    def getAll: HRIO[HttpClient.ClientT & Logger & Telemetry, Chunk[D.app.App]] =
+      HttpRequest
+        .get("/api/app/get-all")
+        .withNoBody
+        .response
+        .jsonBody[Chunk[D.app.App]]
+
+  }
+
+  object log {
+
+    def getForApp(appName: String): HRIO[HttpClient.ClientT & Logger & Telemetry, Chunk[D.log.Log]] =
+      HttpRequest
+        .get("/api/log/get-for-app")
+        .withQueryParam("app-name", appName)
+        .withNoBody
+        .response
+        .jsonBody[Chunk[D.log.Log]]
 
   }
 

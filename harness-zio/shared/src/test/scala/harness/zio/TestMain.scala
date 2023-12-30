@@ -12,12 +12,13 @@ import zio.json.ast.Json
 
 object TestMain extends ExecutableApp {
 
-  final case class Ex(
-      a: Int,
-      b: Option[Int],
-  )
+  sealed trait Ex
   object Ex {
+    final case class A(a: Int) extends Ex
+    final case class B(b: String) extends Ex
+
     implicit val jsonCodec: JsonCodec[Ex] = DeriveJsonCodec.gen
+
   }
 
   override val executable: Executable =
@@ -26,18 +27,13 @@ object TestMain extends ExecutableApp {
       .withEffect {
         for {
           _ <- Logger.log.info("=====| TestMain |=====")
-          res1 <- ZIO.succeed("123").hErrorOrToEither.exit
-          res2 <- ZIO.fail(HError.UserError("456")).hErrorOrToEither.exit
-          res3 <- ZIO.fail(HError.Or("789")).hErrorOrToEither.exit
-          _ <- Logger.log.info(s"res1: $res1")
-          _ <- Logger.log.info(s"res2: $res2")
-          _ <- Logger.log.info(s"res3: $res3")
-          trace <- ZIO.stackTrace
-          _ <- Logger.log.detailed(trace)
-          _ <- Logger.log.detailed(trace.stackTrace.size)
-          _ <- Logger.log.detailed(trace.stackTrace)
-          _ <- Logger.log.detailed(trace.stackTrace.mkString("\n"))
-          _ <- Logger.log.detailed(trace.prettyPrint)
+          jsonStrings = List(
+            """{}""",
+            """{"A":{"a":1}}""",
+            """{"B":{"b":"str"}}""",
+            """{"C":{}}""",
+          )
+          _ <- ZIO.foreachDiscard(jsonStrings) { jsonString => Logger.log.info(s"$jsonString\n${jsonString.fromJson[Ex]}") }
         } yield ()
       }
 

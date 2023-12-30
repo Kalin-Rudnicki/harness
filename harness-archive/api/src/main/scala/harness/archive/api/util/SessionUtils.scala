@@ -13,6 +13,8 @@ object SessionUtils {
 
   val SessionToken: String = "Archive-Session-Token"
 
+  val isSecure: Boolean = false
+
   private def withSessionTokenOptional[T](
       f: String => HRIO[SessionStorage & Logger & Telemetry, Option[T]],
   ): HRIO[SessionStorage & Logger & Telemetry & HttpRequest, Option[T]] =
@@ -23,7 +25,7 @@ object SessionUtils {
           case None =>
             val msg = "Session token was specified, but is not valid"
             Logger.log.warning(msg) *>
-              HttpResponse.earlyReturn(HttpResponse.encodeJson(List(msg), HttpCode.`401`))
+              HttpResponse.earlyReturn(HttpResponse.encodeJson(List(msg), HttpCode.`401`).withCookie(Cookie.unset(SessionUtils.SessionToken).rootPath.secure(isSecure)))
         }
       case None => ZIO.none
     }

@@ -1,0 +1,25 @@
+{
+  "logging": {
+    "context": {},
+    "sources": {
+      "harness-archive": {
+        "appName": "template",
+        "baseUrl": "http://localhost:3000",
+        "logTolerance": "TRACE",
+        "queueChunkSize": 50,
+        "queueDumpEvery": "PT10S"
+      }
+    }
+  },
+  "telemetry": {
+    "sources": {
+      "harness-archive": {
+        "appName": "template",
+        "baseUrl": "http://localhost:3000",
+        "logTolerance": "TRACE",
+        "queueChunkSize": 50,
+        "queueDumpEvery": "PT10S"
+      }
+    }
+  }
+}

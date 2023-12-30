@@ -565,6 +565,7 @@ lazy val `harness-web-app-template--api` =
       `harness-web-app-template--db-model` % testAndCompile,
       `harness-http-server` % testAndCompile,
       `harness-docker-sql` % testAndCompile,
+      `harness-archive-client`.jvm % testAndCompile,
       `harness-http-server-test` % Test,
     )
 

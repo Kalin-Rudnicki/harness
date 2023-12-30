@@ -106,8 +106,8 @@ object HConfig {
       }
 
     def makeMapDecoder[A](decoders: KeyedConfigDecoder[A]*): JsonDecoder[List[A]] =
-      JsonDecoder.map[String, Json].mapOrFail {
-        _.toList.map(KeyedConfig.apply).traverse { keyedConfig =>
+      JsonDecoder.map[String, Option[Json]].mapOrFail {
+        _.toList.collect { case (key, Some(json)) => (key, json) }.map(KeyedConfig.apply).traverse { keyedConfig =>
           decoders.find(_.key == keyedConfig.key) match {
             case Some(decoder) => decoder.decoder.decodeJson(keyedConfig.config.toString).leftMap { err => s".${keyedConfig.key}($err)" }
             case None          => s"Invalid key '${keyedConfig.key}', expected one of: ${decoders.map(_.key).mkString(", ")}".asLeft

@@ -3,6 +3,7 @@ package harness.archive.api.routes
 import harness.archive.api.db.model as M
 import harness.archive.api.service.storage.*
 import harness.archive.api.util.*
+import harness.archive.api.util.SessionUtils.isSecure
 import harness.archive.model as D
 import harness.core.*
 import harness.http.server.{given, *}
@@ -14,8 +15,6 @@ import org.mindrot.jbcrypt.BCrypt
 import zio.*
 
 object User {
-
-  private val isSecure: Boolean = false
 
   val routes: Route[UserStorage & SessionStorage & Transaction] =
     "user" /: Route.oneOf(
