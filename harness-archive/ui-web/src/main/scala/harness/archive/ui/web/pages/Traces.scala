@@ -103,20 +103,27 @@ object Traces {
         td(textAlign := "center", trace.app.name),
         td(textAlign := "center", trace.zonedDateTime.format(showDate)),
         td(textAlign := "center", trace.zonedDateTime.format(showTime)),
+        td(textAlign := "center", (trace.trace.endEpochMS - trace.trace.startEpochMS).toInt.milliseconds.prettyPrint),
         td(
           textAlign := "center",
           colorToCssColor(trace.trace.logLevel.extendedColor),
           color.black,
           trace.trace.logLevel.name,
         ),
-        td(whiteSpace.preWrap, colSpan := 2, trace.trace.label),
+        td(
+          whiteSpace.preWrap,
+          cursor.pointer,
+          onClick := { _ => appendQuery(s"message = ${trace.trace.label.unesc}") },
+          colSpan := 2,
+          trace.trace.label,
+        ),
       ),
       trace.contexts match {
         case (cHeadKey, cHeadValue) :: tail =>
           val myRowSpan = trace.contexts.size
           PModifier(
             tr(
-              td(rowSpan := myRowSpan, colSpan := 4),
+              td(rowSpan := myRowSpan, colSpan := 5),
               contextCells(cHeadKey, cHeadValue),
             ),
             PModifier.foreach(tail) { case (key, value) => tr(contextCells(key, value)) },
@@ -156,12 +163,13 @@ object Traces {
                   th("App", rowSpan := 2, width := "200px"),
                   th("Date", rowSpan := 2, width := "150px"),
                   th("Time", rowSpan := 2, width := "150px"),
+                  th("Duration", rowSpan := 2, width := "200px"),
                   th("Log Level", rowSpan := 2, width := "150px"),
-                  th("Message", colSpan := 2, width := "1000px"),
+                  th("Message", colSpan := 2, width := "800px"),
                 ),
                 tr(
                   th("Context Key", width := "250px"),
-                  th("Context Value", width := "750px"),
+                  th("Context Value", width := "550px"),
                 ),
                 PModifier.foreach(env.traces)(traceRows(rh, env, _)),
               )
