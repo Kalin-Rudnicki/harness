@@ -1,6 +1,7 @@
 package template.api.db.model
 
 import harness.email.EmailAddress
+import harness.payments.CustomerId
 import harness.sql.*
 import java.util.UUID
 import template.model as D
@@ -14,6 +15,7 @@ final case class User[F[_]](
     encryptedPassword: F[String],
     email: F[EmailAddress],
     verificationEmailCodes: F[Option[Set[D.user.EmailVerificationCode]]],
+    stripeCustomerId: F[Option[CustomerId]],
 ) extends Table.WithId[F, User.Id] {
   def show: String = s"'$username' ($id)"
 }
@@ -30,6 +32,7 @@ object User extends Table.Companion.WithId[D.user.UserId, User] {
         encryptedPassword = Col.string("encrypted_password"),
         email = Col.encoded[EmailAddress]("email"),
         verificationEmailCodes = Col.json[Set[D.user.EmailVerificationCode]]("verification_email_codes").optional,
+        stripeCustomerId = Col.string("stripe_customer_id").imapAuto[CustomerId].optional,
       )
     }
 

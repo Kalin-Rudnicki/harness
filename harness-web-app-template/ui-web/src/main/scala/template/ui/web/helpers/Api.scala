@@ -1,6 +1,7 @@
 package template.ui.web.helpers
 
 import harness.http.client.{HttpClient, HttpRequest}
+import harness.payments.*
 import harness.webUI.*
 import harness.zio.*
 import template.model as D
@@ -76,6 +77,16 @@ object Api {
         .withNoBody
         .response
         .unit2xx
+
+  }
+  object payment {
+
+    def createIntent: ReqIO[ClientSecret] =
+      HttpRequest
+        .post("/api/payment/create-intent")
+        .withNoBody
+        .response
+        .jsonBody[ClientSecret]
 
   }
 

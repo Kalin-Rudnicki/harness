@@ -62,7 +62,7 @@ object User {
             body <- HttpRequest.jsonBody[D.user.SignUp]
             encryptedPassword = BCrypt.hashpw(body.password, BCrypt.gensalt)
             emailVerificationCode = D.user.EmailVerificationCode.gen
-            user = new M.User.Identity(M.User.Id.gen, body.firstName, body.lastName, body.username, body.username.toLowerCase, encryptedPassword, body.email, Set(emailVerificationCode).some)
+            user = new M.User.Identity(M.User.Id.gen, body.firstName, body.lastName, body.username, body.username.toLowerCase, encryptedPassword, body.email, Set(emailVerificationCode).some, None)
             session = M.Session.newForUser(user)
             _ <- Logger.log.detailed(s"Creating user ${user.show}")
             _ <- UserStorage.insert(user)

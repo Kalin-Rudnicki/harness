@@ -1,5 +1,6 @@
 package template.api.service.storage
 
+import harness.payments.CustomerId
 import harness.sql.*
 import harness.sql.query.{given, *}
 import harness.zio.*
@@ -12,6 +13,7 @@ trait UserStorage {
   def insert(user: M.User.Identity): HRIO[Logger & Telemetry, Unit]
   def byUsername(username: String): HRIO[Logger & Telemetry, Option[M.User.Identity]]
   def setEmailCodes(id: M.User.Id, codes: Option[Set[D.user.EmailVerificationCode]]): HRIO[Logger & Telemetry, Unit]
+  def setStripeCustomerId(id: M.User.Id, customerId: Option[CustomerId]): HRIO[Logger & Telemetry, Unit]
 }
 object UserStorage {
 
@@ -23,6 +25,8 @@ object UserStorage {
     ZIO.serviceWithZIO[UserStorage](_.byUsername(username))
   def setEmailCodes(id: M.User.Id, codes: Option[Set[D.user.EmailVerificationCode]]): HRIO[UserStorage & Logger & Telemetry, Unit] =
     ZIO.serviceWithZIO[UserStorage](_.setEmailCodes(id, codes))
+  def setStripeCustomerId(id: M.User.Id, customerId: Option[CustomerId]): HRIO[UserStorage & Logger & Telemetry, Unit] =
+    ZIO.serviceWithZIO[UserStorage](_.setStripeCustomerId(id, customerId))
 
   // =====| Live |=====
 
@@ -39,6 +43,9 @@ object UserStorage {
 
     override def setEmailCodes(id: M.User.Id, codes: Option[Set[D.user.EmailVerificationCode]]): HRIO[Logger & Telemetry, Unit] =
       con.use { Q.setEmailCodes((id, codes)).single }
+
+    override def setStripeCustomerId(id: M.User.Id, customerId: Option[CustomerId]): HRIO[Logger & Telemetry, Unit] =
+      con.use { Q.setStripeCustomerId((id, customerId)).single }
 
     // =====| Queries |=====
 
@@ -59,6 +66,13 @@ object UserStorage {
           Update[M.User]("u")
             .where(_.id === userId)
             .set(_.verificationEmailCodes := codes)
+        }
+
+      val setStripeCustomerId: QueryI[(M.User.Id, Option[CustomerId])] =
+        Prepare.updateI("User - setStripeCustomerId") { Input[M.User.Id] ~ Input[Option[CustomerId]] } { case (userId, customerId) =>
+          Update[M.User]("u")
+            .where(_.id === userId)
+            .set(_.stripeCustomerId := customerId)
         }
 
     }

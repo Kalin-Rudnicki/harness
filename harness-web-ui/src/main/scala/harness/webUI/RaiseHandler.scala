@@ -116,9 +116,9 @@ object RaiseHandler {
                 case history: Raise.History =>
                   history match {
                     case Raise.History.Push(url) => urlToPage(url).push(renderer, runtime, urlToPage, url)
+                    case Raise.History.Replace(url) => urlToPage(url).replace(renderer, runtime, urlToPage, url)
                     case Raise.History.PushWithoutNavigation(url) =>
                       ZIO.hAttempt(window.history.pushState(null, document.title, url.toString))
-                    case Raise.History.Replace(url) => urlToPage(url).replace(renderer, runtime, urlToPage, url)
                     case Raise.History.Go(_)        =>
                       // TODO (KR) : This probably needs to have access to the RouteMatcher, or a way to store the page in the history somehow
                       ZIO.fail(HError.???("History.go"))

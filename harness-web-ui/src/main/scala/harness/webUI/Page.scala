@@ -15,6 +15,7 @@ sealed trait Page {
   final type PS = PageState[S]
 
   val fetchState: SHRIO[HttpClient.ClientT, S]
+  val postLoad: S => SHTask[Unit]
   val titleF: Either[String, S => String]
   val widget: vdom.PModifier[A, PS, PS, Any]
   val handleA: A => SHRIO[HttpClient.ClientT, List[Raise.StandardOrUpdate[PS]]]
@@ -39,6 +40,7 @@ sealed trait Page {
             newVDom = widget.build(raiseHandler, pageState)
             _ <- renderer.render(title, newVDom)
             _ <- actionWithTitle(title)
+            _ <- postLoad(state)
           } yield ()
         case Left(url) =>
           urlToPage(url).replace(renderer, runtime, urlToPage, url)
@@ -74,21 +76,32 @@ object Page {
   final class Builder2[State] private[Page] (
       fetchState: SHRIO[HttpClient.ClientT, State],
   ) {
-    def stateTitle(f: State => String): Builder3[State] = Builder3(fetchState, f.asRight)
-    def constTitle(title: String): Builder3[State] = Builder3(fetchState, title.asLeft)
+    def postLoad(f: State => SHTask[Unit]): Builder3[State] = Builder3(fetchState, f)
+    def stateTitle(f: State => String): Builder4[State] = Builder4(fetchState, _ => ZIO.unit, f.asRight)
+    def constTitle(title: String): Builder4[State] = Builder4(fetchState, _ => ZIO.unit, title.asLeft)
   }
 
   final class Builder3[State] private[Page] (
       fetchState: SHRIO[HttpClient.ClientT, State],
-      titleF: Either[String, State => String],
+      postLoad: State => SHTask[Unit],
   ) {
-    inline def body[Action](widget: vdom.PModifier[Action, PageState[State], PageState[State], Any]): Builder4[Action, State] = pagefulBody(widget)
-    inline def pagelessBody[Action](widget: vdom.PModifier[Action, State, State, Any]): Builder4[Action, State] = this.body(widget.zoomOut[PageState[State]](_.state))
-    def pagefulBody[Action](widget: vdom.PModifier[Action, PageState[State], PageState[State], Any]): Builder4[Action, State] = Builder4(fetchState, titleF, widget)
+    def stateTitle(f: State => String): Builder4[State] = Builder4(fetchState, postLoad, f.asRight)
+    def constTitle(title: String): Builder4[State] = Builder4(fetchState, postLoad, title.asLeft)
   }
 
-  final class Builder4[Action, State] private[Page] (
+  final class Builder4[State] private[Page] (
       fetchState: SHRIO[HttpClient.ClientT, State],
+      postLoad: State => SHTask[Unit],
+      titleF: Either[String, State => String],
+  ) {
+    inline def body[Action](widget: vdom.PModifier[Action, PageState[State], PageState[State], Any]): Builder5[Action, State] = pagefulBody(widget)
+    inline def pagelessBody[Action](widget: vdom.PModifier[Action, State, State, Any]): Builder5[Action, State] = this.body(widget.zoomOut[PageState[State]](_.state))
+    def pagefulBody[Action](widget: vdom.PModifier[Action, PageState[State], PageState[State], Any]): Builder5[Action, State] = Builder5(fetchState, postLoad, titleF, widget)
+  }
+
+  final class Builder5[Action, State] private[Page] (
+      fetchState: SHRIO[HttpClient.ClientT, State],
+      postLoad: State => SHTask[Unit],
       titleF: Either[String, State => String],
       widget: vdom.PModifier[Action, PageState[State], PageState[State], Any],
   ) { self =>
@@ -98,6 +111,7 @@ object Page {
         override type A = Action
         override type S = State
         override val fetchState: SHRIO[HttpClient.ClientT, S] = self.fetchState
+        override val postLoad: State => SHTask[Unit] = self.postLoad
         override val titleF: Either[String, S => String] = self.titleF
         override val widget: vdom.PModifier[Action, PS, PS, Any] = self.widget
         override val handleA: Action => SHRIO[HttpClient.ClientT, List[Raise.StandardOrUpdate[PS]]] = _handleA

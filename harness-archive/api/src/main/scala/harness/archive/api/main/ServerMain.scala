@@ -50,7 +50,7 @@ object ServerMain {
       EmailClient.liveLayer,
       HConfig.readLayer[EmailService.Config]("email", "service"),
       EmailService.liveLayer,
-      StaleDataCleanser.live(1.minute, 1.minute, 1.minute, 5.minutes, 15.minutes),
+      StaleDataCleanser.live(1.minute, 1.minute, 1.minute, 5.minutes, 15.minutes, 1.hour, 1.hour, 6.hours),
     )
 
   val storageLayer: URLayer[JDBCConnection, StorageEnv] =

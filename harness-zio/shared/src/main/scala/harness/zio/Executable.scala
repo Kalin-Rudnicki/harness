@@ -159,7 +159,7 @@ object Executable extends ExecutableBuilders.Builder1 {
       Parser
         .value[Logger.LogLevel](
           LongName.unsafe("std-out-log-tolerance"),
-          Defaultable.None,
+          Defaultable.Some(ShortName.unsafe('t')),
           helpHint = List("Don't look for logger/telemetry in config, and instead just use std-out"),
         )
         .optional

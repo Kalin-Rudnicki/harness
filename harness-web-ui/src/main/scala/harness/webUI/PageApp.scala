@@ -40,6 +40,8 @@ trait PageApp extends ZIOApp {
   protected val runMode: RunMode = RunMode.Prod
   protected val logTolerance: Logger.LogLevel = Logger.LogLevel.Info
 
+  protected val preload: SHTask[Unit] = ZIO.unit
+  
   // TODO (KR) : Make this prettier
   /**
     * Page to display on 404-not-found. You can override this in your app.
@@ -81,6 +83,7 @@ trait PageApp extends ZIOApp {
   override def run: URIO[HarnessEnv & HttpClient.ClientT & Scope, Any] =
     (for {
       _ <- Logger.log.info("Starting page load")
+      _ <- preload
       runtime <- bootstrap.toRuntime
       renderer <- Renderer.Initial
       urlToPage = { (url: Url) =>

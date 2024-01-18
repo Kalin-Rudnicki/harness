@@ -36,7 +36,37 @@ object LegacyTables {
 
     }
 
-    export template.api.db.model.User as V2
+    final case class V2[F[_]](
+        id: F[User.Id],
+        firstName: F[String],
+        lastName: F[String],
+        username: F[String],
+        lowerUsername: F[String],
+        encryptedPassword: F[String],
+        email: F[EmailAddress],
+        verificationEmailCodes: F[Option[Set[D.user.EmailVerificationCode]]],
+    ) extends Table.WithId[F, User.Id] {
+      def show: String = s"'$username' ($id)"
+    }
+    object V2 extends Table.Companion.WithId[D.user.UserId, user.V2] {
+
+      override implicit lazy val tableSchema: TableSchema[user.V2] =
+        TableSchema.derived[user.V2]("user") {
+          new user.V2.Cols(
+            id = User.Id.pkCol,
+            firstName = Col.string("first_name"),
+            lastName = Col.string("last_name"),
+            username = Col.string("username"),
+            lowerUsername = Col.string("lower_username"),
+            encryptedPassword = Col.string("encrypted_password"),
+            email = Col.encoded[EmailAddress]("email"),
+            verificationEmailCodes = Col.json[Set[D.user.EmailVerificationCode]]("verification_email_codes").optional,
+          )
+        }
+
+    }
+
+    export template.api.db.model.User as V3
 
   }
 
