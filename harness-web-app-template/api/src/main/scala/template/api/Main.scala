@@ -6,6 +6,7 @@ import harness.docker.*
 import harness.docker.sql.DockerPostgres
 import harness.email.*
 import harness.http.server.{given, *}
+import harness.payments.PaymentProcessor
 import harness.sql.*
 import harness.sql.autoSchema.*
 import harness.sql.query.Transaction
@@ -21,7 +22,7 @@ object Main extends ExecutableApp {
   override val config: ExecutableApp.Config = ExecutableApp.Config.default.addArchiveDecoders
 
   type StorageEnv = Transaction & SessionStorage & UserStorage
-  type ServerEnv = JDBCConnectionPool & EmailService
+  type ServerEnv = JDBCConnectionPool & EmailService & PaymentProcessor
   type ReqEnv = StorageEnv
 
   // This layer will be evaluated once when the server starts
@@ -33,6 +34,8 @@ object Main extends ExecutableApp {
       EmailClient.liveLayer,
       HConfig.readLayer[EmailService.Config]("email", "service"),
       EmailService.liveLayer,
+      HConfig.readLayer[PaymentProcessor.StripePaymentProcessor.Config]("payment", "stripe"),
+      PaymentProcessor.StripePaymentProcessor.layer,
     )
 
   val storageLayer: URLayer[JDBCConnection, StorageEnv] =
@@ -47,6 +50,7 @@ object Main extends ExecutableApp {
   val routes: URIO[ServerConfig, Route[ServerEnv & ReqEnv]] =
     Route.stdRoot(
       R.User.routes,
+      R.Payment.routes,
     )
 
   private val migrations: PlannedMigrations =
@@ -54,6 +58,7 @@ object Main extends ExecutableApp {
       Migrations.`0.0.1`,
       Migrations.`0.0.2`,
       Migrations.`0.0.3`,
+      Migrations.`0.0.4`,
     )
 
   override val executable: Executable =

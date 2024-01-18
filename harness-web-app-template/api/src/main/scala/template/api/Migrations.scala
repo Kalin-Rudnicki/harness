@@ -18,4 +18,7 @@ object Migrations {
   val `0.0.3` =
     InMemoryMigration.auto(Version.parseUnsafe("0.0.3"), Tables.fromCompanions(user.V2, session.V1))
 
+  val `0.0.4` =
+    InMemoryMigration.auto(Version.parseUnsafe("0.0.4"), Tables.fromCompanions(user.V3, session.V1))
+
 }

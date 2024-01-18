@@ -36,7 +36,7 @@ object User {
     signUpGen.flatMap { signUp =>
       Gen.fromZIO {
         val encryptedPassword = BCrypt.hashpw(signUp.password, BCrypt.gensalt)
-        val user = new M.User.Identity(M.User.Id.gen, signUp.firstName, signUp.lastName, signUp.username, signUp.username.toLowerCase, encryptedPassword, signUp.email, None)
+        val user = new M.User.Identity(M.User.Id.gen, signUp.firstName, signUp.lastName, signUp.username, signUp.username.toLowerCase, encryptedPassword, signUp.email, None, None)
         UserStorage.insert(user).as(DbToDomain.user(user)).orDie
       }
     }

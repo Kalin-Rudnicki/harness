@@ -5,10 +5,13 @@ import _root_.template.ui.web.helpers.*
 import cats.syntax.either.*
 import cats.syntax.option.*
 import harness.core.*
+import harness.payments.{Currency, PaymentsUI}
+import harness.payments.facades.*
 import harness.webUI.*
 import harness.webUI.style.{given, *}
 import harness.webUI.vdom.{given, *}
 import harness.webUI.widgets.*
+import harness.zio.*
 import zio.*
 
 object Home {
@@ -22,6 +25,7 @@ object Home {
       requiredDropdown: FormWidgets.dropdownSelect.Env[MyEnum],
       optionalDropdown: FormWidgets.dropdownSelect.Env[MyEnum],
       sumOption: Option[String],
+      payments: PaymentsUI.PaymentEnv,
   )
 
   enum MyEnum extends Enum[MyEnum] { case Case1, Case2, Case3 }
@@ -122,6 +126,8 @@ object Home {
       .fetchState {
         for {
           user <- Api.user.fromSessionTokenOrRedirectToLogin
+          _ <- PaymentsUI.awaitStripeSrc
+          payments <- PaymentsUI.PaymentEnv.create("pk_test_51OVNiaD9gOL4yaWVMKdhPEOW59IeVbst1031HrqDDQRswYNFYAQtiOg9UDSyST7DYLGq8CYVN0bG0q51GovrVpVz0070Gb4ccu")
         } yield Env(
           user,
           "",
@@ -131,7 +137,12 @@ object Home {
           FormWidgets.dropdownSelect.Env.enumInitial[MyEnum],
           FormWidgets.dropdownSelect.Env.enumInitial[MyEnum],
           "test".some,
+          payments,
         )
+      }
+      .postLoad { state =>
+        Logger.log.debug("page loaded!") *>
+          PaymentsUI.createAndMountElements(state.payments, Currency.USD)
       }
       .constTitle("Home")
       .body {
@@ -150,6 +161,13 @@ object Home {
                 onClick := { _ => rh.raise(Raise.DisplayMessage(PageMessage.info("Message"))) }
               },
             ),
+            br,
+            br,
+            PModifier.builder.withState[Env] { env =>
+              PaymentsUI.paymentForm(Api.payment.createIntent, env.payments, Url("api", "payment", "accept-setup-intent")())
+            },
+            br,
+            br,
             FormWidgets.textInput[Int].labelRequired("Required Text Input (Int):", "required-text-input").showValue.zoomOut[Env](_.requiredTextInput),
             FormWidgets.textInput[Int].labelOptional("Optional Text Input (Int):", "optional-text-input").showValue.zoomOut[Env](_.optionalTextInput),
             FormWidgets.textArea[String].labelRequired("Required Text Area (String):", "required-text-area").showValue.zoomOut[Env](_.requiredTextArea),

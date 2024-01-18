@@ -83,6 +83,8 @@ lazy val `harness-root` =
       `harness-pk`.jvm,
       `harness-email`.jvm,
       `harness-email`.js,
+      `harness-payments`.jvm,
+      `harness-payments`.js,
       `harness-docker`,
       `harness-docker-sql`,
       `harness-docker-kafka`,
@@ -318,6 +320,27 @@ lazy val `harness-email` =
       `harness-zio` % testAndCompile,
     )
 
+lazy val `harness-payments` =
+  crossProject(JSPlatform, JVMPlatform)
+    .in(file("harness-payments"))
+    .settings(
+      name := "harness-payments",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      Test / fork := true,
+    )
+    .jvmSettings(
+      libraryDependencies ++= Seq(
+        "com.stripe" % "stripe-java" % "24.11.0",
+      ),
+    )
+    .jsConfigure(_.dependsOn(`harness-web-ui` % testAndCompile))
+    .dependsOn(
+      `harness-email` % testAndCompile,
+      `harness-pk` % testAndCompile,
+    )
+
 lazy val `harness-web` =
   crossProject(JSPlatform, JVMPlatform)
     .in(file("harness-web"))
@@ -533,6 +556,7 @@ lazy val `harness-web-app-template--model` =
     .dependsOn(
       `harness-web` % testAndCompile,
       `harness-email` % testAndCompile,
+      `harness-payments` % testAndCompile,
     )
 
 lazy val `harness-web-app-template--db-model` =

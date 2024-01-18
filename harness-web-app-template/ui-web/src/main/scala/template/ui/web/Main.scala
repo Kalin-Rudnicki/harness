@@ -1,14 +1,18 @@
 package template.ui.web
 
 import harness.core.RunMode
+import harness.payments.*
 import harness.webUI.*
 import harness.webUI.style.*
-import harness.zio.Logger
+import harness.zio.*
 
 object Main extends PageApp {
 
   override protected val runMode: RunMode = RunMode.Dev
   override protected val logTolerance: Logger.LogLevel = Logger.LogLevel.Trace
+
+  override protected val preload: SHTask[Unit] =
+    PaymentsUI.addStripeSrc
 
   override val styleSheets: List[StyleSheet] = List(DefaultStyleSheet)
 
