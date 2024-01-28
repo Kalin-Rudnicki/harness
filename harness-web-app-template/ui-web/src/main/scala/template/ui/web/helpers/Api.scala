@@ -2,6 +2,7 @@ package template.ui.web.helpers
 
 import harness.http.client.{HttpClient, HttpRequest}
 import harness.payments.*
+import harness.payments.model.ids.*
 import harness.webUI.*
 import harness.zio.*
 import template.model as D
@@ -87,6 +88,13 @@ object Api {
         .withNoBody
         .response
         .jsonBody[ClientSecret]
+
+    def paymentMethods: ReqIO[Chunk[D.paymentMethod.PaymentMethod]] =
+      HttpRequest
+        .get("/api/payment/payment-methods")
+        .withNoBody
+        .response
+        .jsonBody[Chunk[D.paymentMethod.PaymentMethod]]
 
   }
 

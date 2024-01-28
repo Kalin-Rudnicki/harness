@@ -1,4 +1,4 @@
-package harness.payments
+package harness.payments.model.ids
 
 import harness.pk.StringId
 
@@ -10,3 +10,6 @@ object PaymentId extends StringId
 
 type PaymentSourceId = PaymentSourceId.Id
 object PaymentSourceId extends StringId
+
+type SetupIntentId = SetupIntentId.Id
+object SetupIntentId extends StringId

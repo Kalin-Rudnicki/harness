@@ -2,6 +2,7 @@ package harness.payments
 
 import cats.syntax.option.*
 import harness.email.*
+import harness.payments.service.PaymentProcessor
 import harness.zio.*
 import java.util.UUID
 import zio.*
@@ -17,17 +18,6 @@ object TestMain extends ExecutableApp {
       .withEffect {
         for {
           _ <- Logger.log.info("payments.TestMain")
-          paymentToken = PaymentSourceId("tok_visa")
-          _ <- Logger.log.info(s"paymentToken: $paymentToken")
-          payment = Charge(
-            amountInCents = 1234L,
-            currency = Currency.USD,
-            description = s"Test Charge : ${UUID.randomUUID}",
-            source = paymentToken,
-            email = EmailAddress.parseUnsafe("kalin.rudnicki@gmail.com").some,
-          )
-          chargeId <- PaymentProcessor.processCharge(payment)
-          _ <- Logger.log.info(s"chargeId: $chargeId")
         } yield ()
       }
 

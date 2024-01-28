@@ -1,4 +1,4 @@
-package harness.payments
+package harness.payments.model.ids
 
 import harness.pk.StringId
 

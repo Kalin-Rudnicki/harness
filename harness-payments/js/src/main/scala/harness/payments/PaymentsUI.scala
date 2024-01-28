@@ -3,6 +3,8 @@ package harness.payments
 import harness.core.*
 import harness.http.client.HttpClient
 import harness.payments.facades.*
+import harness.payments.model.Currency
+import harness.payments.model.ids.*
 import harness.webUI.*
 import harness.webUI.style.{given, *}
 import harness.webUI.vdom.{given, *}

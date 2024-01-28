@@ -1,6 +1,8 @@
-package harness.payments
+package harness.payments.model.create
 
 import harness.email.*
+import harness.payments.model.Currency
+import harness.payments.model.ids.*
 
 final case class Payment(
     customerId: CustomerId,
@@ -8,5 +10,5 @@ final case class Payment(
     amountInCents: Long,
     currency: Currency,
     description: String,
-    email: Option[EmailAddress]
+    email: Option[EmailAddress],
 )

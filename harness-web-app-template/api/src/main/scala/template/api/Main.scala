@@ -6,7 +6,7 @@ import harness.docker.*
 import harness.docker.sql.DockerPostgres
 import harness.email.*
 import harness.http.server.{given, *}
-import harness.payments.PaymentProcessor
+import harness.payments.service.PaymentProcessor
 import harness.sql.*
 import harness.sql.autoSchema.*
 import harness.sql.query.Transaction
@@ -21,7 +21,7 @@ object Main extends ExecutableApp {
 
   override val config: ExecutableApp.Config = ExecutableApp.Config.default.addArchiveDecoders
 
-  type StorageEnv = Transaction & SessionStorage & UserStorage
+  type StorageEnv = Transaction & SessionStorage & UserStorage & PaymentMethodStorage
   type ServerEnv = JDBCConnectionPool & EmailService & PaymentProcessor
   type ReqEnv = StorageEnv
 
@@ -41,7 +41,8 @@ object Main extends ExecutableApp {
   val storageLayer: URLayer[JDBCConnection, StorageEnv] =
     Transaction.liveLayer ++
       SessionStorage.liveLayer ++
-      UserStorage.liveLayer
+      UserStorage.liveLayer ++
+      PaymentMethodStorage.liveLayer
 
   // This layer will be evaluated for each HTTP request that the server receives
   val reqLayer: SHRLayer[ServerEnv & JDBCConnection & Scope, ReqEnv] =
@@ -59,6 +60,7 @@ object Main extends ExecutableApp {
       Migrations.`0.0.2`,
       Migrations.`0.0.3`,
       Migrations.`0.0.4`,
+      Migrations.`0.0.5`,
     )
 
   override val executable: Executable =

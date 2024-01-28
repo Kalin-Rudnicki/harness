@@ -75,5 +75,11 @@ object LegacyTables {
     export template.api.db.model.Session as V1
 
   }
+  
+  object paymentMethod {
+    
+    export template.api.db.model.PaymentMethod as V1
+    
+  }
 
 }

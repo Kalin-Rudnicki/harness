@@ -1,7 +1,8 @@
 package template.api.db.model
 
 import harness.email.EmailAddress
-import harness.payments.CustomerId
+import harness.payments.model.ids as StripeIds
+import harness.payments.model as PM
 import harness.sql.*
 import java.util.UUID
 import template.model as D
@@ -15,7 +16,7 @@ final case class User[F[_]](
     encryptedPassword: F[String],
     email: F[EmailAddress],
     verificationEmailCodes: F[Option[Set[D.user.EmailVerificationCode]]],
-    stripeCustomerId: F[Option[CustomerId]],
+    stripeCustomerId: F[Option[StripeIds.CustomerId]],
 ) extends Table.WithId[F, User.Id] {
   def show: String = s"'$username' ($id)"
 }
@@ -32,7 +33,7 @@ object User extends Table.Companion.WithId[D.user.UserId, User] {
         encryptedPassword = Col.string("encrypted_password"),
         email = Col.encoded[EmailAddress]("email"),
         verificationEmailCodes = Col.json[Set[D.user.EmailVerificationCode]]("verification_email_codes").optional,
-        stripeCustomerId = Col.string("stripe_customer_id").imapAuto[CustomerId].optional,
+        stripeCustomerId = Col.string("stripe_customer_id").imapAuto[StripeIds.CustomerId].optional,
       )
     }
 
@@ -60,5 +61,27 @@ object Session extends Table.Companion.WithId[D.user.SessionId, Session] {
       userId = user.id,
       token = s"${UUID.randomUUID}:${UUID.randomUUID}",
     )
+
+}
+
+final case class PaymentMethod[F[_]](
+    id: F[PaymentMethod.Id],
+    userId: F[User.Id],
+    stripeId: F[StripeIds.PaymentMethodId],
+    typeString: F[String],
+    typeDetails: F[Option[PM.result.TypeDetails]],
+) extends Table.WithId[F, PaymentMethod.Id]
+object PaymentMethod extends Table.Companion.WithId[D.paymentMethod.PaymentMethodId, PaymentMethod] {
+
+  override implicit lazy val tableSchema: TableSchema[PaymentMethod] =
+    TableSchema.derived[PaymentMethod]("payment_method") {
+      new PaymentMethod.Cols(
+        id = PaymentMethod.Id.pkCol,
+        userId = User.Id.fkCol,
+        stripeId = Col.string("stripe_id").imapAuto[StripeIds.PaymentMethodId],
+        typeString = Col.string("type_string"),
+        typeDetails = Col.jsonb[PM.result.TypeDetails]("type_details").optional,
+      )
+    }
 
 }

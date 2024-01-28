@@ -20,6 +20,7 @@ object Main extends PageApp {
     "page" /: RouteMatcher.root(
       RouteMatcher.const { pages.Index.page },
       "home" /: RouteMatcher.const { pages.Home.page },
+      "account" /: RouteMatcher.const { pages.Account.page },
       "login" /: RouteMatcher.const { pages.Login.page },
       "sign-up" /: RouteMatcher.const { pages.SignUp.page },
       "verify-email" /: RouteMatcher.const { pages.VerifyEmail.page },

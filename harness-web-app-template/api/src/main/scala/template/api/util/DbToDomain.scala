@@ -15,4 +15,12 @@ object DbToDomain {
       emailIsVerified = user.verificationEmailCodes.isEmpty,
     )
 
+  def paymentMethod(pm: M.PaymentMethod.Identity): D.paymentMethod.PaymentMethod =
+    D.paymentMethod.PaymentMethod(
+      id = pm.id,
+      userId = pm.userId,
+      typeString = pm.typeString,
+      typeDetails = pm.typeDetails,
+    )
+
 }

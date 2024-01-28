@@ -1,4 +1,4 @@
-package harness.payments
+package harness.payments.model
 
 import harness.core.Enum
 
