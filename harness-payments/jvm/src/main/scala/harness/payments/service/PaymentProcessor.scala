@@ -53,8 +53,9 @@ object PaymentProcessor {
         }
     }
 
-    private val initStripeMetadata: HTask[Unit] =
-      ZIO.hAttempt { Stripe.apiKey = config.secretKey }
+    private def runStripe[R, A](method: String)(effect: => HRIO[R, A]): HRIO[R & Logger & Telemetry, A] =
+      (ZIO.hAttempt { Stripe.apiKey = config.secretKey } *> effect)
+        .telemetrize(s"StripePaymentProcessor - $method", "stripe-method" -> method)
 
     private def safeWrapStripeParams[A](thunk: => A)(implicit ct: ClassTag[A]): HTask[A] =
       ZIO.hAttempt { thunk }.mapError(HError.SystemFailure(s"Error creating stripe params: ${ct.runtimeClass.getName}", _))
@@ -69,64 +70,70 @@ object PaymentProcessor {
     }
 
     override def createCustomer(customer: PM.create.Customer): HRIO[Logger & Telemetry, CustomerId] =
-      (for {
-        _ <- initStripeMetadata
-        params <- safeWrapStripeParams {
-          CustomerCreateParams
-            .builder()
-            .setOpt(customer.name)(_.setName(_))
-            .setOpt(customer.email)((b, email) => b.setEmail(email.unwrap))
-            .build()
-        }
-        customer <- safeWrapStripeCall("Customer.create") { Customer.create(params) }
-      } yield CustomerId(customer.getId)).telemetrize("StripePaymentProcessor - createCustomer")
+      runStripe("createCustomer") {
+        for {
+          params <- safeWrapStripeParams {
+            CustomerCreateParams
+              .builder()
+              .setOpt(customer.name)(_.setName(_))
+              .setOpt(customer.email)((b, email) => b.setEmail(email.unwrap))
+              .build()
+          }
+          customer <- safeWrapStripeCall("Customer.create") { Customer.create(params) }
+        } yield CustomerId(customer.getId)
+      }
 
     override def createSetupIntent(create: PM.create.SetupIntent): HRIO[Logger & Telemetry, PM.result.SetupIntent.Empty] =
-      (for {
-        _ <- initStripeMetadata
-        params <- safeWrapStripeParams {
-          SetupIntentCreateParams
-            .builder()
-            .setCustomer(create.customerId.value)
-            .setOpt(create.description)(_.setDescription(_))
-            .build()
-        }
-        setupIntent <- safeWrapStripeCall("SetupIntent.create") { SetupIntent.create(params) }
-        apiSetupIntent <- PM.result.SetupIntent.Empty.fromStripe(setupIntent)
-      } yield apiSetupIntent).telemetrize("StripePaymentProcessor - createSetupIntent")
+      runStripe("createSetupIntent") {
+        for {
+          params <- safeWrapStripeParams {
+            SetupIntentCreateParams
+              .builder()
+              .setCustomer(create.customerId.value)
+              .setOpt(create.description)(_.setDescription(_))
+              .build()
+          }
+          setupIntent <- safeWrapStripeCall("SetupIntent.create") { SetupIntent.create(params) }
+          apiSetupIntent <- PM.result.SetupIntent.Empty.fromStripe(setupIntent)
+        } yield apiSetupIntent
+      }
 
     override def getSetupIntent(setupIntentId: SetupIntentId): HRIO[Logger & Telemetry, PM.result.SetupIntent.Initialized] =
-      (for {
-        setupIntent <- safeWrapStripeCall("SetupIntent.retrieve") { SetupIntent.retrieve(setupIntentId.value) }
-        apiSetupIntent <- PM.result.SetupIntent.Initialized.fromStripe(setupIntent)
-      } yield apiSetupIntent).telemetrize("StripePaymentProcessor - getSetupIntent")
+      runStripe("getSetupIntent") {
+        for {
+          setupIntent <- safeWrapStripeCall("SetupIntent.retrieve") { SetupIntent.retrieve(setupIntentId.value) }
+          apiSetupIntent <- PM.result.SetupIntent.Initialized.fromStripe(setupIntent)
+        } yield apiSetupIntent
+      }
 
     override def getPaymentMethod(paymentMethodId: PaymentMethodId): HRIO[Logger & Telemetry, PM.result.PaymentMethod] =
-      (for {
-        _ <- initStripeMetadata
-        paymentMethod <- safeWrapStripeCall("PaymentMethod.retrieve") { PaymentMethod.retrieve(paymentMethodId.value) }
-        apiPaymentMethod <- PM.result.PaymentMethod.fromStripe(paymentMethod)
-      } yield apiPaymentMethod).telemetrize("StripePaymentProcessor - getPaymentMethod")
+      runStripe("getPaymentMethod") {
+        for {
+          paymentMethod <- safeWrapStripeCall("PaymentMethod.retrieve") { PaymentMethod.retrieve(paymentMethodId.value) }
+          apiPaymentMethod <- PM.result.PaymentMethod.fromStripe(paymentMethod)
+        } yield apiPaymentMethod
+      }
 
     override def processPayment(payment: PM.create.Payment): HRIO[Logger & Telemetry, PaymentId] =
-      (for {
-        _ <- initStripeMetadata
-        params <- safeWrapStripeParams {
-          PaymentIntentCreateParams
-            .builder()
-            .setCurrency(payment.currency.toString.toLowerCase)
-            .setAmount(payment.amountInCents)
-            .setCustomer(payment.customerId.value)
-            .setPaymentMethod(payment.paymentMethodId.value)
-            .setDescription(payment.description)
-            .setOpt(payment.email)((b, a) => b.setReceiptEmail(a.unwrap))
-            .setConfirm(true)
-            .setOffSession(true)
-            .build()
-          // TODO (KR) : returnUrl?
-        }
-        paymentResult <- safeWrapStripeCall("PaymentIntent.create") { PaymentIntent.create(params) }
-      } yield PaymentId(paymentResult.getId)).telemetrize("StripePaymentProcessor - processPayment")
+      runStripe("processPayment") {
+        for {
+          params <- safeWrapStripeParams {
+            PaymentIntentCreateParams
+              .builder()
+              .setCurrency(payment.currency.toString.toLowerCase)
+              .setAmount(payment.amountInCents)
+              .setCustomer(payment.customerId.value)
+              .setPaymentMethod(payment.paymentMethodId.value)
+              .setDescription(payment.description)
+              .setOpt(payment.email)((b, a) => b.setReceiptEmail(a.unwrap))
+              .setConfirm(true)
+              .setOffSession(true)
+              .build()
+            // TODO (KR) : returnUrl?
+          }
+          paymentResult <- safeWrapStripeCall("PaymentIntent.create") { PaymentIntent.create(params) }
+        } yield PaymentId(paymentResult.getId)
+      }
 
   }
   object StripePaymentProcessor {

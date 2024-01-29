@@ -56,7 +56,7 @@ object PaymentsUI {
 
   private implicit class MaybeErrorOps(maybeError: MaybeErrorResponse) {
     def toZIO: HTask[Unit] =
-      maybeError.error.toOption match {
+      maybeError.error.toOption match { // TODO (KR) : clean this up
         case Some(error) => ZIO.fail(HError.UserError(s"[TODO - message]: ${error.message}"))
         case None        => ZIO.unit
       }
@@ -93,9 +93,10 @@ object PaymentsUI {
           div(
             id := elementName,
           ),
+          br,
           FormWidgets
             .submitButton(
-              "Submit",
+              "Add payment method",
             )
             .flatMapActionZM(_ => ZIO.succeed(Nil)), // otherwise we submit twice, consider making normal button?
           onSubmit := { event =>
@@ -104,7 +105,7 @@ object PaymentsUI {
           },
         )
       }
-      .flatMapActionZM { _ =>
+      .flatMapActionZM { _ => // TODO (KR) : block multiple submissions
         for {
           elements <- paymentsEnv.elements
           _ <- ZIO.fromPromiseJS { elements.submit() }.mapError(HError.fromThrowable).flatMap(_.toZIO)

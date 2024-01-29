@@ -115,7 +115,9 @@ object display extends CSSAttrBuilder("display") { self =>
   inline def tableCaption: CSSAttr = self := "table-caption"
   inline def none: CSSAttr = self := "none"
 }
-object textAlign extends CSSAttrBuilder("text-align")
+object textAlign extends CSSAttrBuilder("text-align") { self =>
+  inline def center: CSSAttr = self := "center"
+}
 object verticalAlign extends CSSAttrBuilder("vertical-align")
 object fontSize extends CSSAttrBuilder("font-size")
 object fontWeight extends CSSAttrBuilder("font-weight")
