@@ -33,7 +33,15 @@
   "http": {
     "port": 3001,
     "resDir": "harness-web-app-template/res",
-    "useJarResource": false
+    "useJarResource": false,
+    "ssl": {
+      "keystoreRef": "ssl/keystore.jks",
+      "keystorePassword": "5d6ada9a-c953-43e6-9da0-db3607b702b8",
+      "keystoreRefType": "Jar",
+      "truststoreRef": "ssl/truststore.jks",
+      "truststorePassword": "a1995899-2b5d-4834-bdb8-f1ce49af3679",
+      "truststoreRefType": "Jar"
+    }
   },
   "email": {
     "client": {

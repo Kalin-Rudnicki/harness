@@ -61,13 +61,19 @@ object Account {
                   table(
                     DefaultStyleSheet.stdTable,
                     tr(
-                      th(width := 200.px, "Details"),
+                      th(width := 150.px, "Method"),
+                      th(width := 150.px, "Details"),
                     ),
                     PModifier.foreach(env.paymentMethods) { pm =>
                       tr(
                         td(
-                          pm.typeDetails.map { case TypeDetails.Card(brand, expMonth, expYear, last4) =>
-                            PModifier(s"$brand *$last4 (${expMonth.toString.alignRight(2, '0')}/$expYear)")
+                          pm.typeDetails.map { case TypeDetails.Card(brand, _, _, last4) =>
+                            PModifier(s"$brand **** $last4")
+                          },
+                        ),
+                        td(
+                          pm.typeDetails.map { case TypeDetails.Card(_, expMonth, expYear, _) =>
+                            PModifier(s" exp: ${expMonth.toString.alignRight(2, '0')}/$expYear")
                           },
                         ),
                       )

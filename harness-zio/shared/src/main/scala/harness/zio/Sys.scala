@@ -25,8 +25,10 @@ object Sys {
     final def apply(cmd: String, args: String*): HTask[O] = run(NonEmptyList(cmd, args.toList))
   }
 
-  object execute
-      extends CmdBuilder[Int](cmdAndArgs => ZIO.hAttempt { cmdAndArgs.toList.! }.mapError(HError.SystemFailure(s"Unable to run command: ${cmdAndArgs.toList.map(_.unesc).mkString(" ")}", _)))
+  private def showCommand(cmdAndArgs: NonEmptyList[String]): String =
+    cmdAndArgs.toList.map(_.unesc).mkString(" ")
+
+  object execute extends CmdBuilder[Int](cmdAndArgs => ZIO.hAttempt { cmdAndArgs.toList.!< }.mapError(HError.SystemFailure(s"Unable to run command: ${showCommand(cmdAndArgs)}", _)))
 
   object execute0
       extends CmdBuilder[Unit](cmdAndArgs =>
@@ -34,11 +36,10 @@ object Sys {
           .execute(cmdAndArgs)
           .flatMap {
             case 0    => ZIO.unit
-            case code => ZIO.fail(HError.SystemFailure(s"Cmd '${cmdAndArgs.head}' executed with non-0 code '$code'"))
+            case code => ZIO.fail(HError.SystemFailure(s"Sys command exited with non-0 code '$code': ${showCommand(cmdAndArgs)}"))
           },
       )
 
-  object executeString0
-      extends CmdBuilder[String](cmdAndArgs => ZIO.hAttempt { cmdAndArgs.toList.!! }.mapError(HError.SystemFailure(s"Unable to run command ${cmdAndArgs.toList.map(_.unesc).mkString(" ")}", _)))
+  object executeString0 extends CmdBuilder[String](cmdAndArgs => ZIO.hAttempt { cmdAndArgs.toList.!!< }.mapError(HError.SystemFailure(s"Unable to run command ${showCommand(cmdAndArgs)}", _)))
 
 }

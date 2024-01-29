@@ -1,6 +1,8 @@
 package harness.http.server
 
 import harness.cli.*
+import harness.core.*
+import harness.zio.*
 import zio.json.*
 
 final case class ServerConfig(
@@ -13,11 +15,24 @@ final case class ServerConfig(
 object ServerConfig {
 
   final case class SslConfig(
-      keyPath: String,
-      keyPassword: String,
+      // keystore
+      keystoreRef: String,
+      keystorePassword: String,
+      keystoreRefType: SslConfig.RefType,
+      // truststore
+      truststoreRef: String,
+      truststorePassword: String,
+      truststoreRefType: SslConfig.RefType,
   )
   object SslConfig {
+
+    enum RefType extends Enum[RefType] { case Str, Jar, File }
+    object RefType extends Enum.Companion[RefType] {
+      implicit val jsonCodec: JsonCodec[RefType] = JsonCodec.fromHarnessStringEncoderAndDecoder
+    }
+
     implicit val jsonCodec: JsonCodec[SslConfig] = DeriveJsonCodec.gen
+
   }
 
   implicit val jsonCodec: JsonCodec[ServerConfig] = DeriveJsonCodec.gen

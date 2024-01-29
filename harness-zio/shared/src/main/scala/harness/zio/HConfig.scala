@@ -77,7 +77,7 @@ object HConfig {
 
   def fromJson(json: Json): HConfig =
     HConfig(json)
-    
+
   def unsafeFromEncodable[A: JsonEncoder](a: A): HConfig =
     a.toJsonAST match {
       case Right(json) => HConfig.fromJson(json)
@@ -157,17 +157,16 @@ object HConfig {
   // =====| ZIOs |=====
 
   def fromJarResource(path: String): HTask[HConfig] =
-    for {
-      stream <-
-        ZIO
-          .hAttempt { Option(this.getClass.getClassLoader.getResourceAsStream(path)) }
-          .someOrFail(HError.InternalDefect(s"No such jar resource: $path"))
-      string <- ZIO.hAttempt(new String(stream.readAllBytes()))
-      config <- string.fromJson[HConfig] match {
-        case Right(config) => ZIO.succeed(config)
-        case Left(error)   => ZIO.fail(HError.InternalDefect(s"Unable to decode json config: $error"))
-      }
-    } yield config
+    ZIO.scoped {
+      for {
+        stream <- JarUtils.getInputStream(path)
+        string <- ZIO.hAttempt(new String(stream.readAllBytes()))
+        config <- string.fromJson[HConfig] match {
+          case Right(config) => ZIO.succeed(config)
+          case Left(error)   => ZIO.fail(HError.InternalDefect(s"Unable to decode json config: $error"))
+        }
+      } yield config
+    }
 
   def fromPath(path: Path): HTask[HConfig] =
     path.readJson[Json].map(HConfig(_))
