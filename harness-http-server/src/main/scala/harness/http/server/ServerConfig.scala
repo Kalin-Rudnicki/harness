@@ -15,14 +15,13 @@ final case class ServerConfig(
 object ServerConfig {
 
   final case class SslConfig(
-      // keystore
-      keystoreRef: String,
-      keystorePassword: String,
-      keystoreRefType: SslConfig.RefType,
-      // truststore
-      truststoreRef: String,
-      truststorePassword: String,
-      truststoreRefType: SslConfig.RefType,
+      // certificate
+      certificateRef: String,
+      certificateRefType: SslConfig.RefType,
+      certificatePassword: Option[String],
+      // private key
+      privateKeyRef: String,
+      privateKeyRefType: SslConfig.RefType,
   )
   object SslConfig {
 

@@ -6,7 +6,10 @@ import harness.core.*
 import harness.zio.*
 import java.io.{ByteArrayInputStream, FileInputStream, InputStream, OutputStream}
 import java.net.InetSocketAddress
-import java.security.{KeyStore, SecureRandom}
+import java.security.{KeyFactory, KeyStore, SecureRandom}
+import java.security.cert.CertificateFactory
+import java.security.spec.PKCS8EncodedKeySpec
+import java.util.Base64
 import javax.net.ssl.*
 import zio.*
 
@@ -47,6 +50,7 @@ object Server {
           ZIO.hAttempt(HttpServer.create(inet, 0))
     }
 
+  // TODO (KR) : fix bug where only first request fails to load
   private def configureSSL(server: HttpsServer, sslConfig: ServerConfig.SslConfig): HRIO[FileSystem & Logger, Unit] = {
     def wrapUnsafe[A](hint: String)(thunk: => A): HTask[A] =
       ZIO.hAttempt { thunk }.mapError(HError.InternalDefect(s"Error during SSL configuration: $hint", _))
@@ -58,27 +62,41 @@ object Server {
         case ServerConfig.SslConfig.RefType.File => Path(ref).flatMap(_.inputStream)
       }
 
+    val keyStorePassword = sslConfig.certificatePassword.map(_.toCharArray).orNull
+
     ZIO.scoped {
       for {
-        // Load keystore
-        keystore <- wrapUnsafe("KeyStore.getInstance") { KeyStore.getInstance("JKS") }
-        keystoreInputStream <- getInputStream(sslConfig.keystoreRefType, sslConfig.keystoreRef)
-        _ <- wrapUnsafe("keystore.load") { keystore.load(keystoreInputStream, sslConfig.keystorePassword.toCharArray) }
+        // Load certificate chain
+        certificateStream <- getInputStream(sslConfig.certificateRefType, sslConfig.certificateRef)
+        certificate <- wrapUnsafe("CertificateFactory.getInstance") { CertificateFactory.getInstance("X.509").generateCertificate(certificateStream) }
 
-        // Load truststore
-        trustStore <- wrapUnsafe("KeyStore.getInstance") { KeyStore.getInstance("JKS") }
-        trustStoreStream <- getInputStream(sslConfig.truststoreRefType, sslConfig.truststoreRef)
-        _ <- wrapUnsafe("trustStore.load") { trustStore.load(trustStoreStream, sslConfig.truststorePassword.toCharArray) }
+        // Load certificate into keystore
+        keyStore <- wrapUnsafe("KeyStore.getInstance") { KeyStore.getInstance("PKCS12") }
+        _ <- wrapUnsafe("keystore.load") { keyStore.load(null, keyStorePassword) }
+        _ <- wrapUnsafe("keyStore.setCertificateEntry") { keyStore.setCertificateEntry("cert", certificate) }
+
+        // Load private key into keystore
+        privateKeyStream <- getInputStream(sslConfig.privateKeyRefType, sslConfig.privateKeyRef)
+        privateKeyBytes <- wrapUnsafe("privateKeyStream.readAllBytes") { privateKeyStream.readAllBytes() }
+        privateKeyPEM = new String(privateKeyBytes)
+        privateKeyPEMContent =
+          privateKeyPEM
+            .replace("-----BEGIN PRIVATE KEY-----", "")
+            .replace("-----END PRIVATE KEY-----", "")
+            .replaceAll("\\s", "")
+        decodedKey <- wrapUnsafe("Base64.getDecoder.decode") { Base64.getDecoder.decode(privateKeyPEMContent) }
+        keyFactory <- wrapUnsafe("KeyFactory.getInstance") { KeyFactory.getInstance("RSA") }
+        privateKeySpec <- wrapUnsafe("new PKCS8EncodedKeySpec") { new PKCS8EncodedKeySpec(decodedKey) }
+        privateKey <- wrapUnsafe("keyFactory.generatePrivate") { keyFactory.generatePrivate(privateKeySpec) }
+        _ <- wrapUnsafe("keyStore.setKeyEntry") { keyStore.setKeyEntry("key", privateKey, keyStorePassword, Array(certificate)) }
 
         // Initialize KeyManagerFactory and TrustManagerFactory
         keyManagerFactory <- wrapUnsafe("KeyManagerFactory.getInstance") { KeyManagerFactory.getInstance("SunX509") }
-        _ <- wrapUnsafe("keyManagerFactory.init") { keyManagerFactory.init(keystore, sslConfig.keystorePassword.toCharArray) }
-        trustManagerFactory <- wrapUnsafe("TrustManagerFactory.getInstance") { TrustManagerFactory.getInstance("SunX509") }
-        _ <- wrapUnsafe("trustManagerFactory.init") { trustManagerFactory.init(keystore) }
+        _ <- wrapUnsafe("keyManagerFactory.init") { keyManagerFactory.init(keyStore, keyStorePassword) }
 
         // Initialize SSLContext
         sslContext <- wrapUnsafe("SSLContext.getInstance") { SSLContext.getInstance("TLS") }
-        _ <- wrapUnsafe("sslContext.init") { sslContext.init(keyManagerFactory.getKeyManagers, trustManagerFactory.getTrustManagers, new SecureRandom()) }
+        _ <- wrapUnsafe("sslContext.init") { sslContext.init(keyManagerFactory.getKeyManagers, null, new SecureRandom()) }
 
         _ <- wrapUnsafe("server.setHttpsConfigurator") {
           server.setHttpsConfigurator(
