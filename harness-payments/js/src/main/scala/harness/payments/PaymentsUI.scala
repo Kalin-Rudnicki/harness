@@ -1,5 +1,6 @@
 package harness.payments
 
+import cats.syntax.option.*
 import harness.core.*
 import harness.http.client.HttpClient
 import harness.payments.facades.*
@@ -19,8 +20,12 @@ object PaymentsUI {
   private val loader: Promise[Nothing, Unit] =
     Unsafe.unsafely { Runtime.default.unsafe.run { Promise.make[Nothing, Unit] }.getOrThrow() }
 
-  val addStripeSrc: HRIO[Logger, Unit] =
+  private val stripeApiKey: Ref[Option[String]] =
+    Unsafe.unsafely { Runtime.default.unsafe.run { Ref.make(Option.empty[String]) }.getOrThrow() }
+
+  def initStripe(apiKey: String): HRIO[Logger, Unit] =
     Logger.log.debug("Loading stripe src") *>
+      stripeApiKey.set(apiKey.some) *>
       ZIO
         .hAttempt {
           val elem = document.createElement("script")
@@ -68,13 +73,13 @@ object PaymentsUI {
   }
   object PaymentEnv {
 
-    def create(apiKey: String): UIO[PaymentEnv] =
-      Ref.make[Elements](null).map { new PaymentEnv(Stripe(apiKey), _) }
+    val create: HTask[PaymentEnv] =
+      for {
+        apiKey <- stripeApiKey.get.someOrFail(HError.InternalDefect("API key was not initialized (PaymentsUI.initStripe)"))
+        elements <- Ref.make[Elements](null)
+      } yield new PaymentEnv(Stripe(apiKey), elements)
 
   }
-
-  private val getUrlRegex: Regex =
-    s"^(https?://[^/]+)".r
 
   def paymentForm(
       createIntent: HRIO[HttpClient.ClientT & Logger & Telemetry, ClientSecret],

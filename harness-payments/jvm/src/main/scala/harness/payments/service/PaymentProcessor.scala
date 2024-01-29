@@ -54,7 +54,7 @@ object PaymentProcessor {
     }
 
     private val initStripeMetadata: HTask[Unit] =
-      ZIO.hAttempt { Stripe.apiKey = config.apiKey }
+      ZIO.hAttempt { Stripe.apiKey = config.secretKey }
 
     private def safeWrapStripeParams[A](thunk: => A)(implicit ct: ClassTag[A]): HTask[A] =
       ZIO.hAttempt { thunk }.mapError(HError.SystemFailure(s"Error creating stripe params: ${ct.runtimeClass.getName}", _))
@@ -134,7 +134,10 @@ object PaymentProcessor {
     val layer: URLayer[StripePaymentProcessor.Config, PaymentProcessor.StripePaymentProcessor] =
       ZLayer.fromFunction { StripePaymentProcessor.apply }
 
-    final case class Config(apiKey: String)
+    final case class Config(
+        publishableKey: String,
+        secretKey: String,
+    )
     object Config {
       implicit val jsonCodec: JsonCodec[Config] = DeriveJsonCodec.gen
     }

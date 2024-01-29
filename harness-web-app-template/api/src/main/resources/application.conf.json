@@ -44,5 +44,8 @@
     "service": {
       "sender": "harness.email.client@gmail.com"
     }
+  },
+  "ui": {
+    "logTolerance": "DETAILED"
   }
 }

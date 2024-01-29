@@ -1,9 +1,12 @@
 package harness.http.server
 
+import cats.syntax.option.*
 import harness.core.*
 import harness.web.*
 import harness.zio.*
 import zio.*
+import zio.json.*
+import zio.json.ast.Json
 
 trait Route[-R] { self =>
 
@@ -43,15 +46,18 @@ object Route {
     rec(routes.toList)
   }
 
-  private val pageHtmlResponse: HttpResponse =
+  private def pageHtmlResponse(harnessUiConfig: HConfig): HttpResponse =
     HttpResponse(
-      """<!DOCTYPE html>
+      s"""<!DOCTYPE html>
         |<html lang="en">
         |
         |<head>
         |    <meta charset="UTF-8">
         |    <title>Title</title>
         |    <link rel='shortcut icon' type='image/x-icon' href='/res/favicon.ico' />
+        |    <script>
+        |      const harnessUiConfig = ${Json.Str(harnessUiConfig.configJson.toJson).toJson}
+        |    </script>
         |    <script id="scripts" src="/res/js/main.js"></script>
         |</head>
         |
@@ -81,8 +87,10 @@ object Route {
     *  - /res/js/{*}       ->  {res}/js/{*}
     *  - /res/css/{*}      ->  {res}/css/{*}
     */
-  def stdRoot[R](apis: Route[R]*): URIO[ServerConfig, Route[R]] =
+  def stdRoot[A <: HasStdClientConfig: JsonEncoder, R](harnessUiConfig: A)(apis: Route[R]*): URIO[ServerConfig, Route[R]] =
     ZIO.serviceWith[ServerConfig] { config =>
+      val pageHtml = pageHtmlResponse(HConfig.unsafeFromEncodable(harnessUiConfig))
+
       Route.oneOf(
         "api" /: Route.oneOf(apis*),
         (HttpMethod.GET / "api" / "health-check").implement { _ =>
@@ -94,7 +102,7 @@ object Route {
           } yield HttpResponse.fromHttpCode.Ok
         },
         (HttpMethod.GET / "page" / RouteMatcher.**).implement { _ =>
-          ZIO.succeed(pageHtmlResponse)
+          ZIO.succeed(pageHtml)
         },
         HttpMethod.GET /: "res" /: Route.oneOf(
           "favicon.ico".implement { _ =>

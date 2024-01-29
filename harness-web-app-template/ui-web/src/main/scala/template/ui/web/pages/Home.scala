@@ -127,7 +127,6 @@ object Home {
         for {
           user <- Api.user.fromSessionTokenOrRedirectToLogin
           _ <- PaymentsUI.awaitStripeSrc
-          payments <- PaymentsUI.PaymentEnv.create("pk_test_51OVNiaD9gOL4yaWVMKdhPEOW59IeVbst1031HrqDDQRswYNFYAQtiOg9UDSyST7DYLGq8CYVN0bG0q51GovrVpVz0070Gb4ccu")
         } yield Env(
           user,
           "",

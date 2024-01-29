@@ -16,11 +16,12 @@ import harness.sql.query.Transaction
 import harness.web.*
 import harness.zio.*
 import zio.*
+import zio.json.*
 
 object ServerMain {
 
   type StorageEnv = Transaction & SessionStorage & UserStorage & AppStorage & LogStorage & TraceStorage
-  type ServerEnv = JDBCConnectionPool & EmailService & StaleDataCleanser
+  type ServerEnv = JDBCConnectionPool & EmailService & StaleDataCleanser & UiConfig
   type ReqEnv = StorageEnv
 
   private final case class Config(
@@ -41,6 +42,13 @@ object ServerMain {
 
   }
 
+  final case class UiConfig(
+      logTolerance: Logger.LogLevel,
+  )
+  object UiConfig {
+    implicit val jsonCodec: JsonCodec[UiConfig] = DeriveJsonCodec.gen
+  }
+
   // This layer will be evaluated once when the server starts
   val serverLayer: SHRLayer[Scope, ServerEnv] =
     ZLayer.makeSome[HarnessEnv & Scope, ServerEnv](
@@ -51,6 +59,7 @@ object ServerMain {
       HConfig.readLayer[EmailService.Config]("email", "service"),
       EmailService.liveLayer,
       StaleDataCleanser.live(1.minute, 1.minute, 1.minute, 5.minutes, 15.minutes, 1.hour, 1.hour, 6.hours),
+      HConfig.readLayer[UiConfig]("ui"),
     )
 
   val storageLayer: URLayer[JDBCConnection, StorageEnv] =
@@ -65,13 +74,15 @@ object ServerMain {
   val reqLayer: SHRLayer[ServerEnv & JDBCConnection & Scope, ReqEnv] =
     storageLayer
 
-  val routes: URIO[ServerConfig, Route[ServerEnv & ReqEnv]] =
-    Route.stdRoot(
-      R.User.routes,
-      R.App.routes,
-      R.Log.routes,
-      R.Telemetry.routes,
-    )
+  val routes: URIO[RunMode & UiConfig & ServerConfig, Route[ServerEnv & ReqEnv]] =
+    for {
+      runMode <- ZIO.service[RunMode]
+      uiConfig <- ZIO.service[UiConfig]
+      config = StdClientConfig(runMode, uiConfig.logTolerance).basic
+      r <- Route.stdRoot(config)(
+        R.User.routes,
+      )
+    } yield r
 
   private val migrations: PlannedMigrations =
     PlannedMigrations(

@@ -13,7 +13,7 @@ import zio.test.*
 abstract class RouteSpec[
     SE <: JDBCConnectionPool: EnvironmentTag,
     RE <: Transaction: EnvironmentTag,
-] extends ZIOSpec[HarnessEnv & Route[SE & RE] & TestEnvironment] {
+] extends ZIOSpec[HarnessEnv & TestEnvironment] {
 
   // =====| Types |=====
 
@@ -22,7 +22,7 @@ abstract class RouteSpec[
   final type ProvidedEnv = Route[ServerEnv & ReqEnv] & CookieStorage
   final type HttpEnv = HarnessEnv & ProvidedEnv & ServerEnv & JDBCConnection
 
-  final type TestSpec = Spec[Environment & ServerEnv & JDBCConnection & CookieStorage & Scope, Any]
+  final type TestSpec = Spec[Environment & ServerEnv & Route[ServerEnv & ReqEnv] & JDBCConnection & CookieStorage & Scope, Any]
 
   // =====| Abstract |=====
 
@@ -32,7 +32,7 @@ abstract class RouteSpec[
   // This layer will be evaluated for each http call
   val reqLayer: SHRLayer[ServerEnv & JDBCConnection & Scope, ReqEnv]
 
-  val route: URIO[ServerConfig, Route[ServerEnv & ReqEnv]]
+  val route: URIO[HarnessEnv & ServerEnv & ServerConfig, Route[ServerEnv & ReqEnv]]
 
   def routeSpec: TestSpec
 
@@ -51,7 +51,7 @@ abstract class RouteSpec[
         request <- CookieStorage.applyCookies(request)
         response <- ZIO.scoped(
           route(request.method, request.path)
-            .provideSomeLayer[HttpEnv & Scope](
+            .provideSomeLayer[HttpEnv & HarnessEnv & Scope](
               reqLayer ++ Transaction.savepointLayer ++ ZLayer.succeed(request),
             ),
         )
@@ -91,22 +91,20 @@ abstract class RouteSpec[
 
   override def bootstrap: HTaskLayer[Environment] =
     Scope.default >+> (
-      harnessLayer ++
-        ZLayer.fromZIO(evalRoute) ++
-        testEnvironment
+      harnessLayer ++ testEnvironment
     )
 
   override final def spec: Spec[Environment & Scope, Any] =
     (routeSpec @@ runInTransaction)
-      .provideSomeLayer[Environment & ServerEnv & Scope] {
+      .provideSomeLayer[Environment & ServerEnv & Route[ServerEnv & ReqEnv] & Scope] {
         CookieStorage.emptyLayer ++ JDBCConnection.poolLayer
       }
-      .provideSomeLayerShared[Environment & Scope] { serverLayer }
+      .provideSomeLayerShared[Environment & Scope] { serverLayer >+> ZLayer.fromZIO(evalRoute) }
 
   // =====| Helpers |=====
 
-  private final lazy val evalRoute: UIO[Route[ServerEnv & ReqEnv]] =
-    route.provide(ZLayer.succeed(ServerConfig(None, "res", true, None)))
+  private final lazy val evalRoute: URIO[HarnessEnv & ServerEnv, Route[ServerEnv & ReqEnv]] =
+    route.provideSomeLayer[HarnessEnv & ServerEnv](ZLayer.succeed(ServerConfig(None, "res", true, None)))
 
   final val harnessLayer: HTaskLayer[HarnessEnv] =
     HarnessEnv.defaultLayer(logLevel)

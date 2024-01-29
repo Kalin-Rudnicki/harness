@@ -1,3 +1,4 @@
 package harness.core
 
-enum RunMode { case Prod, Dev }
+enum RunMode extends Enum[RunMode] { case Prod, Dev }
+object RunMode extends Enum.Companion[RunMode]

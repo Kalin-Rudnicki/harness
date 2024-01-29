@@ -14,7 +14,7 @@ object Enum {
     implicit final val hasCompanion: HasCompanion[E] = Enum.HasCompanion(this)
 
     protected val defaultToString: E => String = _.toString
-    
+
     def values: Array[E]
 
     final lazy val enumValues: Seq[E] = values.toSeq
@@ -26,6 +26,9 @@ object Enum {
     }
 
     implicit object ToString extends EnumMap[String](defaultToString)
+
+    implicit val stringEncoder: StringEncoder[E] = ToString.encode(_)
+    implicit val stringDecoder: StringDecoder[E] = StringDecoder.fromOptionF(getClass.getSimpleName, ToString.decode)
 
   }
 

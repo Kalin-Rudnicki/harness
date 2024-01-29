@@ -2,17 +2,17 @@ package template.ui.web
 
 import harness.core.RunMode
 import harness.payments.*
+import harness.web.HasStdClientConfig
 import harness.webUI.*
 import harness.webUI.style.*
 import harness.zio.*
+import template.model as D
+import zio.*
 
-object Main extends PageApp {
+object Main extends PageApp[D.config.UiConfig] {
 
-  override protected val runMode: RunMode = RunMode.Dev
-  override protected val logTolerance: Logger.LogLevel = Logger.LogLevel.Trace
-
-  override protected val preload: SHTask[Unit] =
-    PaymentsUI.addStripeSrc
+  override protected val preload: SHRIO[D.config.UiConfig, Unit] =
+    ZIO.serviceWithZIO[D.config.UiConfig] { cfg => PaymentsUI.initStripe(cfg.stripePublishableKey) }
 
   override val styleSheets: List[StyleSheet] = List(DefaultStyleSheet)
 

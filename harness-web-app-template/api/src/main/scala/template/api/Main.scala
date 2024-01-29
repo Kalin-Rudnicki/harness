@@ -15,15 +15,24 @@ import harness.zio.*
 import template.api.routes as R
 import template.api.service.email.*
 import template.api.service.storage.*
+import template.model as D
 import zio.*
+import zio.json.*
 
 object Main extends ExecutableApp {
 
   override val config: ExecutableApp.Config = ExecutableApp.Config.default.addArchiveDecoders
 
   type StorageEnv = Transaction & SessionStorage & UserStorage & PaymentMethodStorage
-  type ServerEnv = JDBCConnectionPool & EmailService & PaymentProcessor
+  type ServerEnv = JDBCConnectionPool & EmailService & PaymentProcessor & UiConfig & PaymentProcessor.StripePaymentProcessor.Config
   type ReqEnv = StorageEnv
+
+  final case class UiConfig(
+      logTolerance: Logger.LogLevel,
+  )
+  object UiConfig {
+    implicit val jsonCodec: JsonCodec[UiConfig] = DeriveJsonCodec.gen
+  }
 
   // This layer will be evaluated once when the server starts
   val serverLayer: SHRLayer[Scope, ServerEnv] =
@@ -36,6 +45,7 @@ object Main extends ExecutableApp {
       EmailService.liveLayer,
       HConfig.readLayer[PaymentProcessor.StripePaymentProcessor.Config]("payment", "stripe"),
       PaymentProcessor.StripePaymentProcessor.layer,
+      HConfig.readLayer[UiConfig]("ui"),
     )
 
   val storageLayer: URLayer[JDBCConnection, StorageEnv] =
@@ -48,11 +58,20 @@ object Main extends ExecutableApp {
   val reqLayer: SHRLayer[ServerEnv & JDBCConnection & Scope, ReqEnv] =
     storageLayer
 
-  val routes: URIO[ServerConfig, Route[ServerEnv & ReqEnv]] =
-    Route.stdRoot(
-      R.User.routes,
-      R.Payment.routes,
-    )
+  val routes: URIO[RunMode & UiConfig & PaymentProcessor.StripePaymentProcessor.Config & ServerConfig, Route[ServerEnv & ReqEnv]] =
+    for {
+      runMode <- ZIO.service[RunMode]
+      uiConfig <- ZIO.service[UiConfig]
+      stripeConfig <- ZIO.service[PaymentProcessor.StripePaymentProcessor.Config]
+      config = D.config.UiConfig(
+        StdClientConfig(runMode, uiConfig.logTolerance),
+        stripeConfig.publishableKey,
+      )
+      r <- Route.stdRoot(config)(
+        R.User.routes,
+        R.Payment.routes,
+      )
+    } yield r
 
   private val migrations: PlannedMigrations =
     PlannedMigrations(

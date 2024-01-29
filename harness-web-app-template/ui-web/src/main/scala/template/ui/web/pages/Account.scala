@@ -33,7 +33,7 @@ object Account {
           paymentMethods <- Api.payment.paymentMethods
           createPaymentEnv <-
             PaymentsUI.awaitStripeSrc *>
-              PaymentsUI.PaymentEnv.create("pk_test_51OVNiaD9gOL4yaWVMKdhPEOW59IeVbst1031HrqDDQRswYNFYAQtiOg9UDSyST7DYLGq8CYVN0bG0q51GovrVpVz0070Gb4ccu")
+              PaymentsUI.PaymentEnv.create
         } yield Env(
           user,
           paymentMethods,

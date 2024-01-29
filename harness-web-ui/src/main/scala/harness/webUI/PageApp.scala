@@ -3,6 +3,8 @@ package harness.webUI
 import cats.data.NonEmptyList
 import harness.core.*
 import harness.http.client.HttpClient
+import harness.web.*
+import harness.webUI.facades.ConfigGlobals
 import harness.webUI.rawVDOM.Renderer
 import harness.webUI.style.{CssClassMap, StyleSheet}
 import harness.webUI.vdom.{given, *}
@@ -10,38 +12,48 @@ import harness.zio.*
 import org.scalajs.dom.{console, document, window}
 import scala.annotation.nowarn
 import zio.*
+import zio.json.*
 
-trait PageApp extends ZIOApp {
+trait PageApp[EnvFromServer <: HasStdClientConfig: Tag: JsonDecoder] extends ZIOApp {
 
-  override type Environment = HarnessEnv & HttpClient.ClientT
+  override type Environment = HarnessEnv & HttpClient.ClientT & EnvFromServer
 
   @nowarn
-  override implicit def environmentTag: EnvironmentTag[HarnessEnv & HttpClient.ClientT] = EnvironmentTag[HarnessEnv & HttpClient.ClientT]
+  override implicit def environmentTag: EnvironmentTag[HarnessEnv & HttpClient.ClientT & EnvFromServer] = EnvironmentTag[HarnessEnv & HttpClient.ClientT & EnvFromServer]
 
-  override def bootstrap: HTaskLayer[HarnessEnv & HttpClient.ClientT] = {
-    val loggerLayer: ULayer[Logger] = {
-      val target: Logger.Target =
-        new Logger.Target {
-          override def log(event: Logger.ExecutedEvent): UIO[Unit] = ZIO.hAttempt { console.log(event.formatted(ColorMode.Extended)) }.orDie
+  override def bootstrap: HTaskLayer[HarnessEnv & HttpClient.ClientT & EnvFromServer] = {
+    val configLayer: HTaskLayer[HConfig] =
+      ZLayer.fromZIO {
+        for {
+          cfgStr <- ZIO.hAttempt { ConfigGlobals.harnessUiConfig }
+          hConfig <- HConfig.fromJsonString(cfgStr)
+        } yield hConfig
+      }
+
+    val loggerLayer: URLayer[StdClientConfig, Logger] =
+      ZLayer.fromZIO {
+        ZIO.serviceWith[StdClientConfig] { cfg =>
+          val target: Logger.Target =
+            new Logger.Target {
+              override def log(event: Logger.ExecutedEvent): UIO[Unit] = ZIO.hAttempt { console.log(event.formatted(ColorMode.Extended)) }.orDie
+            }
+
+          Logger.default(sources = Logger.Source.const(target, None) :: Nil, defaultMinLogTolerance = cfg.logTolerance)
         }
-      ZLayer.succeed(Logger.default(sources = Logger.Source.const(target, None) :: Nil, defaultMinLogTolerance = logTolerance))
-    }
+      }
 
-    loggerLayer ++
-      ZLayer.succeed(Telemetry.log) ++
-      ZLayer.succeed(runMode) ++
-      ZLayer.succeed(HError.UserMessage.IfHidden.default) ++
-      FileSystem.liveLayer ++
-      HttpClient.defaultLayer ++
-      HConfig.layer.empty
+    configLayer >+> HConfig.readLayer[EnvFromServer]() >+> ZLayer.service[EnvFromServer].project(_.stdClientConfig) >+> {
+      loggerLayer ++
+        ZLayer.succeed(Telemetry.log) ++
+        ZLayer.service[EnvFromServer].project(_.stdClientConfig.runMode) ++
+        ZLayer.succeed(HError.UserMessage.IfHidden.default) ++
+        FileSystem.liveLayer ++
+        HttpClient.defaultLayer
+    }
   }
 
-  // TODO (KR) : Come up with a better system for this
-  protected val runMode: RunMode = RunMode.Prod
-  protected val logTolerance: Logger.LogLevel = Logger.LogLevel.Info
+  protected val preload: SHRIO[EnvFromServer, Unit] = ZIO.unit
 
-  protected val preload: SHTask[Unit] = ZIO.unit
-  
   // TODO (KR) : Make this prettier
   /**
     * Page to display on 404-not-found. You can override this in your app.
@@ -80,7 +92,7 @@ trait PageApp extends ZIOApp {
   val routeMatcher: RouteMatcher.Root
   val styleSheets: List[StyleSheet]
 
-  override def run: URIO[HarnessEnv & HttpClient.ClientT & Scope, Any] =
+  override def run: URIO[HarnessEnv & HttpClient.ClientT & EnvFromServer & Scope, Any] =
     (for {
       _ <- Logger.log.info("Starting page load")
       _ <- preload

@@ -77,6 +77,12 @@ object HConfig {
 
   def fromJson(json: Json): HConfig =
     HConfig(json)
+    
+  def unsafeFromEncodable[A: JsonEncoder](a: A): HConfig =
+    a.toJsonAST match {
+      case Right(json) => HConfig.fromJson(json)
+      case Left(error) => throw new RuntimeException(s"This should not happen... Unable to encode to json ast:\n$error\n$a")
+    }
 
   def fromJsonString(json: String): HTask[HConfig] =
     json.fromJson[Json] match {

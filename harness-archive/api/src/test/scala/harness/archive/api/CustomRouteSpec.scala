@@ -12,7 +12,7 @@ abstract class CustomRouteSpec extends RouteSpec[ServerMain.ServerEnv, ServerMai
 
   override final val serverLayer: SHRLayer[Scope, ServerMain.ServerEnv] = ServerMain.serverLayer
   override final val reqLayer: SHRLayer[ServerMain.ServerEnv & JDBCConnection & Scope, ServerMain.ReqEnv] = ServerMain.reqLayer
-  override final val route: URIO[ServerConfig, Route[ServerMain.ServerEnv & ServerMain.ReqEnv]] = ServerMain.routes
+  override final val route: URIO[HarnessEnv & ServerEnv & ServerConfig, Route[ServerMain.ServerEnv & ServerMain.ReqEnv]] = ServerMain.routes
 
   override def aspects: Chunk[TestAspectAtLeastR[Environment]] =
     super.aspects ++ Chunk(TestAspect.samples(15))
