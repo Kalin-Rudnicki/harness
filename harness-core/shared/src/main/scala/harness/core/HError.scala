@@ -2,9 +2,7 @@ package harness.core
 
 import cats.data.NonEmptyList
 import cats.syntax.option.*
-import cats.syntax.traverse.*
 import harness.core.RunMode.{Dev, Prod}
-import scala.annotation.targetName
 
 sealed abstract class HErrorOr[+E](
     final val causes: List[Throwable],
@@ -19,7 +17,7 @@ sealed abstract class HErrorOr[+E](
   override final def toString: String = fullInternalMessage
 
 }
-type AnyHError = HErrorOr[_]
+type AnyHError = HErrorOr[?]
 
 sealed abstract class HError(
     final val userMessage: HError.UserMessage,

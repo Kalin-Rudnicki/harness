@@ -3,7 +3,6 @@ package harness.sql.query
 import harness.core.Zip
 import harness.sql.*
 import harness.sql.typeclass.*
-import shapeless3.deriving.Id
 import zio.Chunk
 import zio.json.JsonDecoder
 
@@ -104,17 +103,17 @@ object Select {
       decoder: JsonDecoder[O],
   ) {
 
-    def single: Query[O] with JsonReturn =
-      Select.Query(fr"SELECT $select FROM $query", RowDecoder.fromColDecoder(ColDecoder.json[O](decoder))).asInstanceOf[Select.Query[O] with JsonReturn]
-    def option: Query[Option[O]] with JsonReturn =
-      Select.Query(fr"SELECT $select FROM $query", RowDecoder.fromColDecoder(ColDecoder.json[O](decoder)).optional).asInstanceOf[Select.Query[Option[O]] with JsonReturn]
-    def chunk: Query[Chunk[O]] with JsonReturn =
+    def single: Query[O] & JsonReturn =
+      Select.Query(fr"SELECT $select FROM $query", RowDecoder.fromColDecoder(ColDecoder.json[O](decoder))).asInstanceOf[Select.Query[O] & JsonReturn]
+    def option: Query[Option[O]] & JsonReturn =
+      Select.Query(fr"SELECT $select FROM $query", RowDecoder.fromColDecoder(ColDecoder.json[O](decoder)).optional).asInstanceOf[Select.Query[Option[O]] & JsonReturn]
+    def chunk: Query[Chunk[O]] & JsonReturn =
       Select
         .Query(
           fr"COALESCE((SELECT json_agg($select) FROM $query), '[]' :: JSON)",
           RowDecoder.fromColDecoder(ColDecoder.json[Chunk[O]](JsonDecoder.chunk[O](decoder))),
         )
-        .asInstanceOf[Select.Query[Chunk[O]] with JsonReturn]
+        .asInstanceOf[Select.Query[Chunk[O]] & JsonReturn]
 
   }
 

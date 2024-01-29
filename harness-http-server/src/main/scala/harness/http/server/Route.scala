@@ -1,7 +1,6 @@
 package harness.http.server
 
 import cats.syntax.option.*
-import harness.core.*
 import harness.web.*
 import harness.zio.*
 import zio.*

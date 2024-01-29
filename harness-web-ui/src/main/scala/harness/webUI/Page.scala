@@ -7,6 +7,7 @@ import harness.webUI.vdom.*
 import harness.zio.*
 import monocle.macros.GenLens
 import org.scalajs.dom.window
+import scala.annotation.nowarn
 import zio.*
 
 sealed trait Page {
@@ -78,6 +79,7 @@ object Page {
       fetchState: SHRIO[HttpClient.ClientT, State],
   ) {
     def postLoad(f: State => SHRIO[HttpClient.ClientT, Unit]): Builder3[State] = postLoadRH((s, _) => f(s))
+    @nowarn // compiler being stupid
     def postLoadRHS(f: (State, RaiseHandler[Nothing, State]) => SHRIO[HttpClient.ClientT, Unit]): Builder3[State] = postLoadRH((s, rh) => f(s, rh.mapState(GenLens[PageState[State]](_.state))))
     def postLoadRH(f: (State, RaiseHandler[Nothing, PageState[State]]) => SHRIO[HttpClient.ClientT, Unit]): Builder3[State] = Builder3(fetchState, f)
     def stateTitle(f: State => String): Builder4[State] = Builder4(fetchState, (_, _) => ZIO.unit, f.asRight)

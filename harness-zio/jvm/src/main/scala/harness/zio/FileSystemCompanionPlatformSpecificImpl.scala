@@ -1,6 +1,5 @@
 package harness.zio
 
-import harness.core.*
 import java.nio.file.FileSystem as JavaFileSystem
 import java.nio.file.FileSystems as JavaFileSystems
 import zio.*

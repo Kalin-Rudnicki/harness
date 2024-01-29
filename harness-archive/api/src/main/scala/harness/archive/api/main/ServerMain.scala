@@ -1,7 +1,5 @@
 package harness.archive.api.main
 
-import cats.data.NonEmptyList
-import harness.archive.api.db.model as M
 import harness.archive.api.routes as R
 import harness.archive.api.service.*
 import harness.archive.api.service.email.EmailService
@@ -9,7 +7,7 @@ import harness.archive.api.service.storage.*
 import harness.cli.*
 import harness.core.*
 import harness.email.*
-import harness.http.server.{given, *}
+import harness.http.server.*
 import harness.sql.*
 import harness.sql.autoSchema.*
 import harness.sql.query.Transaction

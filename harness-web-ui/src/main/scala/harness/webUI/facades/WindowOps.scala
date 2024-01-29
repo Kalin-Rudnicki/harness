@@ -1,10 +1,8 @@
 package harness.webUI.facades
 
 import org.scalajs.dom.Window
-import zio.*
-
 import scala.scalajs.js
-import scala.scalajs.js.annotation.*
+import zio.*
 
 @js.native
 trait WindowOps extends js.Any {

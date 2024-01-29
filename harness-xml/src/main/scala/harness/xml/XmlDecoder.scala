@@ -5,7 +5,7 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import harness.core.{StringDecoder, Zip}
-import scala.xml.{Node, NodeSeq, Text}
+import scala.xml.{Node, Text}
 
 trait XmlDecoder[T] { self =>
 

@@ -1,11 +1,10 @@
 package harness.webUI
 
-import cats.data.NonEmptyList
 import harness.core.*
 import harness.http.client.HttpClient
 import harness.webUI.vdom.*
 import harness.zio.*
-import monocle.{Lens, Optional}
+import monocle.Optional
 import org.scalajs.dom.{document, window}
 import scala.annotation.nowarn
 import zio.*
@@ -89,7 +88,6 @@ abstract class RaiseHandler[-A, -S] private (
       case raise: Raise.Standard          => handleRaise(raise)
     }
 
-  @nowarn
   final def mapRaise[NewA, S2 <: S](f: Raise[NewA, S2] => SHRIO[HttpClient.ClientT, List[Raise[A, S]]]): RaiseHandler[NewA, S2] =
     RaiseHandler[NewA, S2](runtime) { f(_).flatMap(ZIO.foreachDiscard(_)(handleRaise)) }
 
@@ -109,7 +107,6 @@ object RaiseHandler {
       override val handleRaise: Raise[A, S] => SHRIO[HttpClient.ClientT, Unit] = _handleRaise
     }
 
-  @nowarn
   private[webUI] def root[A, S](
       renderer: rawVDOM.Renderer,
       stateRef: Ref.Synchronized[PageState[S]],
@@ -129,7 +126,6 @@ object RaiseHandler {
               renderer.render(titleF.fold(identity, _(newState.state)), newVDom).as(newState)
             }
 
-        @nowarn
         def handleStandardOrUpdate(raise: Raise.StandardOrUpdate[PageState[S]]): SHRIO[HttpClient.ClientT, Unit] =
           raise match {
             case raise: Raise.Standard =>
@@ -157,9 +153,10 @@ object RaiseHandler {
           }
 
         // TODO (KR) : Make sure errors are converted to messages
+
         raise match {
           case raise: Raise.StandardOrUpdate[PageState[S]] => handleStandardOrUpdate(raise)
-          case raise: Raise.Action[A]                      => handleA(raise.action).flatMap(ZIO.foreachDiscard(_)(handleStandardOrUpdate))
+          case Raise.Action(action)                        => handleA(action).flatMap(ZIO.foreachDiscard(_)(handleStandardOrUpdate))
         }
       }
 

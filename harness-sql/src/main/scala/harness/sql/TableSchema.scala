@@ -1,7 +1,6 @@
 package harness.sql
 
-import cats.data.NonEmptyList
-import harness.sql.query.{fr, Fragment, QueryInputMapper}
+import harness.sql.query.{Fragment, QueryInputMapper}
 import harness.sql.typeclass.*
 import shapeless3.deriving.*
 
@@ -20,7 +19,7 @@ final case class TableSchema[T[_[_]] <: Table](
 }
 object TableSchema {
 
-  type AnySchema = TableSchema[_ <: ([_[_]] =>> harness.sql.Table)]
+  type AnySchema = TableSchema[? <: ([_[_]] =>> harness.sql.Table)]
 
   inline def derived[T[_[_]] <: Table](tableSchema: String, tableName: String)(colInfo: T[Col])(using gen: K11.ProductGeneric[T]): TableSchema[T] = {
     val functorK: FunctorK[T] = FunctorK.derived[T]

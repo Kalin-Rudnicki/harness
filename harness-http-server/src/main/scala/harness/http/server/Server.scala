@@ -1,10 +1,9 @@
 package harness.http.server
 
-import cats.data.NonEmptyList
 import com.sun.net.httpserver.*
 import harness.core.*
 import harness.zio.*
-import java.io.{ByteArrayInputStream, FileInputStream, InputStream, OutputStream}
+import java.io.{ByteArrayInputStream, InputStream}
 import java.net.InetSocketAddress
 import java.security.{KeyFactory, KeyStore, SecureRandom}
 import java.security.cert.CertificateFactory

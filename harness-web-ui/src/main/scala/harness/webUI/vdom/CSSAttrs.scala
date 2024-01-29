@@ -2,8 +2,6 @@ package harness.webUI.vdom
 
 import harness.webUI.rawVDOM
 import harness.webUI.rawVDOM.VDom.CSSAttr
-import org.scalajs.dom.MouseEvent
-import scala.scalajs.js
 
 abstract class CSSAttrBuilder(scopedName: rawVDOM.VDom.ScopedName) { self =>
   final def :=(value0: String): CSSAttr = CSSAttr(scopedName, value0)

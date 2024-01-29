@@ -1,6 +1,5 @@
 package harness.webUI
 
-import cats.data.NonEmptyList
 import harness.core.*
 import harness.http.client.HttpClient
 import harness.web.*

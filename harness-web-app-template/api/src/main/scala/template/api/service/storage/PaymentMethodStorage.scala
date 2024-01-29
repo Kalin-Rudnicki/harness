@@ -1,10 +1,8 @@
 package template.api.service.storage
 
-import harness.payments.model.ids.*
 import harness.sql.*
 import harness.sql.query.{given, *}
 import harness.zio.*
-import template.api.db.model.User
 import template.api.db.model as M
 import template.model as D
 import zio.*

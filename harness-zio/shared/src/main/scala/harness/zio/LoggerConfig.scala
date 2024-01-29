@@ -2,10 +2,8 @@ package harness.zio
 
 import cats.syntax.either.*
 import cats.syntax.option.*
-import harness.core.*
 import zio.*
 import zio.json.*
-import zio.json.ast.*
 
 final case class LoggerConfig(
     context: Map[String, String],

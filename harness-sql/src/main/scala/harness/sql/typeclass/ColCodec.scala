@@ -1,6 +1,6 @@
 package harness.sql.typeclass
 
-import cats.data.{EitherNel, NonEmptyList}
+import cats.data.EitherNel
 import cats.syntax.either.*
 import harness.sql.*
 import java.time.*

@@ -6,7 +6,7 @@ import harness.sql.*
 import harness.sql.errors.*
 import harness.sql.typeclass.*
 import harness.zio.*
-import java.sql.{Array, PreparedStatement, ResultSet}
+import java.sql.ResultSet
 import zio.*
 import zio.stream.*
 
@@ -84,7 +84,7 @@ object QueryResult {
             rs <- ZIO.acquireAutoClosable(ZIO.hAttempt(ps.executeQuery()))
           } yield rs
 
-        inline def getObj(resultSet: ResultSet, k: Option[Class[_]], i: Int): Object =
+        inline def getObj(resultSet: ResultSet, k: Option[Class[?]], i: Int): Object =
           k match {
             case Some(k) => resultSet.getObject(i + 1, k)
             case None    => resultSet.getObject(i + 1)

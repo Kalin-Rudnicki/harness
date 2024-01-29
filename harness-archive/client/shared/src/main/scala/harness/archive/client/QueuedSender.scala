@@ -1,8 +1,6 @@
 package harness.archive.client
 
 import cats.syntax.option.*
-import harness.core.*
-import harness.zio.*
 import zio.*
 
 final class QueuedSender[R, A] private (

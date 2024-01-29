@@ -2,7 +2,7 @@ package harness.webUI.widgets
 
 import cats.syntax.traverse.*
 import harness.webUI.*
-import harness.webUI.vdom.{given, *}
+import harness.webUI.vdom.*
 import monocle.*
 import zio.Chunk
 

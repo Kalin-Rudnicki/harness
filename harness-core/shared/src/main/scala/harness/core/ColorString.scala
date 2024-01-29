@@ -4,6 +4,7 @@ import cats.data.*
 import cats.syntax.list.*
 import cats.syntax.option.*
 import scala.annotation.tailrec
+import scala.collection.mutable
 
 sealed trait ColorString {
 
@@ -177,27 +178,21 @@ sealed trait ColorString {
 
   override def toString: String = toString(ColorMode.Extended)
   def toString(colorMode: ColorMode): String = {
-    val stringBuilder: StringBuilder = new StringBuilder
+    val stringBuilder: mutable.StringBuilder = new mutable.StringBuilder
 
     def append(
         prevColorState: ColorString.ColorState,
         newColorState: ColorString.ColorState,
         str: String,
-    ): ColorString.ColorState = {
-      val before = stringBuilder.toString
-      val res =
-        newColorState.diffWithState(prevColorState, colorMode) match {
-          case Some((ansi, ncs)) =>
-            stringBuilder.append(ansi).append(str)
-            ncs
-          case None =>
-            stringBuilder.append(str)
-            prevColorState
-        }
-      val after = stringBuilder.toString
-
-      res
-    }
+    ): ColorString.ColorState =
+      newColorState.diffWithState(prevColorState, colorMode) match {
+        case Some((ansi, ncs)) =>
+          stringBuilder.append(ansi).append(str)
+          ncs
+        case None =>
+          stringBuilder.append(str)
+          prevColorState
+      }
 
     def rec(
         colorString: ColorString,

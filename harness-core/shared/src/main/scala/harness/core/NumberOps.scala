@@ -1,8 +1,8 @@
 package harness.core
 
-private[this] def commaify(str: String): String = {
+private def commaify(str: String): String = {
   def placeCommas(chars: List[Char]): String =
-    chars.reverse.grouped(3).toList.reverseMap(_.reverse.mkString).mkString(",")
+    chars.reverse.grouped(3).toList.reverseIterator.map(_.reverse.mkString).mkString(",")
 
   str.toList match {
     case '-' :: chars => "-" + placeCommas(chars)

@@ -1,6 +1,6 @@
 package harness.webUI.style
 
-import harness.webUI.vdom.{given, *}
+import harness.webUI.vdom.*
 
 object StyleSheetUtils {
 

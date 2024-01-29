@@ -1,6 +1,5 @@
 package template.api.user
 
-import harness.core.HError
 import harness.http.server.*
 import harness.zio.Logger
 import template.api.*

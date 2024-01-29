@@ -1,6 +1,5 @@
 package harness.zio
 
-import harness.core.*
 import zio.*
 
 trait FileSystemCompanionPlatformSpecificImpl { self: FileSystemCompanionPlatformSpecific =>

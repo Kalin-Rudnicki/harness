@@ -1,8 +1,6 @@
 package harness.sql
 
 import harness.core.*
-import harness.sql.query.QueryInputMapper
-import harness.sql.typeclass.*
 import harness.zio.*
 import java.sql.*
 import zio.*

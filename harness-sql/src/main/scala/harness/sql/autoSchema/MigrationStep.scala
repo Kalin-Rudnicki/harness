@@ -5,7 +5,6 @@ import harness.zio.*
 import zio.*
 import zio.json.*
 import zio.json.ast.*
-import zio.json.internal.RetractReader
 
 object MigrationStep {
 

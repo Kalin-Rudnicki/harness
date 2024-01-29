@@ -1,8 +1,6 @@
 package template.ui.web
 
-import harness.core.RunMode
 import harness.payments.*
-import harness.web.HasStdClientConfig
 import harness.webUI.*
 import harness.webUI.style.*
 import harness.zio.*

@@ -2,7 +2,6 @@ package harness.web
 
 import cats.syntax.option.*
 import zio.json.*
-import zio.json.ast.Json
 import zio.json.internal.{RetractReader, Write}
 
 sealed trait Partial[+T] {

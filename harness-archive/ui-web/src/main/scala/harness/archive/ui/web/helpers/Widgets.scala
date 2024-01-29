@@ -3,7 +3,6 @@ package harness.archive.ui.web.helpers
 import harness.archive.model as D
 import harness.core.*
 import harness.webUI.*
-import harness.webUI.style.{given, *}
 import harness.webUI.vdom.{given, *}
 import harness.webUI.widgets.*
 

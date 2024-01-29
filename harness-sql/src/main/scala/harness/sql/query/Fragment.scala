@@ -21,7 +21,7 @@ final case class Fragment(
 }
 object Fragment {
 
-  type Arg = String | Fragment | ColRef | QueryBool | QuerySet | AppliedCol[_] | AppliedCol.Opt[_] | Returning[_]
+  type Arg = String | Fragment | ColRef | QueryBool | QuerySet | AppliedCol[?] | AppliedCol.Opt[?] | Returning[?]
 
   def empty: Fragment = Fragment("", QueryInputMapper.empty)
 
@@ -45,9 +45,9 @@ extension (sc: StringContext) {
         case queryBool: QueryBool             => (queryBool.fragment.sql, queryBool.fragment.qim.some)
         case querySet: QuerySet               => (querySet.fragment.sql, querySet.fragment.qim.some)
         case colRef: ColRef                   => (colRef.toStringNoType, None)
-        case appliedCol: AppliedCol[_]        => (appliedCol.ref.toStringNoType, None)
-        case appliedColOpt: AppliedCol.Opt[_] => (appliedColOpt.wrapped.ref.toStringNoType, None)
-        case returning: Returning[_]          => (returning.selects.mkString(", "), returning.qim.some)
+        case appliedCol: AppliedCol[?]        => (appliedCol.ref.toStringNoType, None)
+        case appliedColOpt: AppliedCol.Opt[?] => (appliedColOpt.wrapped.ref.toStringNoType, None)
+        case returning: Returning[?]          => (returning.selects.mkString(", "), returning.qim.some)
       }
 
     def join(string: String, arg: Fragment.Arg): Fragment = {

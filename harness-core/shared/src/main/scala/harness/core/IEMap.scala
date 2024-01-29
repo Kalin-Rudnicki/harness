@@ -1,7 +1,6 @@
 package harness.core
 
 import cats.data.EitherNel
-import cats.syntax.either.*
 
 trait IEMap[A, B] {
   def toOrFail(a: A): EitherNel[String, B]

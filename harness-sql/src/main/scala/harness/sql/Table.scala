@@ -2,7 +2,6 @@ package harness.sql
 
 import harness.core.*
 import harness.pk.TableKey
-import harness.sql.query.*
 import java.util.UUID
 import zio.*
 
@@ -24,9 +23,9 @@ object Table {
   }
   object Companion {
 
-    type AnyCompanion = Table.Companion[_ <: ([_[_]] =>> harness.sql.Table)]
+    type AnyCompanion = Table.Companion[? <: ([_[_]] =>> harness.sql.Table)]
 
-    trait WithId[TKId <: TableKey#Id, T[_[_]] <: Table.WithId[_, TKId]](implicit
+    trait WithId[TKId <: TableKey#Id, T[_[_]] <: Table.WithId[?, TKId]](implicit
         iMap: IMap[UUID, TKId],
     ) extends Table.Companion[T] {
 

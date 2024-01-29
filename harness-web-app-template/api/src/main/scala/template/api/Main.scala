@@ -5,7 +5,7 @@ import harness.core.*
 import harness.docker.*
 import harness.docker.sql.DockerPostgres
 import harness.email.*
-import harness.http.server.{given, *}
+import harness.http.server.*
 import harness.payments.service.PaymentProcessor
 import harness.sql.*
 import harness.sql.autoSchema.*

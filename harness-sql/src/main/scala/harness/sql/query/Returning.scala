@@ -35,7 +35,7 @@ object Returning {
   given convertOptCol[T]: Conversion[AppliedCol.Opt[T], Returning[Option[T]]] =
     t => Returning(List(t.wrapped.ref.toString), RowDecoder.fromCol(t.wrapped.col.optional), QueryInputMapper.empty)
 
-  given convertReturningJson[T]: Conversion[Select.Query[T] with Select.JsonReturn, Returning[T]] =
+  given convertReturningJson[T]: Conversion[Select.Query[T] & Select.JsonReturn, Returning[T]] =
     t => Returning(List(s"(${t.fragment.sql})"), t.decoder, t.fragment.qim)
 
 }

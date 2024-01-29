@@ -1,6 +1,5 @@
 package harness.cli
 
-import cats.data.Ior
 import cats.data.NonEmptyList
 import cats.syntax.either.*
 import cats.syntax.option.*

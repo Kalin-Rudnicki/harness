@@ -1,6 +1,5 @@
 package harness.sql
 
-import cats.~>
 import cats.syntax.option.*
 import harness.cli.*
 import harness.core.*
@@ -10,7 +9,7 @@ import harness.sql.query.{given, *}
 import harness.sql.typeclass.*
 import harness.zio.*
 import java.time.{Clock as _, *}
-import java.util.{TimeZone, UUID}
+import scala.annotation.unused
 import scala.reflect.ClassTag
 import shapeless3.deriving.*
 import zio.*
@@ -286,6 +285,7 @@ object Tmp extends ExecutableApp {
       offsetDateTime = offsetDateTime,
     )
 
+  @unused
   private def batchTimings(numIters: Int): HRIO[JDBCConnection & Logger & Telemetry, Unit] =
     for {
       _ <- Logger.log.info(s"Generating sample sizes of ${numIters.toStringCommas}")
@@ -301,6 +301,7 @@ object Tmp extends ExecutableApp {
       _ <- NoteQueries.deleteById.batched(batch2.map(_.id)).expectSize(batch2.length).telemetrize("batch-deletes", Logger.LogLevel.Info)
     } yield ()
 
+  @unused
   private def showMigration(migration: MigrationPlan): URIO[Logger, Unit] =
     Logger.log.info("") *>
       Logger.log.info(s"Migration ${migration.version}") *>

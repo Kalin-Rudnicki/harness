@@ -1,7 +1,6 @@
 package harness.webUI.vdom
 
 import harness.webUI.rawVDOM.VDom
-import scala.scalajs.js
 
 abstract class StdAttrBuilder[T](scopedName: VDom.ScopedName, convert: T => String = (_: T).toString) { self =>
   final def :=(value: T): CModifier = PModifier.stdAttr(scopedName, convert(value))

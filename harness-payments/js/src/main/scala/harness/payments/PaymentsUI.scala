@@ -7,12 +7,10 @@ import harness.payments.facades.*
 import harness.payments.model.Currency
 import harness.payments.model.ids.*
 import harness.webUI.*
-import harness.webUI.style.{given, *}
 import harness.webUI.vdom.{given, *}
 import harness.webUI.widgets.*
 import harness.zio.*
-import org.scalajs.dom.{console, document, window}
-import scala.util.matching.Regex
+import org.scalajs.dom.{document, window}
 import zio.*
 
 object PaymentsUI {

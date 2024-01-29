@@ -63,6 +63,7 @@ object PaymentProcessor {
     private def safeWrapStripeCall[A](call: String)(thunk: => A): HTask[A] =
       ZIO.hAttempt { thunk }.mapError(HError.SystemFailure(s"Error making stripe call: $call", _))
 
+    @scala.annotation.unused
     private def logModel[A](mainLabel: String, a: A)(fields: (String, A => Any)*): URIO[Logger, Unit] = {
       val fieldsStr = fields.map { case (label, f) => s"\n  - $label : ${f(a)}" }.mkString
 

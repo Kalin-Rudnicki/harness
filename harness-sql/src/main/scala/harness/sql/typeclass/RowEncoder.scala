@@ -2,7 +2,6 @@ package harness.sql.typeclass
 
 import harness.core.Zip
 import harness.sql.*
-import java.sql.PreparedStatement
 import shapeless3.deriving.*
 
 trait RowEncoder[T] { self =>

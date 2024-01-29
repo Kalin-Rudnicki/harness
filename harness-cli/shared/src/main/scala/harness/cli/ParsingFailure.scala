@@ -1,6 +1,7 @@
 package harness.cli
 
 import cats.data.NonEmptyList
+import scala.annotation.nowarn
 
 sealed trait ParsingFailure {
 
@@ -37,8 +38,8 @@ object ParsingFailure {
   final case class MissingValue(param: Param) extends ParsingFailure with NonAnd with NonOr
   final case class UnparsedArg(arg: Indexed[Arg]) extends ParsingFailure with NonAnd with NonOr
 
-  final case class And(children: NonEmptyList[ParsingFailure with NonAnd]) extends ParsingFailure with NonOr
-  final case class Or(children: NonEmptyList[ParsingFailure with NonOr]) extends ParsingFailure with NonAnd
+  final case class And(children: NonEmptyList[ParsingFailure & NonAnd]) extends ParsingFailure with NonOr
+  final case class Or(children: NonEmptyList[ParsingFailure & NonOr]) extends ParsingFailure with NonAnd
 
   // =====| Builders |=====
 
@@ -50,13 +51,15 @@ object ParsingFailure {
 
   // =====| Helpers |=====
 
-  def toNonAndNel(pf: ParsingFailure): NonEmptyList[ParsingFailure with NonAnd] =
+  @nowarn // scala compiler giving stupid warnings for `with`
+  def toNonAndNel(pf: ParsingFailure): NonEmptyList[ParsingFailure & NonAnd] =
     pf match {
       case And(children)                  => children
       case pf: ParsingFailure with NonAnd => NonEmptyList.one(pf)
     }
 
-  def toNonOrNel(pf: ParsingFailure): NonEmptyList[ParsingFailure with NonOr] =
+  @nowarn // scala compiler giving stupid warnings for `with`
+  def toNonOrNel(pf: ParsingFailure): NonEmptyList[ParsingFailure & NonOr] =
     pf match {
       case Or(children)                  => children
       case pf: ParsingFailure with NonOr => NonEmptyList.one(pf)

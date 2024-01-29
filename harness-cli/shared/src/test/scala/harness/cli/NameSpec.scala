@@ -1,6 +1,5 @@
 package harness.cli
 
-import cats.syntax.option.*
 import harness.test.AssertionHelpers.*
 import harness.test.PlainHarnessSpec
 import scala.reflect.ClassTag

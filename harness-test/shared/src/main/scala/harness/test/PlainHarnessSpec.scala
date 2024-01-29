@@ -5,7 +5,7 @@ import zio.test.*
 
 abstract class PlainHarnessSpec extends ZIOSpecDefault {
 
-  final type TestSpec = Spec[TestEnvironment with Scope, Any]
+  final type TestSpec = Spec[TestEnvironment & Scope, Any]
 
   override def spec: TestSpec
 

@@ -6,7 +6,7 @@ import shapeless3.deriving.*
 
 object AutoQuery {
 
-  inline def update[T[F[_]] <: Table.WithId[F, _]](set: T[Const[Boolean]])(using inst: K11.ProductGeneric[T], ti: TableSchema[T]): QueryI[T[Id]] = {
+  inline def update[T[F[_]] <: Table.WithId[F, ?]](set: T[Const[Boolean]])(using inst: K11.ProductGeneric[T], ti: TableSchema[T]): QueryI[T[Id]] = {
     val name = "t"
     val setCols = ti.tableToList.toList(set).zip(ti.colList).collect { case (true, col) => col }
     val setStr = setCols.map { col => s"${col.colName} = ${col.?}" }.mkString(", ")

@@ -4,6 +4,7 @@ import cats.data.{Ior, NonEmptyList}
 import cats.syntax.option.*
 import harness.test.AssertionHelpers.*
 import harness.test.PlainHarnessSpec
+import scala.annotation.unused
 import zio.test.*
 import zio.test.Assertion.*
 
@@ -32,6 +33,7 @@ object ParserSpec extends PlainHarnessSpec {
   private def isParseFail(failAssertion: Assertion[ParsingFailure]): Assertion[FinalizedParser.Result[Any]] =
     isSubtype[FinalizedParser.Result.ParseFail](failAssertion.imap[FinalizedParser.Result.ParseFail]("fail")(_.fail))
 
+  @unused
   private def isBuildFail(duplicateParamAssertion: Assertion[Name]): Assertion[FinalizedParser.Result[Any]] =
     isSubtype[FinalizedParser.Result.BuildFail](duplicateParamAssertion.imap[FinalizedParser.Result.BuildFail]("duplicateParam")(_.duplicateParam))
 

@@ -1,6 +1,6 @@
 package harness.zio
 
-extension (self: Class[_]) {
+extension (self: Class[?]) {
   def getNameWithoutPackage: String =
     self.getName.stripPrefix(s"${self.getPackageName}.")
 }

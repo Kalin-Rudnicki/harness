@@ -6,8 +6,6 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import harness.core.*
 import harness.payments.PaymentsUI
-import harness.payments.facades.*
-import harness.payments.model.Currency
 import harness.webUI.*
 import harness.webUI.style.{given, *}
 import harness.webUI.vdom.{given, *}

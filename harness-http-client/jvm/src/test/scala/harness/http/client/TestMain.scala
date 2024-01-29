@@ -3,7 +3,6 @@ package harness.http.client
 import harness.cli.*
 import harness.core.*
 import harness.zio.*
-import java.io.InputStream
 import zio.*
 
 object TestMain extends ExecutableApp {

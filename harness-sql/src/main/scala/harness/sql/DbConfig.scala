@@ -1,7 +1,6 @@
 package harness.sql
 
 import cats.syntax.either.*
-import harness.core.*
 import harness.zio.*
 import zio.*
 import zio.json.*

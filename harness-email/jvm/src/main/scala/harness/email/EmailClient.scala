@@ -4,7 +4,7 @@ import harness.core.HError
 import harness.zio.*
 import java.util.Properties
 import javax.mail.*
-import javax.mail.internet.{InternetAddress, MimeMessage}
+import javax.mail.internet.MimeMessage
 import zio.*
 import zio.json.*
 

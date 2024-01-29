@@ -3,10 +3,8 @@ package template.ui.web.pages
 import _root_.template.model as D
 import _root_.template.ui.web.helpers.*
 import cats.syntax.either.*
-import cats.syntax.option.*
 import harness.core.*
 import harness.payments.PaymentsUI
-import harness.payments.facades.*
 import harness.payments.model.Currency
 import harness.payments.model.result.TypeDetails
 import harness.webUI.*

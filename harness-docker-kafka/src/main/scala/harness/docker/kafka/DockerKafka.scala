@@ -33,10 +33,6 @@ object DockerKafka {
 
   }
 
-  private def yesNo(boolean: Boolean): String =
-    if (boolean) "YES"
-    else "NO"
-
   val containerManager: ContainerManager[KafkaConfig & DockerKafka.Config & DockerAppName] =
     ContainerManager {
       for {

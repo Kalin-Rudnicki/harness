@@ -2,7 +2,6 @@ package harness.http.client
 
 import cats.data.NonEmptyList
 import harness.core.*
-import harness.web.HttpCode
 import harness.zio.*
 import harness.zio.ZIOJsonInstances.catsNelJsonCodec
 import zio.*

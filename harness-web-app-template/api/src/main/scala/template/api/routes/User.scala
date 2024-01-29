@@ -1,6 +1,5 @@
 package template.api.routes
 
-import cats.data.NonEmptyList
 import cats.syntax.option.*
 import harness.core.*
 import harness.email.*

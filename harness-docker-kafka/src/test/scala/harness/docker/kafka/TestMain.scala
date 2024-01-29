@@ -6,11 +6,8 @@ import harness.docker.*
 import harness.kafka.*
 import harness.zio.*
 import java.util.UUID
-import org.apache.kafka.clients.producer.ProducerRecord
 import zio.*
 import zio.json.*
-import zio.kafka.consumer.*
-import zio.kafka.producer.*
 import zio.kafka.serde.Serde
 
 object TestMain extends ExecutableApp {

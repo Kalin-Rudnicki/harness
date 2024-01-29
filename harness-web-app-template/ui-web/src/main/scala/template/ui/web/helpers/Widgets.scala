@@ -3,7 +3,6 @@ package template.ui.web.helpers
 import _root_.template.model as D
 import harness.core.*
 import harness.webUI.*
-import harness.webUI.style.{given, *}
 import harness.webUI.vdom.{given, *}
 import harness.webUI.widgets.*
 

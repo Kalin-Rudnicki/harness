@@ -5,7 +5,7 @@ import harness.core.*
 import harness.web.*
 import harness.zio.*
 import java.io.InputStream
-import java.net.{HttpURLConnection, URL, URLConnection, URLEncoder}
+import java.net.{HttpURLConnection, URL, URLEncoder}
 import scala.jdk.CollectionConverters.*
 import zio.*
 

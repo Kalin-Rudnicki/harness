@@ -2,17 +2,11 @@ package harness.webUI.vdom
 
 import cats.data.EitherNel
 import cats.syntax.either.*
-import cats.syntax.option.*
-import cats.syntax.parallel.*
-import harness.core.*
-import harness.http.client.HttpClient
 import harness.webUI.*
 import harness.webUI.rawVDOM
 import harness.webUI.vdom.widgetModifierFunctions.*
-import harness.zio.*
 import monocle.Lens
 import monocle.macros.GenLens
-import scala.annotation.{nowarn, targetName}
 import scala.scalajs.js
 import zio.*
 import zio.json.*

@@ -4,7 +4,6 @@ import cats.syntax.option.*
 import harness.zio.test.DefaultHarnessSpec
 import zio.*
 import zio.test.*
-import zio.test.Assertion.*
 
 object QueuedSenderSpec extends DefaultHarnessSpec {
 

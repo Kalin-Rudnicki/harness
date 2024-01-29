@@ -1,11 +1,7 @@
 package harness.webUI.style
 
-import harness.core.*
-import harness.webUI.rawVDOM.VDom.{ClassName, CSSAttr}
-import harness.webUI.vdom.{given, *}
-import harness.zio.*
+import harness.webUI.rawVDOM.VDom.ClassName
 import scala.collection.mutable
-import zio.*
 
 abstract class StyleSheet(final val name: String)(inTags: StyleElement.InTag*) { styleSheet =>
 
@@ -23,7 +19,7 @@ abstract class StyleSheet(final val name: String)(inTags: StyleElement.InTag*) {
     private[StyleSheet] final val elements: mutable.ListBuffer[Element] = mutable.ListBuffer()
     private[StyleSheet] final val modifiers: mutable.ListBuffer[Modifier] = mutable.ListBuffer()
 
-    override protected def nested: List[mutable.ListBuffer[_ <: StyleSheet.StyleSheetPart]] = List(block.elements, block.modifiers)
+    override protected def nested: List[mutable.ListBuffer[? <: StyleSheet.StyleSheetPart]] = List(block.elements, block.modifiers)
 
     abstract class Element(name: String)(styleElements: StyleElement*)
         extends StyleSheet.StyleSheetPart(
@@ -36,7 +32,7 @@ abstract class StyleSheet(final val name: String)(inTags: StyleElement.InTag*) {
 
       private[StyleSheet] final val modifiers: mutable.ListBuffer[Modifier] = mutable.ListBuffer()
 
-      override protected def nested: List[mutable.ListBuffer[_ <: StyleSheet.StyleSheetPart]] = List(element.modifiers)
+      override protected def nested: List[mutable.ListBuffer[? <: StyleSheet.StyleSheetPart]] = List(element.modifiers)
 
       abstract class Modifier(name: String)(styleElements: StyleElement*)
           extends StyleSheet.StyleSheetPart(
@@ -47,7 +43,7 @@ abstract class StyleSheet(final val name: String)(inTags: StyleElement.InTag*) {
           ) { modifier =>
         element.modifiers.append(modifier)
 
-        override protected def nested: List[mutable.ListBuffer[_ <: StyleSheet.StyleSheetPart]] = Nil
+        override protected def nested: List[mutable.ListBuffer[? <: StyleSheet.StyleSheetPart]] = Nil
 
         final def when(cond: Boolean): ClassName = ClassName.bem(block.name, element.name, Option.when(cond)(modifier.name))
 
@@ -67,7 +63,7 @@ abstract class StyleSheet(final val name: String)(inTags: StyleElement.InTag*) {
         ) { modifier =>
       block.modifiers.append(modifier)
 
-      override protected def nested: List[mutable.ListBuffer[_ <: StyleSheet.StyleSheetPart]] = Nil
+      override protected def nested: List[mutable.ListBuffer[? <: StyleSheet.StyleSheetPart]] = Nil
 
       final def when(cond: Boolean): ClassName = ClassName.bm(block.name, Option.when(cond)(modifier.name))
 
@@ -105,7 +101,7 @@ object StyleSheet {
   ) {
     final val styleElements: List[StyleElement] = _styleElements.toList
 
-    protected def nested: List[mutable.ListBuffer[_ <: StyleSheetPart]]
+    protected def nested: List[mutable.ListBuffer[? <: StyleSheetPart]]
 
     private[StyleSheet] final def toCssClassMap: CssClassMap =
       CssClassMap.mergeAll(

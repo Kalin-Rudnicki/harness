@@ -1,8 +1,6 @@
 package harness.archive.client
 
-import cats.syntax.either.*
 import harness.archive.model as D
-import harness.core.*
 import harness.http.client.*
 import harness.zio.*
 import zio.*

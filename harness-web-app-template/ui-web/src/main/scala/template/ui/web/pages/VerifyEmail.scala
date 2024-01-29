@@ -10,7 +10,6 @@ import harness.webUI.vdom.{given, *}
 import harness.webUI.widgets.*
 import harness.zio.*
 import zio.*
-import zio.json.*
 
 object VerifyEmail {
 

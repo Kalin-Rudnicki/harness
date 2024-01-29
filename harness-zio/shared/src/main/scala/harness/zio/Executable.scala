@@ -1,10 +1,8 @@
 package harness.zio
 
-import cats.data.{EitherNel, NonEmptyList}
 import cats.syntax.either.*
 import harness.cli.*
 import harness.core.*
-import harness.zio.HConfig
 import scala.annotation.tailrec
 import scala.util.matching.Regex
 import zio.*

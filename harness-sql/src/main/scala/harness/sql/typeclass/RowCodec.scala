@@ -4,7 +4,6 @@ import cats.data.EitherNel
 import cats.syntax.either.*
 import harness.core.Zip
 import harness.sql.*
-import shapeless3.deriving.*
 
 final case class RowCodec[T](encoder: RowEncoder[T], decoder: RowDecoder[T]) { self =>
 

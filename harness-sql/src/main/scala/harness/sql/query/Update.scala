@@ -2,7 +2,6 @@ package harness.sql.query
 
 import harness.sql.*
 import harness.sql.typeclass.*
-import shapeless3.deriving.Id
 
 object Update {
 

@@ -14,9 +14,7 @@ import org.scalajs.dom.{File, FileList}
 import org.scalajs.dom.DataTransfer
 import org.scalajs.dom.DOMList
 import scala.scalajs.js
-import scala.scalajs.js.annotation.*
 import zio.*
-import zio.stream.*
 
 object FileWidgets {
 

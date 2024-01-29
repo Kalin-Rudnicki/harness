@@ -1,6 +1,5 @@
 package harness.webUI.rawVDOM
 
-import cats.Monoid
 import cats.syntax.option.*
 import scala.annotation.tailrec
 import scala.scalajs.js

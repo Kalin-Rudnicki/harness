@@ -1,10 +1,7 @@
 package harness.payments
 
-import cats.syntax.option.*
-import harness.email.*
 import harness.payments.service.PaymentProcessor
 import harness.zio.*
-import java.util.UUID
 import zio.*
 
 object TestMain extends ExecutableApp {

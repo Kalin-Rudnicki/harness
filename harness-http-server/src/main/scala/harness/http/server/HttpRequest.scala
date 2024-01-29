@@ -7,8 +7,8 @@ import com.sun.net.httpserver.HttpExchange
 import harness.core.*
 import harness.web.*
 import harness.zio.*
-import java.io.InputStream
-import java.net.{InetSocketAddress, URI, URLDecoder}
+import java.io.{ByteArrayInputStream, InputStream}
+import java.net.{InetSocketAddress, URLDecoder}
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
 import zio.*
@@ -281,7 +281,7 @@ object HttpRequest {
           queries = paramMap,
           headers = (headers + ("Content-length" -> body.length.toString)).map { (k, v) => (k, v :: Nil) },
           cookies = Map.empty,
-          rawInputStream = java.io.StringBufferInputStream(body),
+          rawInputStream = new ByteArrayInputStream(body.getBytes),
           remoteAddress = InetSocketAddress("localhost", 0),
         )
 

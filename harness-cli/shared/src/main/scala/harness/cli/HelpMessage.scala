@@ -1,7 +1,6 @@
 package harness.cli
 
 import scala.annotation.tailrec
-import scala.collection.mutable
 
 sealed trait HelpMessage {
 
@@ -132,7 +131,7 @@ object HelpMessage {
             remainingWidth,
           )
       case Nil =>
-        (current :: stack).reverseMap(_.reverse.mkString(" "))
+        (current :: stack).reverseIterator.map(_.reverse.mkString(" ")).toList
     }
 
   private final def lines(idt: String, helpMessage: HelpMessage, config: HelpMessage.Config, leftWidth: Int): List[String] =

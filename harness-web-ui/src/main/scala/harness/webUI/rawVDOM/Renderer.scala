@@ -1,6 +1,5 @@
 package harness.webUI.rawVDOM
 
-import cats.syntax.option.*
 import harness.webUI.rawVDOM.VDom.*
 import harness.zio.*
 import org.scalajs.dom.{document, window, Element as DomElement, HTMLHtmlElement, Node}

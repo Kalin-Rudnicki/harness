@@ -3,7 +3,6 @@ package harness.archive.parsers
 import cats.data.NonEmptyList
 import cats.syntax.either.*
 import cats.syntax.option.*
-import cats.syntax.traverse.*
 import harness.archive.api.db.model as M
 import harness.archive.parsers.ParsedQuery.{CompOp, Key}
 import slyce.parse.Expression

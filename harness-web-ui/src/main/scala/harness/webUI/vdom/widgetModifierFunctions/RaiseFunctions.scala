@@ -1,7 +1,6 @@
 package harness.webUI.vdom.widgetModifierFunctions
 
 import cats.data.EitherNel
-import cats.syntax.either.*
 import harness.http.client.HttpClient
 import harness.webUI.*
 import harness.webUI.rawVDOM

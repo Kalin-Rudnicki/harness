@@ -1,11 +1,9 @@
 package harness.http.server
 
-import cats.data.NonEmptyList
 import cats.syntax.option.*
 import harness.core.*
 import harness.web.*
 import harness.zio.*
-import scala.annotation.tailrec
 import zio.*
 import zio.json.*
 

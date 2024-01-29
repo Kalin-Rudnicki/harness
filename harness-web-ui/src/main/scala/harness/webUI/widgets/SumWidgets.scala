@@ -2,20 +2,19 @@ package harness.webUI.widgets
 
 import cats.data.EitherNel
 import cats.syntax.either.*
-import cats.syntax.option.*
 import harness.webUI.*
-import harness.webUI.vdom.{given, *}
+import harness.webUI.vdom.*
 import monocle.*
 import monocle.macros.GenLens
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.tailrec
 import scala.reflect.ClassTag
 
 object SumWidgets {
 
   def apply[Action, State, Value](
-      cases: Case[Action, State, _, Value]*,
+      cases: Case[Action, State, ?, Value]*,
   ): ModifierAV[Action, State, Value] = {
-    val caseList: List[Case[Action, State, _, Value]] = cases.toList
+    val caseList: List[Case[Action, State, ?, Value]] = cases.toList
     PModifier.Simple[Action, State, State, Value](
       (rh, s) => Case.firstOf(caseList)(_.buildOption(rh, s)).getOrElse(Nil),
       s =>
@@ -75,12 +74,11 @@ object SumWidgets {
   }
   object Case {
 
-    final class SubTypeBuilder1[OuterState] {
+    final class SubTypeBuilder1[OuterState <: Matchable] {
 
       inline def filter[InnerState <: OuterState](get: PartialFunction[OuterState, InnerState]): SubTypeBuilder2[OuterState, InnerState] =
         SubTypeBuilder2(Optional(get.lift) { v => _ => v })
 
-      @nowarn
       inline def filterType[InnerState <: OuterState](implicit ct: ClassTag[InnerState]): SubTypeBuilder2[OuterState, InnerState] =
         filter { case ct(is) => is }
 
@@ -101,13 +99,13 @@ object SumWidgets {
 
     }
 
-    inline def subType[OuterState]: SubTypeBuilder1[OuterState] = new SubTypeBuilder1[OuterState]
+    inline def subType[OuterState <: Matchable]: SubTypeBuilder1[OuterState] = new SubTypeBuilder1[OuterState]
 
     private[SumWidgets] def firstOf[Action, State, Value, O](
-        cases: List[Case[Action, State, _, Value]],
-    )(f: Case[Action, State, _, Value] => Option[O]): Option[O] = {
+        cases: List[Case[Action, State, ?, Value]],
+    )(f: Case[Action, State, ?, Value] => Option[O]): Option[O] = {
       @tailrec
-      def loop(cases: List[Case[Action, State, _, Value]]): Option[O] =
+      def loop(cases: List[Case[Action, State, ?, Value]]): Option[O] =
         cases match {
           case head :: tail =>
             f(head) match {

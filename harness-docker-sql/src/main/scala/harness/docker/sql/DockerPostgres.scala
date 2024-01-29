@@ -1,7 +1,6 @@
 package harness.docker.sql
 
 import cats.syntax.option.*
-import harness.core.HError
 import harness.docker.*
 import harness.sql.DbConfig
 import harness.zio.*

@@ -3,7 +3,6 @@ package harness.core
 import cats.data.*
 import cats.syntax.either.*
 import cats.syntax.parallel.*
-import cats.syntax.traverse.*
 import java.time.*
 import java.util.UUID
 import scala.reflect.ClassTag

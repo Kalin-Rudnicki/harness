@@ -1,11 +1,9 @@
 package harness.sql
 
-import cats.data.NonEmptyList
-import cats.syntax.option.*
-import cats.syntax.traverse.*
 import harness.sql.query.*
 import harness.test.AssertionHelpers.*
 import harness.test.PlainHarnessSpec
+import scala.annotation.unused
 import zio.test.*
 import zio.test.Assertion.*
 
@@ -18,6 +16,7 @@ object FragmentSpec extends PlainHarnessSpec {
     }
 
   private val colRef1: ColRef = ColRef("tab_1", "col", None)
+  @unused
   private val colRef2: ColRef = ColRef("tab_2", "col", None)
 
   override def spec: TestSpec =

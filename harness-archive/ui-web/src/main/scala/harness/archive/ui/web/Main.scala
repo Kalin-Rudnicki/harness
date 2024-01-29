@@ -1,10 +1,8 @@
 package harness.archive.ui.web
 
-import harness.core.RunMode
 import harness.web.HasStdClientConfig
 import harness.webUI.*
 import harness.webUI.style.*
-import harness.zio.Logger
 
 object Main extends PageApp[HasStdClientConfig.Basic] {
 

@@ -1,8 +1,5 @@
 package harness.webUI
 
-import java.util.UUID
-import monocle.Lens
-
 sealed trait Raise[+A, +S]
 object Raise {
 

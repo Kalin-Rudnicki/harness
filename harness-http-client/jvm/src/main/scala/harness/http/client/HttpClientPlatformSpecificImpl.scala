@@ -1,6 +1,5 @@
 package harness.http.client
 
-import harness.zio.*
 import zio.*
 
 trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>

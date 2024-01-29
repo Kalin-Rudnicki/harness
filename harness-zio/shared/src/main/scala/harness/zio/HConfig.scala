@@ -1,6 +1,5 @@
 package harness.zio
 
-import cats.data.NonEmptyList
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import harness.core.*

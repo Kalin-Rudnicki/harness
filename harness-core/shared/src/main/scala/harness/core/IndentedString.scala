@@ -1,7 +1,6 @@
 package harness.core
 
 import scala.collection.mutable
-import scala.language.implicitConversions
 
 sealed trait IndentedString {
 
@@ -78,12 +77,12 @@ object IndentedString {
 
   implicit val stringToIndentedString: ToIndentedString[String] = Str(_)
 
-  implicit def optionToIndentedString[T: ToIndentedString]: ToIndentedString[Option[_ <: T]] = { opt =>
+  implicit def optionToIndentedString[T: ToIndentedString]: ToIndentedString[Option[? <: T]] = { opt =>
     val toIdtStr = implicitly[ToIndentedString[T]]
     Inline(opt.map(toIdtStr.convert).toList)
   }
 
-  implicit def listToIndentedString[T: ToIndentedString]: ToIndentedString[List[_ <: T]] = { list =>
+  implicit def listToIndentedString[T: ToIndentedString]: ToIndentedString[List[? <: T]] = { list =>
     val toIdtStr = implicitly[ToIndentedString[T]]
     Inline(list.map(toIdtStr.convert))
   }

@@ -23,7 +23,7 @@ abstract class HarnessSpec[R: EnvironmentTag] extends ZIOSpec[HarnessEnv & R] {
   lazy val harnessEnv: HRLayer[Scope, HarnessEnv] =
     HarnessEnv.defaultLayer(logLevel) ++ ZLayer.succeed(RunMode.Dev)
 
-  override def aspects: Chunk[TestAspectAtLeastR[Environment with TestEnvironment]] =
+  override def aspects: Chunk[TestAspectAtLeastR[Environment & TestEnvironment]] =
     Chunk(TestAspect.samples(15), TestAspect.shrinks(0), HarnessSpec.logTestPathAndDuration)
 
   // =====| Concrete |=====

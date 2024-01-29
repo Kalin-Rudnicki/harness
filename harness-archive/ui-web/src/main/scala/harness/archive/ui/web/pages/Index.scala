@@ -2,7 +2,6 @@ package harness.archive.ui.web.pages
 
 import harness.archive.ui.web.helpers.*
 import harness.webUI.*
-import harness.webUI.style.{given, *}
 import harness.webUI.vdom.{given, *}
 import harness.webUI.widgets.*
 

@@ -1,14 +1,10 @@
 package harness.zio
 
-import cats.data.NonEmptyList
 import cats.syntax.either.*
 import cats.syntax.option.*
 import harness.cli.Parser
-import harness.core.HError
-import scala.jdk.CollectionConverters.*
 import zio.*
 import zio.json.*
-import zio.json.ast.Json
 
 object TestMain extends ExecutableApp {
 

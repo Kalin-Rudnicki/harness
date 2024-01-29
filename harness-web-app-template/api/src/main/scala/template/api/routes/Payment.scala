@@ -1,11 +1,7 @@
 package template.api.routes
 
-import cats.data.NonEmptyList
-import cats.syntax.option.*
 import harness.core.*
-import harness.email.*
 import harness.http.server.{given, *}
-import harness.payments.model.Currency
 import harness.payments.model.ids.*
 import harness.payments.model as PM
 import harness.payments.service.PaymentProcessor
@@ -13,10 +9,7 @@ import harness.sql.*
 import harness.sql.query.Transaction
 import harness.web.*
 import harness.zio.*
-import java.util.UUID
-import scala.jdk.CollectionConverters.*
 import template.api.db.model as M
-import template.api.service.email.*
 import template.api.service.storage.*
 import template.api.util.*
 import template.model as D
@@ -24,7 +17,7 @@ import zio.*
 
 object Payment {
 
-  private implicit class DbUserOps(dbUser: M.User.Identity) {
+  implicit class DbUserOps(dbUser: M.User.Identity) {
     def getCustomerId: HTask[CustomerId] =
       ZIO.getOrFailWith(HError.InternalDefect(s"User ${dbUser.show} does not have customerId"))(dbUser.stripeCustomerId)
   }

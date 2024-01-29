@@ -6,8 +6,7 @@ import harness.core.*
 import harness.webUI.*
 import harness.webUI.style.{given, *}
 import harness.webUI.vdom.{given, *}
-import org.scalajs.dom.{console, KeyboardEvent}
-import zio.Chunk
+import org.scalajs.dom.KeyboardEvent
 
 object FormWidgets {
 

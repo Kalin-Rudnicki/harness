@@ -1,8 +1,6 @@
 package harness.sql.typeclass
 
 import harness.sql.*
-import java.sql.*
-import java.sql.{PreparedStatement, Types}
 import java.time.*
 import java.util.UUID
 import zio.json.JsonEncoder

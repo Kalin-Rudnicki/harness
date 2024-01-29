@@ -7,12 +7,6 @@ final class CssClassMap private (
     val map: Map[String, CssClassMap.AttrMap],
 ) { self =>
 
-  private def merge(selfValues: List[CSSAttr], otherValues: List[CSSAttr]): List[CSSAttr] =
-    (
-      selfValues.map(a => a.scopedName -> a.value).toMap ++
-        otherValues.map(a => a.scopedName -> a.value).toMap
-    ).toList.map(CSSAttr.apply)
-
   def ++(other: CssClassMap): CssClassMap = {
     val newKeySet: Set[String] = self.keySet | other.keySet
 

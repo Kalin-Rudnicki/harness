@@ -24,7 +24,7 @@ lazy val testAndCompile = "test->test;compile->compile"
 lazy val miscSettings =
   Seq(
     scalaVersion := Scala_3,
-    scalacOptions += "-source:future",
+    scalacOptions ++= Seq("-source:future", "-Ycheck-all-patmat", "-Wunused:all", "-Werror", "-language:implicitConversions", "-deprecation", "-feature"),
     resolvers ++= Seq(
       Resolver.mavenLocal,
       Resolver.sonatypeRepo("public"),
