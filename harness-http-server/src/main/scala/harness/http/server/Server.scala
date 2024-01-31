@@ -50,6 +50,7 @@ object Server {
     }
 
   // TODO (KR) : fix bug where only first request fails to load
+  //           : NOTE - it is not "failing to load", it is just very slow
   private def configureSSL(server: HttpsServer, sslConfig: ServerConfig.SslConfig): HRIO[FileSystem & Logger, Unit] = {
     def wrapUnsafe[A](hint: String)(thunk: => A): HTask[A] =
       ZIO.hAttempt { thunk }.mapError(HError.InternalDefect(s"Error during SSL configuration: $hint", _))
@@ -96,17 +97,16 @@ object Server {
         // Initialize SSLContext
         sslContext <- wrapUnsafe("SSLContext.getInstance") { SSLContext.getInstance("TLS") }
         _ <- wrapUnsafe("sslContext.init") { sslContext.init(keyManagerFactory.getKeyManagers, null, new SecureRandom()) }
+        engine <- wrapUnsafe("sslContext.createSSLEngine") { sslContext.createSSLEngine }
+        defaultSSLParameters <- wrapUnsafe("sslContext.getDefaultSSLParameters") { sslContext.getDefaultSSLParameters }
 
         _ <- wrapUnsafe("server.setHttpsConfigurator") {
           server.setHttpsConfigurator(
             new HttpsConfigurator(sslContext) {
               override def configure(params: HttpsParameters): Unit = {
-                val engine = sslContext.createSSLEngine
                 params.setNeedClientAuth(false)
                 params.setCipherSuites(engine.getEnabledCipherSuites)
                 params.setProtocols(engine.getEnabledProtocols)
-
-                val defaultSSLParameters = sslContext.getDefaultSSLParameters
                 params.setSSLParameters(defaultSSLParameters)
               }
             },

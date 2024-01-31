@@ -1,7 +1,7 @@
 package harness.archive.model.app
 
 import harness.zio.*
-import harness.zio.ZIOJsonInstances.{fieldEncoderFromStringEncoder, fieldDecoderFromStringDecoder}
+import harness.zio.ZIOJsonInstances.{fieldDecoderFromStringDecoder, fieldEncoderFromStringEncoder}
 import scala.annotation.tailrec
 import zio.*
 import zio.json.*
@@ -34,9 +34,9 @@ final case class DurationMap(map: Map[Logger.LogLevel, Duration], default: Durat
 
 }
 object DurationMap {
-  
+
   def make(default: Duration)(pairs: (Logger.LogLevel, Duration)*): DurationMap = DurationMap(pairs.toMap, default)
-  
+
   implicit val jsonCodec: JsonCodec[DurationMap] = DeriveJsonCodec.gen
-  
+
 }

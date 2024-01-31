@@ -68,6 +68,23 @@ object Api {
         .response
         .jsonBody[Chunk[D.app.App]]
 
+    def create(appName: String): HRIO[HttpClient.ClientT & Logger & Telemetry, D.app.App] =
+      HttpRequest
+        .post("/api/app/create")
+        .withQueryParam("app-name", appName)
+        .withNoBody
+        .response
+        .jsonBody[D.app.App]
+
+    def generateApiToken(appId: D.app.AppId, tokenName: String): HRIO[HttpClient.ClientT & Logger & Telemetry, (D.app.AppToken, String)] =
+      HttpRequest
+        .post("/api/app/generate-api-token")
+        .withQueryParamEncoded("app-id", appId)
+        .withQueryParam("token-name", tokenName)
+        .withNoBody
+        .response
+        .jsonBody[(D.app.AppToken, String)]
+
   }
 
   object log {

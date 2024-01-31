@@ -33,7 +33,13 @@
   "http": {
     "port": 3000,
     "resDir": "harness-archive/res",
-    "useJarResource": false
+    "useJarResource": false,
+    "ssl": {
+      "certificateRef": "ssl/localhost.pem",
+      "certificateRefType": "Jar",
+      "privateKeyRef": "ssl/localhost-key.pem",
+      "privateKeyRefType": "Jar"
+    }
   },
   "email": {
     "client": {

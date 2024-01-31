@@ -1,5 +1,6 @@
 package template.api.util
 
+import cats.syntax.option.*
 import harness.core.*
 import harness.http.server.*
 import harness.web.*
@@ -18,17 +19,21 @@ object SessionUtils {
   private def withSessionTokenOptional[T](
       f: String => HRIO[SessionStorage & Logger & Telemetry, Option[T]],
   ): HRIO[SessionStorage & Logger & Telemetry & HttpRequest, Option[T]] =
-    HttpRequest.cookie.find[String](SessionUtils.SessionToken).flatMap {
-      case Some(tok) =>
-        f(tok).flatMap {
-          case Some(res) => ZIO.some(res)
-          case None =>
-            val msg = "Session token was specified, but is not valid"
-            Logger.log.warning(msg) *>
-              HttpResponse.earlyReturn(HttpResponse.encodeJson(List(msg), HttpCode.`401`).withCookie(Cookie.unset(SessionUtils.SessionToken).rootPath.secure(isSecure)))
-        }
-      case None => ZIO.none
-    }
+    HttpRequest.cookie
+      .find[String](SessionUtils.SessionToken)
+      .map(_.map(_.some))
+      .someOrElseZIO(HttpRequest.header.find[String](SessionUtils.SessionToken))
+      .flatMap {
+        case Some(tok) =>
+          f(tok).flatMap {
+            case Some(res) => ZIO.some(res)
+            case None =>
+              val msg = "Session token was specified, but is not valid"
+              Logger.log.warning(msg) *>
+                HttpResponse.earlyReturn(HttpResponse.encodeJson(List(msg), HttpCode.`401`).withCookie(Cookie.unset(SessionUtils.SessionToken).rootPath.secure(isSecure)))
+          }
+        case None => ZIO.none
+      }
 
   extension [R, A](self: HRIO[R, Option[A]])
     def someOr401: HRIO[R, A] =

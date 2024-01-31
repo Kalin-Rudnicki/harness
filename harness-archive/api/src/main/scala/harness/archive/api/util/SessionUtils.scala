@@ -1,5 +1,6 @@
 package harness.archive.api.util
 
+import cats.syntax.option.*
 import harness.archive.api.db.model as M
 import harness.archive.api.service.storage.*
 import harness.core.*
@@ -14,10 +15,18 @@ object SessionUtils {
 
   val isSecure: Boolean = false
 
+  private val getSessionToken: HRIO[HttpRequest, Option[String]] =
+    HttpRequest.cookie
+      .find[String](SessionUtils.SessionToken)
+      .flatMap {
+        case Some(value) => ZIO.some(value)
+        case None        => HttpRequest.header.find[String](SessionUtils.SessionToken)
+      }
+
   private def withSessionTokenOptional[T](
       f: String => HRIO[SessionStorage & Logger & Telemetry, Option[T]],
   ): HRIO[SessionStorage & Logger & Telemetry & HttpRequest, Option[T]] =
-    HttpRequest.cookie.find[String](SessionUtils.SessionToken).flatMap {
+    getSessionToken.flatMap {
       case Some(tok) =>
         f(tok).flatMap {
           case Some(res) => ZIO.some(res)
@@ -44,5 +53,17 @@ object SessionUtils {
     userFromSessionTokenOptional.someOrFail {
       HError.UserError(s"Unauthorized: Specify cookie '$SessionToken'").withHTTPCode(HttpCode.`401`)
     }
+
+  private val appTokenHeader = "ARCHIVE-APP-TOKEN"
+
+  val getAppToken: HRIO[AppTokenStorage & Logger & Telemetry & HttpRequest, M.AppToken.Identity] =
+    for {
+      appToken <- HttpRequest.header.find[String](appTokenHeader).someOrFail {
+        HError.UserError(s"Unauthorized: Specify header '$appTokenHeader'").withHTTPCode(HttpCode.`401`)
+      }
+      dbAppToken <- AppTokenStorage.fromToken(appToken).someOrFail {
+        HError.UserError(s"Invalid '$appTokenHeader'").withHTTPCode(HttpCode.`401`)
+      }
+    } yield dbAppToken
 
 }

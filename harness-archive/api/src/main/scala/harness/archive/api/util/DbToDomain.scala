@@ -50,4 +50,12 @@ object DbToDomain {
       traceDurationMap = app.traceDurationMap,
     )
 
+  def appToken(appToken: M.AppToken.Identity): D.app.AppToken =
+    D.app.AppToken(
+      id = appToken.id,
+      appId = appToken.appId,
+      name = appToken.name,
+      createdAt = appToken.createdAt,
+    )
+
 }

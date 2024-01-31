@@ -65,6 +65,7 @@ object Session extends Table.Companion.WithId[D.user.SessionId, Session] {
 
 final case class App[F[_]](
     id: F[App.Id],
+    userId: F[User.Id],
     name: F[String],
     logDurationMap: F[D.app.DurationMap],
     traceDurationMap: F[D.app.DurationMap],
@@ -75,9 +76,32 @@ object App extends Table.Companion.WithId[D.app.AppId, App] {
     TableSchema.derived[App]("archive", "app") {
       new App.Cols(
         id = App.Id.pkCol,
+        userId = User.Id.fkCol,
         name = Col.string("name"),
         logDurationMap = Col.jsonb[D.app.DurationMap]("log_duration_map"),
         traceDurationMap = Col.jsonb[D.app.DurationMap]("trace_duration_map"),
+      )
+    }
+
+}
+
+final case class AppToken[F[_]](
+    id: F[AppToken.Id],
+    appId: F[App.Id],
+    name: F[String],
+    createdAt: F[OffsetDateTime],
+    token: F[String],
+) extends Table.WithId[F, AppToken.Id]
+object AppToken extends Table.Companion.WithId[D.app.AppTokenId, AppToken] {
+
+  override implicit lazy val tableSchema: TableSchema[AppToken] =
+    TableSchema.derived[AppToken]("app_token") {
+      new AppToken.Cols(
+        id = AppToken.Id.pkCol,
+        appId = App.Id.fkCol,
+        name = Col.string("name"),
+        createdAt = Col.offsetDateTime("created_at"),
+        token = Col.string("token"),
       )
     }
 

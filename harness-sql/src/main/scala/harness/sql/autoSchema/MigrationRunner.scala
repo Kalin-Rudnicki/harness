@@ -95,6 +95,10 @@ object MigrationRunner {
       inMemoryMigration: InMemoryMigration,
   ): EitherNel[String, (Version, MigrationPlan)] =
     for {
+      _ <- prevVersion match {
+        case Some(prevVersion) if inMemoryMigration.version <= prevVersion => failMigrations(s"Version ${inMemoryMigration.version} is not greater than $prevVersion")
+        case _                                                             => ().asRight
+      }
       _ <- dbMigration match {
         case Some(dbMigration) if dbMigration.version != inMemoryMigration.version => failMigrations(s"Expected migration ${dbMigration.version}, but not got ${inMemoryMigration.version}")
         case _                                                                     => ().asRight

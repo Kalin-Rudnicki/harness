@@ -25,18 +25,21 @@ object ArchiveLoggerTarget {
           ZIO
             .suspendSucceed {
               val payload =
-                events.map { event =>
-                  D.log.Upload(
-                    appName = cfg.appName,
-                    logLevel = event.logLevel,
-                    message = event.message,
-                    context = event.context,
-                    dateTime = event.dateTime,
-                  )
-                }
+                D.log.Upload(
+                  cfg.appId,
+                  events.map { event =>
+                    D.log.Upload.Log(
+                      logLevel = event.logLevel,
+                      message = event.message,
+                      context = event.context,
+                      dateTime = event.dateTime,
+                    )
+                  },
+                )
 
               HttpRequest
                 .post(uploadUrl)
+                .withHeader("ARCHIVE-APP-TOKEN", cfg.appToken)
                 .withBodyJsonEncoded(payload)
                 .response
                 .unit2xx

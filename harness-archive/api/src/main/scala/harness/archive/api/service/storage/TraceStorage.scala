@@ -10,7 +10,7 @@ trait TraceStorage {
   def insertAll(traces: Chunk[M.Trace.Identity]): HRIO[Logger & Telemetry, Unit]
   def forAppId(appId: M.App.Id): HRIO[Logger & Telemetry, Chunk[M.Trace.Identity]]
   def deleteOutdated(now: Long): HRIO[Logger & Telemetry, Int]
-  def allForQuery(query: (M.App.Identity, M.Trace.Identity) => Boolean): HRIO[Logger & Telemetry, Chunk[M.Trace.Identity]]
+  def allForQuery(userId: M.User.Id, query: (M.App.Identity, M.Trace.Identity) => Boolean): HRIO[Logger & Telemetry, Chunk[M.Trace.Identity]]
 }
 object TraceStorage {
 
@@ -25,8 +25,8 @@ object TraceStorage {
   def deleteOutdated(now: Long): HRIO[TraceStorage & Logger & Telemetry, Int] =
     ZIO.serviceWithZIO[TraceStorage](_.deleteOutdated(now))
 
-  def allForQuery(query: (M.App.Identity, M.Trace.Identity) => Boolean): HRIO[TraceStorage & Logger & Telemetry, Chunk[M.Trace.Identity]] =
-    ZIO.serviceWithZIO[TraceStorage](_.allForQuery(query))
+  def allForQuery(userId: M.User.Id, query: (M.App.Identity, M.Trace.Identity) => Boolean): HRIO[TraceStorage & Logger & Telemetry, Chunk[M.Trace.Identity]] =
+    ZIO.serviceWithZIO[TraceStorage](_.allForQuery(userId, query))
 
   // =====| Live |=====
 
@@ -44,8 +44,8 @@ object TraceStorage {
     override def deleteOutdated(now: Long): HRIO[Logger & Telemetry, Int] =
       con.use { Q.deleteOutdated(now).execute }
 
-    override def allForQuery(query: (M.App.Identity, M.Trace.Identity) => Boolean): HRIO[Logger & Telemetry, Chunk[M.Trace.Identity]] =
-      ZIO.scoped { con.use { Q.allWithApp().stream.collect { case (app, trace) if query(app, trace) => trace }.runCollect } }
+    override def allForQuery(userId: M.User.Id, query: (M.App.Identity, M.Trace.Identity) => Boolean): HRIO[Logger & Telemetry, Chunk[M.Trace.Identity]] =
+      ZIO.scoped { con.use { Q.allWithApp(userId).stream.collect { case (app, trace) if query(app, trace) => trace }.runCollect } }
 
     // =====| Queries |=====
 
@@ -66,13 +66,14 @@ object TraceStorage {
             .where { t => t.keepUntilEpochMS <= now }
         }
 
-      val allWithApp: QueryO[(M.App.Identity, M.Trace.Identity)] =
-        Prepare.selectO("Trace - allWithApp") {
+      val allWithApp: QueryIO[M.User.Id, (M.App.Identity, M.Trace.Identity)] =
+        Prepare.selectIO("Trace - allWithApp") { Input[M.User.Id] } { userId =>
           Select
-            .from[M.Trace]("t")
-            .join[M.App]("a")
-            .on { case (trace, app) => trace.appId === app.id }
-            .returning { case (trace, app) => app ~ trace }
+            .from[M.App]("a")
+            .join[M.Trace]("t")
+            .on { case (app, trace) => trace.appId === app.id }
+            .where { case (app, _) => app.userId === userId }
+            .returning { case (app, trace) => app ~ trace }
         }
 
     }

@@ -3,8 +3,8 @@
     "context": {},
     "sources": {
       "harness-archive": {
-        "appName": "template",
-        "baseUrl": "http://localhost:3000",
+        "appId": "c5a2f197-d427-42f3-94fb-0354e8ec81b3",
+        "baseUrl": "https://localhost:3000",
         "logTolerance": "TRACE",
         "queueChunkSize": 50,
         "queueDumpEvery": "PT10S"
@@ -14,8 +14,8 @@
   "telemetry": {
     "sources": {
       "harness-archive": {
-        "appName": "template",
-        "baseUrl": "http://localhost:3000",
+        "appId": "c5a2f197-d427-42f3-94fb-0354e8ec81b3",
+        "baseUrl": "https://localhost:3000",
         "logTolerance": "TRACE",
         "queueChunkSize": 50,
         "queueDumpEvery": "PT10S"

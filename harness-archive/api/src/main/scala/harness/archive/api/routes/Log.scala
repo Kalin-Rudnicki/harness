@@ -18,20 +18,19 @@ import zio.*
 
 object Log {
 
-  val routes: Route[AppStorage & LogStorage & Transaction] =
+  val routes: Route[AppStorage & AppTokenStorage & LogStorage & SessionStorage & Transaction] =
     "log" /: Route.oneOf(
       (HttpMethod.POST / "upload").implement { _ =>
         Transaction.inTransaction {
           for {
-            // TODO (KR) :
-            _ <- Misc.warnUserPermissions
-            // dbUser <- SessionUtils.userFromSession
+            appToken <- SessionUtils.getAppToken
 
-            body <- HttpRequest.jsonBody[Chunk[D.log.Upload]]
-            _ <- Logger.log.info(s"Received request to create ${body.length.pluralizeOn("log")}")
-            appNameMap <- Misc.getOrCreateApps(body.map(_.appName).toSet)
-            dbLogs = body.map { log =>
-              val app = appNameMap(log.appName)
+            body <- HttpRequest.jsonBody[D.log.Upload]
+            app <- AppStorage.byId(body.appId)
+            _ <- HttpResponse.earlyReturn.fromHttpCode.json(HttpCode.Forbidden).unless(app.id == appToken.appId)
+
+            _ <- Logger.log.info(s"Received request to create ${body.logs.length.pluralizeOn("log")}")
+            dbLogs = body.logs.map { log =>
               new M.Log.Identity(
                 M.Log.Id.gen,
                 app.id,
@@ -50,12 +49,10 @@ object Log {
       (HttpMethod.GET / "get-for-app").implement { _ =>
         Transaction.inTransaction {
           for {
-            // TODO (KR) :
-            _ <- Misc.warnUserPermissions
-            // dbUser <- SessionUtils.userFromSession
+            dbUser <- SessionUtils.userFromSessionToken
 
             appName <- HttpRequest.query.get[String]("app-name")
-            app <- Misc.appByName(appName)
+            app <- Misc.appByName(dbUser, appName)
             dbLogs <- LogStorage.forAppId(app.id)
           } yield HttpResponse.encodeJson(dbLogs.map(DbToDomain.log))
         }
@@ -63,9 +60,7 @@ object Log {
       (HttpMethod.GET / "get").implement { _ =>
         Transaction.inTransaction {
           for {
-            // TODO (KR) :
-            _ <- Misc.warnUserPermissions
-            // dbUser <- SessionUtils.userFromSession
+            dbUser <- SessionUtils.userFromSessionToken
 
             query <- HttpRequest.query.get[String]("query")
             parsedQuery <- QueryParser.parse(Source(query, None)) match {
@@ -73,7 +68,7 @@ object Log {
               case Left(errors) => ZIO.fail(HError.UserError(Source.markAll(errors.toList)))
             }
             convertedQuery <- ZIO.eitherNelToUserErrors(ParsedQuery.from(parsedQuery.toExpr).leftMap(NonEmptyList.one))
-            dbLogs <- LogStorage.allForQuery(convertedQuery.toLogFilterFunction)
+            dbLogs <- LogStorage.allForQuery(dbUser.id, convertedQuery.toLogFilterFunction)
           } yield HttpResponse.encodeJson(dbLogs.map(DbToDomain.log).sortBy(_.dateTime).reverse)
         }
       },

@@ -18,7 +18,7 @@ import zio.json.*
 
 object ServerMain {
 
-  type StorageEnv = Transaction & SessionStorage & UserStorage & AppStorage & LogStorage & TraceStorage
+  type StorageEnv = Transaction & SessionStorage & UserStorage & AppStorage & AppTokenStorage & LogStorage & TraceStorage
   type ServerEnv = JDBCConnectionPool & EmailService & StaleDataCleanser & UiConfig
   type ReqEnv = StorageEnv
 
@@ -65,6 +65,7 @@ object ServerMain {
       SessionStorage.liveLayer ++
       UserStorage.liveLayer ++
       AppStorage.liveLayer ++
+      AppTokenStorage.liveLayer ++
       LogStorage.liveLayer ++
       TraceStorage.liveLayer
 
@@ -79,6 +80,9 @@ object ServerMain {
       config = StdClientConfig(runMode, uiConfig.logTolerance).basic
       r <- Route.stdRoot(config)(
         R.User.routes,
+        R.App.routes,
+        R.Log.routes,
+        R.Telemetry.routes,
       )
     } yield r
 
@@ -86,6 +90,8 @@ object ServerMain {
     PlannedMigrations(
       Migrations.`0.0.1`,
       Migrations.`0.0.2`,
+      Migrations.`0.0.3`,
+      Migrations.`0.0.4`,
     )
 
   val executable: Executable =

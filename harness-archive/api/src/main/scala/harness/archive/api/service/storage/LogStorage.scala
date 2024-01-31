@@ -10,7 +10,7 @@ trait LogStorage {
   def insertAll(logs: Chunk[M.Log.Identity]): HRIO[Logger & Telemetry, Unit]
   def forAppId(appId: M.App.Id): HRIO[Logger & Telemetry, Chunk[M.Log.Identity]]
   def deleteOutdated(now: Long): HRIO[Logger & Telemetry, Int]
-  def allForQuery(query: (M.App.Identity, M.Log.Identity) => Boolean): HRIO[Logger & Telemetry, Chunk[M.Log.Identity]]
+  def allForQuery(userId: M.User.Id, query: (M.App.Identity, M.Log.Identity) => Boolean): HRIO[Logger & Telemetry, Chunk[M.Log.Identity]]
 }
 object LogStorage {
 
@@ -25,8 +25,8 @@ object LogStorage {
   def deleteOutdated(now: Long): HRIO[LogStorage & Logger & Telemetry, Int] =
     ZIO.serviceWithZIO[LogStorage](_.deleteOutdated(now))
 
-  def allForQuery(query: (M.App.Identity, M.Log.Identity) => Boolean): HRIO[LogStorage & Logger & Telemetry, Chunk[M.Log.Identity]] =
-    ZIO.serviceWithZIO[LogStorage](_.allForQuery(query))
+  def allForQuery(userId: M.User.Id, query: (M.App.Identity, M.Log.Identity) => Boolean): HRIO[LogStorage & Logger & Telemetry, Chunk[M.Log.Identity]] =
+    ZIO.serviceWithZIO[LogStorage](_.allForQuery(userId, query))
 
   // =====| Live |=====
 
@@ -44,8 +44,8 @@ object LogStorage {
     override def deleteOutdated(now: Long): HRIO[Logger & Telemetry, Int] =
       con.use { Q.deleteOutdated(now).execute }
 
-    override def allForQuery(query: (M.App.Identity, M.Log.Identity) => Boolean): HRIO[Logger & Telemetry, Chunk[M.Log.Identity]] =
-      ZIO.scoped { con.use { Q.allWithApp().stream.collect { case (app, log) if query(app, log) => log }.runCollect } }
+    override def allForQuery(userId: M.User.Id, query: (M.App.Identity, M.Log.Identity) => Boolean): HRIO[Logger & Telemetry, Chunk[M.Log.Identity]] =
+      ZIO.scoped { con.use { Q.allWithApp(userId).stream.collect { case (app, log) if query(app, log) => log }.runCollect } }
 
     // =====| Queries |=====
 
@@ -66,13 +66,14 @@ object LogStorage {
             .where { l => l.keepUntilEpochMS <= now }
         }
 
-      val allWithApp: QueryO[(M.App.Identity, M.Log.Identity)] =
-        Prepare.selectO("Log - allWithApp") {
+      val allWithApp: QueryIO[M.User.Id, (M.App.Identity, M.Log.Identity)] =
+        Prepare.selectIO("Log - allWithApp") { Input[M.User.Id] } { userId =>
           Select
-            .from[M.Log]("l")
-            .join[M.App]("a")
-            .on { case (log, app) => log.appId === app.id }
-            .returning { case (log, app) => app ~ log }
+            .from[M.App]("a")
+            .join[M.Log]("l")
+            .on { case (app, log) => log.appId === app.id }
+            .where { case (app, _) => app.userId === userId }
+            .returning { case (app, log) => app ~ log }
         }
 
     }

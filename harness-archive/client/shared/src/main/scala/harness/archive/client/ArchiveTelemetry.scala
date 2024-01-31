@@ -24,21 +24,24 @@ object ArchiveTelemetry {
           ZIO
             .suspendSucceed {
               val payload =
-                events.map { event =>
-                  D.telemetry.Upload(
-                    appName = cfg.appName,
-                    logLevel = event.logLevel,
-                    label = event.label,
-                    startDateTime = event.startDateTime,
-                    endDateTime = event.endDateTime,
-                    success = event.success,
-                    telemetryContext = event.telemetryContext,
-                    logContext = event.logContext,
-                  )
-                }
+                D.telemetry.Upload(
+                  cfg.appId,
+                  events.map { event =>
+                    D.telemetry.Upload.Trace(
+                      logLevel = event.logLevel,
+                      label = event.label,
+                      startDateTime = event.startDateTime,
+                      endDateTime = event.endDateTime,
+                      success = event.success,
+                      telemetryContext = event.telemetryContext,
+                      logContext = event.logContext,
+                    )
+                  },
+                )
 
               HttpRequest
                 .post(uploadUrl)
+                .withHeader("ARCHIVE-APP-TOKEN", cfg.appToken)
                 .withBodyJsonEncoded(payload)
                 .response
                 .unit2xx

@@ -1,5 +1,8 @@
 package harness.archive.api.db.model
 
+import harness.archive.model as D
+import harness.sql.*
+
 object LegacyTables {
 
   object user {
@@ -16,7 +19,33 @@ object LegacyTables {
 
   object app {
 
-    export harness.archive.api.db.model.App as V1
+    final case class V1[F[_]](
+        id: F[App.Id],
+        name: F[String],
+        logDurationMap: F[D.app.DurationMap],
+        traceDurationMap: F[D.app.DurationMap],
+    ) extends Table.WithId[F, App.Id]
+    object V1 extends Table.Companion.WithId[D.app.AppId, app.V1] {
+
+      override implicit lazy val tableSchema: TableSchema[app.V1] =
+        TableSchema.derived[app.V1]("archive", "app") {
+          new app.V1.Cols(
+            id = App.Id.pkCol,
+            name = Col.string("name"),
+            logDurationMap = Col.jsonb[D.app.DurationMap]("log_duration_map"),
+            traceDurationMap = Col.jsonb[D.app.DurationMap]("trace_duration_map"),
+          )
+        }
+
+    }
+
+    export harness.archive.api.db.model.App as V2
+
+  }
+
+  object appToken {
+
+    export harness.archive.api.db.model.AppToken as V1
 
   }
 

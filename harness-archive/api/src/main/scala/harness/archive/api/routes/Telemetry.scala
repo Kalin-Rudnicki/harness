@@ -18,20 +18,19 @@ import zio.*
 
 object Telemetry {
 
-  val routes: Route[AppStorage & TraceStorage & Transaction] =
+  val routes: Route[AppStorage & AppTokenStorage & TraceStorage & SessionStorage & Transaction] =
     "telemetry" /: Route.oneOf(
       (HttpMethod.POST / "upload").implement { _ =>
         Transaction.inTransaction {
           for {
-            // TODO (KR) :
-            _ <- Misc.warnUserPermissions
-            // dbUser <- SessionUtils.userFromSession
+            appToken <- SessionUtils.getAppToken
 
-            body <- HttpRequest.jsonBody[Chunk[D.telemetry.Upload]]
-            _ <- Logger.log.info(s"Received request to create ${body.length.pluralizeOn("telemetr", "ies", "y")}")
-            appNameMap <- Misc.getOrCreateApps(body.map(_.appName).toSet)
-            dbTraces = body.map { trace =>
-              val app = appNameMap(trace.appName)
+            body <- HttpRequest.jsonBody[D.telemetry.Upload]
+            app <- AppStorage.byId(body.appId)
+            _ <- HttpResponse.earlyReturn.fromHttpCode.json(HttpCode.Forbidden).unless(app.id == appToken.appId)
+
+            _ <- Logger.log.info(s"Received request to create ${body.traces.length.pluralizeOn("telemetr", "ies", "y")}")
+            dbTraces = body.traces.map { trace =>
               new M.Trace.Identity(
                 M.Trace.Id.gen,
                 app.id,
@@ -54,12 +53,10 @@ object Telemetry {
       (HttpMethod.GET / "get-for-app").implement { _ =>
         Transaction.inTransaction {
           for {
-            // TODO (KR) :
-            _ <- Misc.warnUserPermissions
-            // dbUser <- SessionUtils.userFromSession
+            dbUser <- SessionUtils.userFromSessionToken
 
             appName <- HttpRequest.query.get[String]("app-name")
-            app <- Misc.appByName(appName)
+            app <- Misc.appByName(dbUser, appName)
             dbTraces <- TraceStorage.forAppId(app.id)
           } yield HttpResponse.encodeJson(dbTraces.map(DbToDomain.trace))
         }
@@ -67,9 +64,7 @@ object Telemetry {
       (HttpMethod.GET / "get").implement { _ =>
         Transaction.inTransaction {
           for {
-            // TODO (KR) :
-            _ <- Misc.warnUserPermissions
-            // dbUser <- SessionUtils.userFromSession
+            dbUser <- SessionUtils.userFromSessionToken
 
             query <- HttpRequest.query.get[String]("query")
             parsedQuery <- QueryParser.parse(Source(query, None)) match {
@@ -77,7 +72,7 @@ object Telemetry {
               case Left(errors) => ZIO.fail(HError.UserError(Source.markAll(errors.toList)))
             }
             convertedQuery <- ZIO.eitherNelToUserErrors(ParsedQuery.from(parsedQuery.toExpr).leftMap(NonEmptyList.one))
-            dbTraces <- TraceStorage.allForQuery(convertedQuery.toTraceFilterFunction)
+            dbTraces <- TraceStorage.allForQuery(dbUser.id, convertedQuery.toTraceFilterFunction)
           } yield HttpResponse.encodeJson(dbTraces.map(DbToDomain.trace).sortBy(_.startDateTime).reverse)
         }
       },
