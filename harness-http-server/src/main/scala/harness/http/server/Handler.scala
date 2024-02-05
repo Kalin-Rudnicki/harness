@@ -41,7 +41,9 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
         foundResponse: HttpResponse.Found <-
           responseOrError match {
             case Right(found: HttpResponse.Found) => ZIO.succeed(found)
-            case Right(HttpResponse.NotFound)     => ZIO.succeed(HttpResponse.fromHttpCode.`404`)
+            case Right(HttpResponse.NotFound) =>
+              Logger.log.warning("Path/Method not supported", "path" -> req.pathString, "method" -> req.method) *>
+                ZIO.succeed(HttpResponse.fromHttpCode.`404`)
             case Left(error) =>
               for {
                 (specifiedResponseCode, errors) <- Handler.getHttpCodeAndErrors(error)
