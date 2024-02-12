@@ -33,6 +33,7 @@ object DockerPostgres {
         container =
           DockerContainer
             .init(containerName, "postgres")
+            .h(containerName)
             .iv(dockerConfig.imageTag)
             .e("POSTGRES_PASSWORD", dbConfig.credentials.password)
             .e("POSTGRES_DB", target.database)

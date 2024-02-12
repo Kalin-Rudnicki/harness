@@ -584,6 +584,11 @@ lazy val `harness-web-app-template--api` =
       libraryDependencies ++= Seq(
         "org.mindrot" % "jbcrypt" % "0.4",
       ),
+      assemblyJarName := {
+        val appVersion = scala.sys.env.get("APP_VERSION")
+        val versionSuffix = appVersion.fold("")(v => s"--$v")
+        s"../artifacts/${name.value}$versionSuffix.jar"
+      },
     )
     .dependsOn(
       `harness-web-app-template--model`.jvm % testAndCompile,

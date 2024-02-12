@@ -22,4 +22,5 @@ harness-web-app-template/api/src/main/resources/archive-secrets.conf.json
 harness-archive/api/src/main/resources/secrets.conf.json
 
 harness-web-app-template/api/src/main/resources/ssl
+harness-web-app-template/res/ssl
 harness-archive/api/src/main/resources/ssl
