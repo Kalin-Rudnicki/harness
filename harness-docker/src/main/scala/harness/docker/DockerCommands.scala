@@ -3,7 +3,6 @@ package harness.docker
 import cats.data.NonEmptyList
 import cats.syntax.either.*
 import cats.syntax.parallel.*
-import cats.syntax.traverse.*
 import harness.core.*
 import harness.zio.*
 import java.time.ZonedDateTime
@@ -52,7 +51,7 @@ object DockerCommands {
       _ <- Logger.log.info("Getting docker containers")
       dockerNeedsSudo <- DockerNeedsSudo.value
       dockerPsCommand = Sys.Command("docker", "ps", "-a", "--format", "{{json .}}").sudoIf(dockerNeedsSudo)
-      sysString <- Sys.executeString0(dockerPsCommand).map(_.replace("\\u003e", ">"))
+      sysString <- Sys.executeString0.runComplex()(dockerPsCommand).map(_.replace("\\u003e", ">"))
       containers <- ZIO.eitherNelToInternalDefects(sysString.split('\n').toList.filter(_.nonEmpty).parTraverse(_.fromJson[PsContainer].toEitherNel))
       _ <- Logger.log.debug(s"Containers:${containers.map { c => s"\n  - ${c.Names} (${c.State}) : ${c.Ports.mkString(", ")}" }.mkString}")
     } yield containers
@@ -61,10 +60,10 @@ object DockerCommands {
     DockerNeedsSudo.value.flatMap { dockerNeedsSudo =>
       val stop =
         Logger.log.important(s"Stopping container '${container.Names}'") *>
-          Sys.executeString0(Sys.Command("docker", "stop", container.Names).sudoIf(dockerNeedsSudo))
+          Sys.executeString0.runComplex()(Sys.Command("docker", "stop", container.Names).sudoIf(dockerNeedsSudo))
       val rm =
         Logger.log.important(s"Removing container '${container.Names}'") *>
-          Sys.executeString0(Sys.Command("docker", "rm", container.Names).sudoIf(dockerNeedsSudo)).unit
+          Sys.executeString0.runComplex()(Sys.Command("docker", "rm", container.Names).sudoIf(dockerNeedsSudo)).unit
 
       Logger.log.info(s"Found existing container '${container.Names}'") *>
         (container.State match {
@@ -99,7 +98,7 @@ object DockerCommands {
         _ <- Logger.log.info(s"Running docker compose for '$dockerAppName'")
         _ <- generateDockerComposeFile(containers)
         dockerNeedsSudo <- DockerNeedsSudo.value
-        _ <- Sys.execute0(Sys.Command("docker", "compose", command, "-d").sudoIf(dockerNeedsSudo))
+        _ <- Sys.execute0.runComplex()(Sys.Command("docker", "compose", command, "-d").sudoIf(dockerNeedsSudo))
       } yield ()
     }
 
@@ -123,7 +122,7 @@ object DockerCommands {
           ).flatten,
         ),
       )
-      _ <- Sys.executeString0(cmd.sudoIf(dockerNeedsSudo))
+      _ <- Sys.executeString0.runComplex()(cmd.sudoIf(dockerNeedsSudo))
     } yield ()
 
 }
