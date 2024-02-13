@@ -98,6 +98,7 @@ object Executable extends ExecutableBuilders.Builder1 {
 
     sealed trait ConfigString
     object ConfigString {
+      final case class Env(varName: String) extends ConfigString
       final case class FilePath(path: String) extends ConfigString
       final case class JarResPath(path: String) extends ConfigString
       final case class JsonConfig(json: Json) extends ConfigString
@@ -119,14 +120,16 @@ object Executable extends ExecutableBuilders.Builder1 {
         loop(nest.split('.').toList.reverse, json)
       }
 
+      private val envResRegex: Regex = "^env:(.*)$".r
       private val jarResRegex: Regex = "^jar:(.*)$".r
       private val fileResRegex: Regex = "^file:(.*)$".r
       private val jsonPathRegex: Regex = "^json:([A-Za-z_\\-0-9]+(?:\\.[A-Za-z_\\-0-9]+)*):(.*)$".r
       private val jsonRegex: Regex = "^json:(.*)$".r
       implicit val stringDecoder: StringDecoder[ConfigString] =
         StringDecoder.string.flatMap {
-          case fileResRegex(path)        => ConfigString.FilePath(path).asRight
+          case envResRegex(varName)      => ConfigString.Env(varName).asRight
           case jarResRegex(path)         => ConfigString.JarResPath(path).asRight
+          case fileResRegex(path)        => ConfigString.FilePath(path).asRight
           case jsonPathRegex(nest, json) => ConfigString.JsonConfig(nestJson(nest, parseJson(json))).asRight
           case jsonRegex(json)           => ConfigString.JsonConfig(parseJson(json)).asRight
           case _                         => "does not match a valid regex".leftNel
@@ -184,6 +187,12 @@ object Executable extends ExecutableBuilders.Builder1 {
 
   private def loadConfig(cfg: Config.ConfigString): HRIO[FileSystem, HConfig] =
     cfg match {
+      case Config.ConfigString.Env(varName) =>
+        System
+          .env(varName)
+          .mapError(HError.SystemFailure(s"Unable to read env var '$varName'", _))
+          .someOrFail(HError.InternalDefect(s"Missing env var '$varName'"))
+          .flatMap(HConfig.fromJsonString)
       case Config.ConfigString.FilePath(path)   => HConfig.fromPathString(path)
       case Config.ConfigString.JarResPath(path) => HConfig.fromJarResource(path)
       case Config.ConfigString.JsonConfig(json) => ZIO.succeed(HConfig.fromJson(json))
