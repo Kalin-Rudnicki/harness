@@ -66,6 +66,21 @@ lazy val `harness-root` =
       sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
     )
     .aggregate(
+      `harness-modules`,
+      `harness-web-app-template`,
+      `harness-archive`,
+    )
+
+lazy val `harness-modules` =
+  project
+    .in(file("modules"))
+    .settings(
+      publish / skip := true,
+      organization := MyOrg,
+      sonatypeCredentialHost := "s01.oss.sonatype.org",
+      sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
+    )
+    .aggregate(
       `harness-test`.js,
       `harness-test`.jvm,
       `harness-zio-test`.js,
@@ -85,9 +100,6 @@ lazy val `harness-root` =
       `harness-email`.js,
       `harness-payments`.jvm,
       `harness-payments`.js,
-      `harness-docker`,
-      `harness-docker-sql`,
-      `harness-docker-kafka`,
       `harness-sql`,
       `harness-kafka`,
       `harness-web`.js,
@@ -95,16 +107,13 @@ lazy val `harness-root` =
       `harness-http-client`.js,
       `harness-http-client`.jvm,
       `harness-http-server`,
-      `harness-http-server-test`,
       `harness-web-ui`,
       `harness-js-plugin`,
-      `harness-web-app-template`,
-      `harness-archive`,
     )
 
 lazy val `harness-test` =
   crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-test"))
+    .in(file("modules/harness-test"))
     .settings(
       name := "harness-test",
       publishSettings,
@@ -118,7 +127,7 @@ lazy val `harness-test` =
 
 lazy val `harness-zio-test` =
   crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-zio-test"))
+    .in(file("modules/harness-zio-test"))
     .settings(
       name := "harness-zio-test",
       publishSettings,
@@ -131,7 +140,7 @@ lazy val `harness-zio-test` =
 
 lazy val `harness-core` =
   crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-core"))
+    .in(file("modules/harness-core"))
     .settings(
       name := "harness-core",
       publishSettings,
@@ -146,7 +155,7 @@ lazy val `harness-core` =
 
 lazy val `harness-csv` =
   crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-csv"))
+    .in(file("modules/harness-csv"))
     .settings(
       name := "harness-csv",
       publishSettings,
@@ -160,7 +169,7 @@ lazy val `harness-csv` =
 
 lazy val `harness-xml` =
   project
-    .in(file("harness-xml"))
+    .in(file("modules/harness-xml"))
     .settings(
       name := "harness-xml",
       publishSettings,
@@ -177,7 +186,7 @@ lazy val `harness-xml` =
 
 lazy val `harness-cli` =
   crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-cli"))
+    .in(file("modules/harness-cli"))
     .settings(
       name := "harness-cli",
       publishSettings,
@@ -190,7 +199,7 @@ lazy val `harness-cli` =
 
 lazy val `harness-zio` =
   crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-zio"))
+    .in(file("modules/harness-zio"))
     .settings(
       name := "harness-zio",
       publishSettings,
@@ -208,53 +217,9 @@ lazy val `harness-zio` =
       `harness-cli` % testAndCompile,
     )
 
-lazy val `harness-docker` =
-  project
-    .in(file("harness-docker"))
-    .settings(
-      name := "harness-docker",
-      publishSettings,
-      miscSettings,
-      testSettings,
-      Test / fork := true,
-    )
-    .dependsOn(
-      `harness-zio`.jvm % testAndCompile,
-    )
-
-lazy val `harness-docker-sql` =
-  project
-    .in(file("harness-docker-sql"))
-    .settings(
-      name := "harness-docker-sql",
-      publishSettings,
-      miscSettings,
-      testSettings,
-      Test / fork := true,
-    )
-    .dependsOn(
-      `harness-docker` % testAndCompile,
-      `harness-sql` % testAndCompile,
-    )
-
-lazy val `harness-docker-kafka` =
-  project
-    .in(file("harness-docker-kafka"))
-    .settings(
-      name := "harness-docker-kafka",
-      publishSettings,
-      miscSettings,
-      testSettings,
-      Test / fork := true,
-    )
-    .dependsOn(
-      `harness-docker` % testAndCompile,
-      `harness-kafka` % testAndCompile,
-    )
-
 lazy val `harness-pk` =
   crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-pk"))
+    .in(file("modules/harness-pk"))
     .settings(
       name := "harness-pk",
       publishSettings,
@@ -268,7 +233,7 @@ lazy val `harness-pk` =
 
 lazy val `harness-sql` =
   project
-    .in(file("harness-sql"))
+    .in(file("modules/harness-sql"))
     .settings(
       name := "harness-sql",
       publishSettings,
@@ -286,7 +251,7 @@ lazy val `harness-sql` =
 
 lazy val `harness-kafka` =
   project
-    .in(file("harness-kafka"))
+    .in(file("modules/harness-kafka"))
     .settings(
       name := "harness-kafka",
       publishSettings,
@@ -303,7 +268,7 @@ lazy val `harness-kafka` =
 
 lazy val `harness-email` =
   crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-email"))
+    .in(file("modules/harness-email"))
     .settings(
       name := "harness-email",
       publishSettings,
@@ -322,7 +287,7 @@ lazy val `harness-email` =
 
 lazy val `harness-payments` =
   crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-payments"))
+    .in(file("modules/harness-payments"))
     .settings(
       name := "harness-payments",
       publishSettings,
@@ -343,7 +308,7 @@ lazy val `harness-payments` =
 
 lazy val `harness-web` =
   crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-web"))
+    .in(file("modules/harness-web"))
     .settings(
       name := "harness-web",
       publishSettings,
@@ -364,7 +329,7 @@ lazy val `harness-web` =
 
 lazy val `harness-http-client` =
   crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-http-client"))
+    .in(file("modules/harness-http-client"))
     .settings(
       name := "harness-http-client",
       publishSettings,
@@ -378,7 +343,7 @@ lazy val `harness-http-client` =
 
 lazy val `harness-http-server` =
   project
-    .in(file("harness-http-server"))
+    .in(file("modules/harness-http-server"))
     .settings(
       name := "harness-http-server",
       publishSettings,
@@ -389,23 +354,9 @@ lazy val `harness-http-server` =
       `harness-web`.jvm % testAndCompile,
     )
 
-lazy val `harness-http-server-test` =
-  project
-    .in(file("harness-http-server-test"))
-    .settings(
-      name := "harness-http-server-test",
-      publishSettings,
-      miscSettings,
-    )
-    .dependsOn(
-      `harness-test`.jvm % testAndCompile,
-      `harness-http-server` % testAndCompile,
-      `harness-sql` % testAndCompile,
-    )
-
 lazy val `harness-web-ui` =
   project
-    .in(file("harness-web-ui"))
+    .in(file("modules/harness-web-ui"))
     .enablePlugins(ScalaJSPlugin)
     .settings(
       name := "harness-web-ui",
@@ -419,7 +370,7 @@ lazy val `harness-web-ui` =
 
 lazy val `harness-js-plugin` =
   project
-    .in(file("harness-js-plugin"))
+    .in(file("modules/harness-js-plugin"))
     .enablePlugins(SbtPlugin)
     .settings(
       name := "harness-js-plugin",
@@ -498,15 +449,13 @@ lazy val `harness-archive-api` =
       testSettings,
       libraryDependencies ++= Seq(
         "org.mindrot" % "jbcrypt" % "0.4",
-        MyOrg %% "slyce-parse" % "2.0.5",
+        MyOrg %% "slyce-parse" % "2.0.9",
       ),
     )
     .dependsOn(
       `harness-archive-model`.jvm % testAndCompile,
       `harness-archive-db-model` % testAndCompile,
       `harness-http-server` % testAndCompile,
-      `harness-docker-sql` % testAndCompile,
-      `harness-http-server-test` % Test,
     )
 
 lazy val `harness-archive-ui-web` =
@@ -594,9 +543,7 @@ lazy val `harness-web-app-template--api` =
       `harness-web-app-template--model`.jvm % testAndCompile,
       `harness-web-app-template--db-model` % testAndCompile,
       `harness-http-server` % testAndCompile,
-      `harness-docker-sql` % testAndCompile,
       `harness-archive-client`.jvm % testAndCompile,
-      `harness-http-server-test` % Test,
     )
 
 lazy val `harness-web-app-template--ui-web` =
