@@ -585,7 +585,7 @@ lazy val `harness-web-app-template--api` =
         "org.mindrot" % "jbcrypt" % "0.4",
       ),
       assemblyJarName := {
-        val appVersion = scala.sys.env.get("APP_VERSION")
+        val appVersion = scala.sys.env.get("WEB_SERVER_VERSION")
         val versionSuffix = appVersion.fold("")(v => s"--$v")
         s"../artifacts/${name.value}$versionSuffix.jar"
       },

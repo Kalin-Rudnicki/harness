@@ -142,6 +142,7 @@ object Home {
           Widgets.signedInNavBar.zoomOut[Env](_.user).zoomOutToPage,
           PageWidgets.pageBody(
             h1("Home"),
+            h2("A NEW VERSION!"),
             PModifier.builder.withState[D.user.User] { u => p(s"Welcome, ${u.firstName}") }.zoomOut[Env](_.user),
             br,
             h2("Example Widgets:"),
