@@ -7,6 +7,7 @@ import harness.http.server.Route.Result
 import harness.web.*
 import harness.web.Constants.harnessInternalErrorHeader
 import harness.zio.*
+import java.util.Base64
 import java.util.UUID
 import zio.*
 
@@ -52,12 +53,15 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
         .provideSomeLayer[BuiltInRequestEnv & HarnessEnv & ServerEnv](reqLayer.mapError(result.handler.convertUnexpectedError(_)))
         .foldCauseZIO(
           cause =>
-            Logger.logErrorCauseSimple[DomainError](cause, Logger.LogLevel.Error, Logger.LogLevel.Debug.some)(using result.handler.errorLogger).as {
+            Logger.logErrorCauseSimple[DomainError](cause, Logger.LogLevel.Error, Logger.LogLevel.Debug.some)(using result.handler.errorLogger.withPrefix("Error in http server:\n")).as {
               val domainError = convertError(cause, result.handler)
               val apiError = result.handler.errorConverter.mapError(domainError)
               val apiErrorString = result.handler.errorCodec.encode(apiError)
               val errorCode = result.handler.errorCode(apiError)
-              HttpResponse(apiErrorString, errorCode).optHeader(harnessInternalErrorHeader, Option.when(debugErrorHeader)(result.handler.errorLogger.convert(domainError)._2))
+              val optErrorHeader = Option.when(debugErrorHeader) {
+                Base64.getEncoder.encodeToString(result.handler.errorLogger.convert(domainError)._2.getBytes)
+              }
+              HttpResponse(apiErrorString, errorCode).optHeader(harnessInternalErrorHeader, optErrorHeader)
             },
           {
             case found: HttpResponse.Found => ZIO.succeed(found)

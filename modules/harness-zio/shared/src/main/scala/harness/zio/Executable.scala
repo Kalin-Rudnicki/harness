@@ -194,6 +194,7 @@ object Executable extends ExecutableBuilders.Builder1 {
   def finalizedResultToExecutableResult[T](result: FinalizedParser.Result[T]): Executable.Result[T] =
     result match {
       case FinalizedParser.Result.Success(value)         => Result.Success(value)
+      case FinalizedParser.Result.Help(_, message)       => Result.Help(message.format()) // TODO (KR) :
       case nonSuccess: FinalizedParser.Result.NonSuccess => Executable.Result.Fail(ExecutableError.ParsingFailure(nonSuccess))
     }
 

@@ -80,7 +80,7 @@ object PaymentsUI {
   }
 
   def paymentForm(
-      createIntent: ZIO[HttpClient.ClientT & Logger & Telemetry, UIError.Failure, ClientSecret],
+      createIntent: ZIO[HarnessEnv & HttpClient.ClientT, UIError.Failure, ClientSecret],
       paymentsEnv: PaymentEnv,
       redirectUrl: Url,
   ): CModifier =

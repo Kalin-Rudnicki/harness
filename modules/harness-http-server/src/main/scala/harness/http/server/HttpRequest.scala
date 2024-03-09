@@ -90,11 +90,11 @@ object HttpRequest {
   def body[T: StringDecoder]: ZIO[HttpRequest, DecodingFailure, T] =
     for {
       req <- HttpRequest.service
-      contentLength <- HttpRequest.header.find[Long]("Content-length").mapError(DecodingFailure(_))
+      contentLength <- HttpRequest.header.find[Long]("Content-length")
       body <-
         contentLength match {
           case Some(contentLength) if contentLength > Int.MaxValue =>
-            ZIO.fail(DecodingFailure("Request body is too long to fit in a String"))
+            ZIO.dieMessage("Request body is too long to fit in a String")
           case Some(_) =>
             ZIO.attempt(String(req.rawInputStream.readAllBytes())).orDie.flatMap {
               StringDecoder[T].decode(_) match {
@@ -153,32 +153,32 @@ object HttpRequest {
 
   sealed abstract class Lookup(g: String, lookup: HttpRequest => String => Either[String, Option[String]]) {
 
-    inline def apply[T](name: String)(implicit decoder: StringDecoder[T]): ZIO[HttpRequest, String, T] =
+    inline def apply[T](name: String)(implicit decoder: StringDecoder[T]): ZIO[HttpRequest, DecodingFailure, T] =
       get[T](name)
 
-    def get[T](name: String)(implicit decoder: StringDecoder[T]): ZIO[HttpRequest, String, T] =
+    def get[T](name: String)(implicit decoder: StringDecoder[T]): ZIO[HttpRequest, DecodingFailure, T] =
       HttpRequest.service.flatMap {
         lookup(_)(name) match {
           case Right(Some(value)) =>
             decoder.decode(value) match {
               case Right(value) => ZIO.succeed(value)
-              case Left(error)  => ZIO.fail(error)
+              case Left(error)  => ZIO.fail(DecodingFailure(error))
             }
-          case Right(None) => ZIO.fail(s"Missing required $g '$name'")
-          case Left(error) => ZIO.fail(error)
+          case Right(None) => ZIO.fail(DecodingFailure(s"Missing required $g '$name'"))
+          case Left(error) => ZIO.fail(DecodingFailure(error))
         }
       }
 
-    def find[T](name: String)(implicit decoder: StringDecoder[T]): ZIO[HttpRequest, String, Option[T]] =
+    def find[T](name: String)(implicit decoder: StringDecoder[T]): ZIO[HttpRequest, DecodingFailure, Option[T]] =
       HttpRequest.service.flatMap {
         lookup(_)(name) match {
           case Right(Some(value)) =>
             decoder.decode(value) match {
               case Right(value) => ZIO.some(value)
-              case Left(error)  => ZIO.fail(error)
+              case Left(error)  => ZIO.fail(DecodingFailure(error))
             }
           case Right(None) => ZIO.none
-          case Left(error) => ZIO.fail(error)
+          case Left(error) => ZIO.fail(DecodingFailure(error))
         }
       }
 

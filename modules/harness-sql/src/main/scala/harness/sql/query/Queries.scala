@@ -20,7 +20,8 @@ final case class Query(queryName: String, fragment: Fragment) {
     )
 }
 
-final case class QueryI[I](queryName: String, fragment: Fragment, encoder: RowEncoder[I]) {
+final case class QueryI[I](queryName: String, fragment: Fragment, encoder: RowEncoder[I]) { self =>
+
   def apply(i: I): IntQueryResult =
     IntQueryResult(
       queryName,
@@ -42,6 +43,12 @@ final case class QueryI[I](queryName: String, fragment: Fragment, encoder: RowEn
       },
     )
   def cmap[I2](f: I2 => I): QueryI[I2] = QueryI(queryName, fragment, encoder.cmap(f))
+
+  def apply[I1, I2](i1: I1, i2: I2)(implicit ev: (I1, I2) <:< I): IntQueryResult =
+    self(ev((i1, i2)))
+  def apply[I1, I2, I3](i1: I1, i2: I2, i3: I3)(implicit ev: (I1, I2, I3) <:< I): IntQueryResult =
+    self(ev((i1, i2, i3)))
+
 }
 
 final case class QueryO[O](queryName: String, fragment: Fragment, decoder: RowDecoder[O]) {
@@ -50,9 +57,16 @@ final case class QueryO[O](queryName: String, fragment: Fragment, decoder: RowDe
   def emap[O2](f: O => EitherNel[String, O2]): QueryO[O2] = QueryO(queryName, fragment, decoder.emap(f))
 }
 
-final case class QueryIO[I, O](queryName: String, fragment: Fragment, encoder: RowEncoder[I], decoder: RowDecoder[O]) {
+final case class QueryIO[I, O](queryName: String, fragment: Fragment, encoder: RowEncoder[I], decoder: RowDecoder[O]) { self =>
+
   def apply(i: I): QueryResult[O] = QueryResult.stream(queryName, fragment, (i, encoder).some, decoder)
   def cmap[I2](f: I2 => I): QueryIO[I2, O] = QueryIO(queryName, fragment, encoder.cmap(f), decoder)
   def map[O2](f: O => O2): QueryIO[I, O2] = QueryIO(queryName, fragment, encoder, decoder.map(f))
   def emap[O2](f: O => EitherNel[String, O2]): QueryIO[I, O2] = QueryIO(queryName, fragment, encoder, decoder.emap(f))
+
+  def apply[I1, I2](i1: I1, i2: I2)(implicit ev: (I1, I2) <:< I): QueryResult[O] =
+    self(ev((i1, i2)))
+  def apply[I1, I2, I3](i1: I1, i2: I2, i3: I3)(implicit ev: (I1, I2, I3) <:< I): QueryResult[O] =
+    self(ev((i1, i2, i3)))
+
 }

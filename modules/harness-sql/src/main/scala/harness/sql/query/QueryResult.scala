@@ -17,14 +17,8 @@ final class QueryResult[O] private (queryName: String, fragment: Fragment, _stre
       case chunk        => ZIO.fail(QueryError(queryName, fragment.sql, QueryError.Cause.InvalidResultSetSize("1", chunk.length)))
     }
 
-  // TODO (KR) :
-  /*
-  def single(missingMessage: String): ZIO[JDBCConnection & Logger & Telemetry, QueryError, O] =
-    chunk.flatMap {
-      case Chunk(value) => ZIO.succeed(value)
-      case chunk        => ZIO.fail(ErrorWithSql(fragment.sql, InvalidResultSetSize(queryName, HError.UserMessage.Const(missingMessage), "1", chunk.length)))
-    }
-   */
+  def single[E](onMissing: => E)(implicit errorMapper: ErrorMapper[QueryError, E]): ZIO[JDBCConnection & Logger & Telemetry, E, O] =
+    option.mapError(errorMapper.mapError).someOrFail(onMissing)
 
   def option: ZIO[JDBCConnection & Logger & Telemetry, QueryError, Option[O]] =
     chunk.flatMap {

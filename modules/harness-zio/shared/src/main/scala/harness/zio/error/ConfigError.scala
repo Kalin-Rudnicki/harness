@@ -1,8 +1,11 @@
 package harness.zio.error
 
+import harness.zio.JsonShowable
+import harness.zio.ZIOJsonInstances.throwableJsonCodec
+import zio.json.*
 import zio.json.ast.Json
 
-sealed trait ConfigError extends Throwable
+sealed trait ConfigError extends Throwable with JsonShowable[ConfigError]
 object ConfigError {
 
   sealed trait LoadError extends ConfigError
@@ -25,6 +28,10 @@ object ConfigError {
     final case class JarResource(path: String) extends ConfigTarget
     final case class EnvVar(varName: String) extends ConfigTarget
     case object RawString extends ConfigTarget
+
+    implicit val jsonCodec: JsonCodec[ConfigTarget] = DeriveJsonCodec.gen
   }
+
+  implicit val jsonCodec: JsonCodec[ConfigError] = DeriveJsonCodec.gen
 
 }

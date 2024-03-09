@@ -98,7 +98,7 @@ object HttpResponse {
       Nil,
     )
 
-  def file(path: Path, code: HttpCode = HttpCode.`200`): ZIO[HarnessEnv & Scope, FSError, HttpResponse] =
+  def file(path: Path, code: HttpCode = HttpCode.`200`): ZIO[HarnessEnv & Scope, FSError, HttpResponse.Found] =
     path.ensureExists *>
       (for {
         length <- path.size
@@ -110,7 +110,7 @@ object HttpResponse {
         cookies = Nil,
       ))
 
-  def jarResource(path: String, code: HttpCode = HttpCode.`200`): ZIO[HarnessEnv & Scope, JarResourceError, HttpResponse] =
+  def jarResource(path: String, code: HttpCode = HttpCode.`200`): ZIO[HarnessEnv & Scope, JarResourceError, HttpResponse.Found] =
     JarUtils.getInputStream(path).flatMap { resource =>
       ZIO.succeed(
         HttpResponse.Found(

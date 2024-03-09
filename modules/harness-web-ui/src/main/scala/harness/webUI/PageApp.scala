@@ -52,7 +52,7 @@ trait PageApp[EnvFromServer <: HasStdClientConfig: Tag: JsonDecoder] extends ZIO
     }
   }
 
-  protected val preload: RIO[EnvFromServer, Unit] = ZIO.unit
+  protected val preload: RIO[Environment, Unit] = ZIO.unit
 
   // TODO (KR) : Make this prettier
   /**

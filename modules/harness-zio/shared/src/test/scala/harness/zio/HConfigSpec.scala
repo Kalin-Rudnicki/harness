@@ -8,7 +8,7 @@ import zio.json.ast.Json
 import zio.test.*
 import zio.test.Assertion.*
 
-object HConfigSpec extends HarnessSpec[HConfig] {
+object HConfigSpec extends ZioHarnessSpec[HConfig] {
 
   private final case class Cfg(
       a: Int,

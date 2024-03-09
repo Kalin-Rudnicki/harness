@@ -1,14 +1,14 @@
 package harness.zio
 
 import cats.syntax.option.*
-import harness.zio.test.DefaultHarnessSpec
+import harness.zio.test.ZioDefaultHarnessSpec
 import zio.*
 import zio.test.*
 import zio.test.Assertion.*
 
-object CacheSpec extends DefaultHarnessSpec {
+object CacheSpec extends ZioDefaultHarnessSpec {
 
-  override lazy val logLevel: Logger.LogLevel = Logger.LogLevel.Detailed
+  override def logLevel: Logger.LogLevel = Logger.LogLevel.Detailed
 
   override def spec: TestSpec =
     suite("CacheSpec")(

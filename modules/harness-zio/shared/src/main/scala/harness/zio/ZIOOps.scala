@@ -65,6 +65,16 @@ implicit class ZIOOps[R, E, A](self: ZIO[R, E, A]) {
 
 }
 
+implicit class OptionZIOOps[R, E, A](self: ZIO[R, E, Option[A]]) {
+
+  def someOrElseZIOOpt[R2, E2 >: E, A2 >: A](other: => ZIO[R2, E2, Option[A2]]): ZIO[R & R2, E2, Option[A2]] =
+    self.flatMap {
+      case some @ Some(_) => ZIO.succeed(some)
+      case None           => other
+    }
+
+}
+
 // =====| Cause |=====
 
 implicit class CauseOps[E](self: Cause[E]) {

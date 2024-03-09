@@ -1,5 +1,6 @@
 package harness.zio
 
+import harness.zio.ZIOJsonInstances.throwableJsonCodec
 import zio.*
 import zio.json.*
 
@@ -45,6 +46,12 @@ final case class ErrorLogger[-E](
       case None                => logCause(e, causeLevel, stackTraceLevel, context*)
     }
 
+  def withPrefix(prefix: String): ErrorLogger[E] =
+    ErrorLogger[E] { e =>
+      val (level, str) = convert(e)
+      (level, s"$prefix$str")
+    }
+
 }
 object ErrorLogger {
 
@@ -70,6 +77,12 @@ object ErrorLogger {
     ErrorLogger.withToString[Nothing].atLevel.always
 
   val throwablePrettyErrorLogger: ErrorLogger[Throwable] =
-    ErrorLogger.withJsonPrettyShow[Throwable](using EncodedThrowable.throwableJsonCodec.encoder).atLevel.error
+    ErrorLogger
+      .withShow[Throwable] {
+        case jsonShowable: JsonShowable[?] => jsonShowable.showJsonPretty
+        case t                             => t.toJsonPretty
+      }
+      .atLevel
+      .error
 
 }

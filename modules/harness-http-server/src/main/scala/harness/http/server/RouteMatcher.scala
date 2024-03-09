@@ -18,7 +18,7 @@ trait RouteMatcher[+O] private[server] { self =>
   final def map[O2](f: O => O2): RouteMatcher[O2] =
     self.routeInternal(_, _).map(f)
 
-  final def implement[R, DomainError, ApiError](f: O => ZIO[HarnessEnv & BuiltInRequestEnv & R, DomainError, HttpResponse])(
+  final def implement[R, DomainError, ApiError](f: O => ZIO[HarnessEnv & BuiltInRequestEnv & R, DomainError, HttpResponse.Found])(implicit
       handler: ErrorHandler[DomainError, ApiError],
   ): Route[R] =
     (method, path) =>
@@ -29,7 +29,7 @@ trait RouteMatcher[+O] private[server] { self =>
         case RouteMatcher.Result.NotFound              => Route.Result.NotFound
       }
 
-  final def implementGenericError[R](f: O => RIO[HarnessEnv & BuiltInRequestEnv & R, HttpResponse]): Route[R] =
+  final def implementGenericError[R](f: O => RIO[HarnessEnv & BuiltInRequestEnv & R, HttpResponse.Found]): Route[R] =
     implement[R, Throwable, Throwable](f)(
       ErrorHandler(
         convertDecodingFailure = identity,

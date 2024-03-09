@@ -59,7 +59,7 @@ object Route {
     loop(routes.toList)
   }
 
-  private def pageHtmlResponse(harnessUiConfig: HConfig): HttpResponse =
+  private def pageHtmlResponse(harnessUiConfig: HConfig): HttpResponse.Found =
     HttpResponse(
       s"""<!DOCTYPE html>
         |<html lang="en">
@@ -80,7 +80,7 @@ object Route {
         |</html>""".stripMargin,
     )
 
-  private def getFile(config: ServerConfig, after: List[String]): RIO[HarnessEnv & Scope, HttpResponse] = {
+  private def getFile(config: ServerConfig, after: List[String]): RIO[HarnessEnv & Scope, HttpResponse.Found] = {
     val path = s"${config.resDir}${after.map(p => s"/$p").mkString}"
 
     if (config.useJarResource)

@@ -4,10 +4,10 @@ import cats.syntax.either.*
 import harness.core.*
 import harness.web.Constants.harnessInternalErrorHeader
 import harness.web.ErrorCodec
-import harness.web.error.UnexpectedResponseBody
 import harness.zio.*
 import zio.*
 import zio.json.*
+import java.util.Base64
 
 object ResponseOps {
 
@@ -28,24 +28,36 @@ object ResponseOps {
     protected def getResponse: RIO[GetResponseR & Scope, HttpResponse[ResponseT]]
     protected val errorCodec: ErrorCodec[ErrorT]
 
+    private def succeedOrDie[T](result: Either[String, T]): IO[Nothing, T] =
+      result match {
+        case Left(error)  => ZIO.dieMessage(s"Unable to decode response result:\n$error")
+        case Right(value) => ZIO.succeed(value)
+      }
+
+    private def failOrDie(result: Either[String, ErrorT]): IO[ErrorT, Nothing] =
+      result match {
+        case Left(error)  => ZIO.dieMessage(s"Unable to decode error result:\n$error")
+        case Right(value) => ZIO.fail(value)
+      }
+
     private def attemptToDecode[T](f: String => Either[String, T]): ZIO[GetResponseR & Logger, ErrorT, T] =
-      getResponseStringBody.flatMap { response =>
+      getResponseStringBody.orDie.flatMap { response =>
         ZIO.foreachDiscard(response.headers.getOrElse(harnessInternalErrorHeader, Nil)) { value =>
-          Logger.log.debug(s"Harness internal error:\n$value")
+          Logger.log.debug(s"Harness internal error:\n${new String(Base64.getDecoder.decode(value))}")
         } *>
           (if (response.responseCode.is2xx)
-             ZIO.fromEither(f(response.body)).mapError(decodeMsg => errorCodec.convertUnexpected(UnexpectedResponseBody(response.body, decodeMsg)))
+             succeedOrDie(f(response.body))
            else if (response.responseCode.is4xxOr5xx)
-             ZIO.fail(errorCodec.decode(response.body))
+             failOrDie(errorCodec.decode(response.body))
            else
              Logger.log.warning(s"Received non-(2xx/4xx/5xx) response: ${response.responseCode}") *>
-               ZIO.fail(errorCodec.decode(response.body)))
+               failOrDie(errorCodec.decode(response.body)))
       }
 
     // =====|  |=====
 
-    final def getResponseStringBody: ZIO[GetResponseR & Logger, ErrorT, HttpResponse[String]] =
-      ZIO.scoped { self.getResponse.flatMap(_.toResponseStringBody).mapError(errorCodec.convertUnexpected) }
+    final def getResponseStringBody: RIO[GetResponseR & Logger, HttpResponse[String]] =
+      ZIO.scoped { self.getResponse.flatMap(_.toResponseStringBody) }
 
     final def stringBody: ZIO[GetResponseR & Logger, ErrorT, String] =
       attemptToDecode(_.asRight)
@@ -60,11 +72,9 @@ object ResponseOps {
 
     // =====|  |=====
 
-    final def forwardBodyToPath(path: Path): ZIO[GetResponseR, ErrorT, Long] =
+    final def forwardBodyToPath(path: Path): RIO[GetResponseR, Long] =
       ZIO.scoped {
-        self.getResponse
-          .flatMap { response => response.result.ops.forwardBodyToPath(path, response.body) }
-          .mapError(errorCodec.convertUnexpected)
+        self.getResponse.flatMap { response => response.result.ops.forwardBodyToPath(path, response.body) }
       }
 
   }

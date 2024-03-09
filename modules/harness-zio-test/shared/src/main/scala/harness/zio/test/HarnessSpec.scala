@@ -17,9 +17,9 @@ abstract class HarnessSpec[R: EnvironmentTag] extends ZIOSpec[HarnessEnv & R] {
 
   // =====| Overridable |=====
 
-  lazy val logLevel: Logger.LogLevel = Logger.LogLevel.Warning
+  def logLevel: Logger.LogLevel = Logger.LogLevel.Warning
 
-  lazy val harnessEnv: ULayer[HarnessEnv] =
+  def harnessEnv: ULayer[HarnessEnv] =
     HarnessEnv.defaultLayer(logLevel)
 
   override def aspects: Chunk[TestAspectAtLeastR[Environment & TestEnvironment]] =
