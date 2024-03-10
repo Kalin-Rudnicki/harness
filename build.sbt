@@ -112,6 +112,7 @@ lazy val `harness-modules` =
       `harness-http-server`,
       `harness-web-ui`,
       `harness-js-plugin`,
+      `harness-web-app-template-plugin`,
     )
 
 lazy val `harness-test` =
@@ -402,6 +403,18 @@ lazy val `harness-js-plugin` =
       testSettings,
     )
 
+lazy val `harness-web-app-template-plugin` =
+  project
+    .in(file("modules/harness-web-app-template-plugin"))
+    .enablePlugins(SbtPlugin)
+    .settings(
+      name := "harness-web-app-template-plugin",
+      scalaVersion := "2.12.13",
+      version := "SNAPSHOT--0.1.12",
+      publishSettings,
+      testSettings,
+    )
+
 // =====| Harness Archive |=====
 
 lazy val `harness-archive` =
@@ -411,33 +424,171 @@ lazy val `harness-archive` =
       publish / skip := true,
     )
     .aggregate(
-      `harness-archive-model`.jvm,
-      `harness-archive-model`.js,
-      `harness-archive-api`,
-      `harness-archive-ui-web`,
-      `harness-archive-client`.jvm,
-      `harness-archive-client`.js,
+      // TODO (KR) : inline
+      `harness-archive--non-legacy`,
+      // TODO (KR) : remove
+      `harness-archive--legacy--model`.jvm,
+      `harness-archive--legacy--model`.js,
+      `harness-archive--legacy--api`,
+      `harness-archive--legacy--ui-web`,
+      `harness-archive--legacy--client`.jvm,
+      `harness-archive--legacy--client`.js,
     )
 
-lazy val `harness-archive-client` =
+// TODO (KR) : inline
+
+lazy val `harness-archive--non-legacy` =
+  project
+    .in(file("harness-archive/modules"))
+    .settings(
+      publish / skip := true,
+    )
+    .aggregate(
+      `harness-archive--api-model`.jvm,
+      `harness-archive--api-model`.js,
+      `harness-archive--domain-model`,
+      `harness-archive--domain`,
+      `harness-archive--db-model`,
+      `harness-archive--domain-impl`,
+      `harness-archive--web-server`,
+      `harness-archive--ui-web`,
+    )
+
+lazy val `harness-archive--api-model` =
+  crossProject(JSPlatform, JVMPlatform)
+    .in(file("harness-archive/modules/api-model"))
+    .settings(
+      name := "harness-archive--api-model",
+      publish / skip := true,
+      miscSettings,
+      testSettings,
+    )
+    .dependsOn(
+      `harness-web` % testAndCompile,
+      `harness-email-model` % testAndCompile,
+      `harness-pk` % testAndCompile,
+      `harness-payments` % testAndCompile,
+      `harness-zio-test` % Test,
+    )
+
+lazy val `harness-archive--domain-model` =
+  project
+    .in(file("harness-archive/modules/domain-model"))
+    .settings(
+      name := "harness-archive--domain-model",
+      publish / skip := true,
+      miscSettings,
+      testSettings,
+      libraryDependencies ++= Seq(
+        "org.mindrot" % "jbcrypt" % "0.4",
+      ),
+    )
+    .dependsOn(
+      `harness-archive--api-model`.jvm % testAndCompile,
+    )
+
+lazy val `harness-archive--domain` =
+  project
+    .in(file("harness-archive/modules/domain"))
+    .settings(
+      name := "harness-archive--domain",
+      publish / skip := true,
+      miscSettings,
+      testSettings,
+    )
+    .dependsOn(
+      `harness-archive--domain-model` % testAndCompile,
+    )
+
+lazy val `harness-archive--db-model` =
+  project
+    .in(file("harness-archive/modules/db-model"))
+    .settings(
+      name := "harness-archive--db-model",
+      publish / skip := true,
+      miscSettings,
+      testSettings,
+    )
+    .dependsOn(
+      `harness-archive--domain-model` % testAndCompile,
+      `harness-sql` % testAndCompile,
+    )
+
+lazy val `harness-archive--domain-impl` =
+  project
+    .in(file("harness-archive/modules/domain-impl"))
+    .settings(
+      name := "harness-archive--domain-impl",
+      publish / skip := true,
+      miscSettings,
+      testSettings,
+    )
+    .dependsOn(
+      `harness-archive--domain` % testAndCompile,
+      `harness-archive--db-model` % testAndCompile,
+      `harness-email` % testAndCompile,
+    )
+
+lazy val `harness-archive--web-server` =
+  project
+    .in(file("harness-archive/modules/web-server"))
+    .settings(
+      name := "harness-archive--web-server",
+      publish / skip := true,
+      miscSettings,
+      testSettings,
+      assemblyJarName := {
+        val appVersion = scala.sys.env.get("WEB_SERVER_VERSION")
+        val versionSuffix = appVersion.fold("")(v => s"--$v")
+        s"../artifacts/${name.value}$versionSuffix.jar"
+      },
+    )
+    .dependsOn(
+      `harness-archive--domain-impl` % testAndCompile,
+      `harness-http-server` % testAndCompile,
+    )
+
+lazy val `harness-archive--ui-web` =
+  project
+    .in(file("harness-archive/modules/ui-web"))
+    .enablePlugins(ScalaJSPlugin)
+    .settings(
+      name := "harness-archive--ui-web",
+      publish / skip := true,
+      webCompDirs := Seq(
+        file("harness-archive/modules/web-server/src/main/resources/res/js"),
+        file("harness-archive/res/js"),
+      ),
+      miscSettings,
+      testSettings,
+      scalaJSUseMainModuleInitializer := true,
+    )
+    .dependsOn(
+      `harness-archive--api-model`.js % testAndCompile,
+      `harness-web-ui` % testAndCompile,
+    )
+
+// TODO (KR) : remove legacy
+
+lazy val `harness-archive--legacy--client` =
   crossProject(JSPlatform, JVMPlatform)
     .in(file("harness-archive/client"))
     .settings(
-      name := "harness-archive-client",
+      name := "harness-archive--legacy--client",
       publishSettings,
       miscSettings,
       testSettings,
     )
     .dependsOn(
       `harness-http-client` % testAndCompile,
-      `harness-archive-model` % testAndCompile,
+      `harness-archive--legacy--model` % testAndCompile,
     )
 
-lazy val `harness-archive-model` =
+lazy val `harness-archive--legacy--model` =
   crossProject(JSPlatform, JVMPlatform)
     .in(file("harness-archive/model"))
     .settings(
-      name := "harness-archive-model",
+      name := "harness-archive--legacy--model",
       publishSettings,
       miscSettings,
       testSettings,
@@ -447,25 +598,25 @@ lazy val `harness-archive-model` =
       `harness-email-model` % testAndCompile,
     )
 
-lazy val `harness-archive-db-model` =
+lazy val `harness-archive--legacy--db-model` =
   project
     .in(file("harness-archive/db-model"))
     .settings(
-      name := "harness-archive-db-model",
+      name := "harness-archive--legacy--db-model",
       publish / skip := true,
       miscSettings,
       testSettings,
     )
     .dependsOn(
       `harness-sql` % testAndCompile,
-      `harness-archive-model`.jvm % testAndCompile,
+      `harness-archive--legacy--model`.jvm % testAndCompile,
     )
 
-lazy val `harness-archive-api` =
+lazy val `harness-archive--legacy--api` =
   project
     .in(file("harness-archive/api"))
     .settings(
-      name := "harness-archive-api",
+      name := "harness-archive--legacy--api",
       publish / skip := true,
       miscSettings,
       testSettings,
@@ -475,18 +626,18 @@ lazy val `harness-archive-api` =
       ),
     )
     .dependsOn(
-      `harness-archive-model`.jvm % testAndCompile,
-      `harness-archive-db-model` % testAndCompile,
+      `harness-archive--legacy--model`.jvm % testAndCompile,
+      `harness-archive--legacy--db-model` % testAndCompile,
       `harness-http-server` % testAndCompile,
       `harness-email` % testAndCompile,
     )
 
-lazy val `harness-archive-ui-web` =
+lazy val `harness-archive--legacy--ui-web` =
   project
     .in(file("harness-archive/ui-web"))
     .enablePlugins(ScalaJSPlugin)
     .settings(
-      name := "harness-archive-ui-web",
+      name := "harness-archive--legacy--ui-web",
       publish / skip := true,
       webCompDirs := Seq(
         file("harness-archive/api/src/main/resources/res/js"),
@@ -497,7 +648,7 @@ lazy val `harness-archive-ui-web` =
       scalaJSUseMainModuleInitializer := true,
     )
     .dependsOn(
-      `harness-archive-model`.js % testAndCompile,
+      `harness-archive--legacy--model`.js % testAndCompile,
       `harness-web-ui` % testAndCompile,
     )
 

@@ -7,5 +7,6 @@ addSbtPlugin("com.geirsson" % "sbt-ci-release" % "1.5.7")
 addSbtPlugin("io.github.kalin-rudnicki" % "harness-js-plugin" % "2.2.2")
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "1.2.0")
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.6")
+addSbtPlugin("io.github.kalin-rudnicki" % "harness-web-app-template-plugin" % "SNAPSHOT--0.1.12")
 
 addDependencyTreePlugin
