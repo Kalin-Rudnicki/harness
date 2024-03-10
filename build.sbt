@@ -410,7 +410,6 @@ lazy val `harness-web-app-template-plugin` =
     .settings(
       name := "harness-web-app-template-plugin",
       scalaVersion := "2.12.13",
-      version := "SNAPSHOT--0.1.12",
       publishSettings,
       testSettings,
     )
