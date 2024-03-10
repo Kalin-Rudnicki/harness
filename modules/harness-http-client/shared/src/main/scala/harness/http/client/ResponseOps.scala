@@ -5,9 +5,9 @@ import harness.core.*
 import harness.web.Constants.harnessInternalErrorHeader
 import harness.web.ErrorCodec
 import harness.zio.*
+import java.util.Base64
 import zio.*
 import zio.json.*
-import java.util.Base64
 
 object ResponseOps {
 
