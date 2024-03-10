@@ -1,9 +1,0 @@
-{
-  "docker": {
-    "needsSudo": true,
-    "appName": "harness-template",
-    "postgres": {
-      "volumePath": "harness-web-app-template/pvc/dev/postgres"
-    }
-  }
-}

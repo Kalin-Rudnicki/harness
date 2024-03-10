@@ -505,22 +505,6 @@ lazy val `harness-archive-ui-web` =
 
 lazy val `harness-web-app-template` =
   project
-    .in(file("harness-web-app-template"))
-    .settings(
-      publish / skip := true,
-    )
-    .aggregate(
-      `harness-web-app-template--non-legacy`,
-      // TODO (KR) : remove legacy
-      `harness-web-app-template--legacy--model`.jvm,
-      `harness-web-app-template--legacy--model`.js,
-      `harness-web-app-template--legacy--api`,
-      `harness-web-app-template--legacy--ui-web`,
-    )
-
-// TODO (KR) : inline
-lazy val `harness-web-app-template--non-legacy` =
-  project
     .in(file("harness-web-app-template/modules"))
     .settings(
       publish / skip := true,
@@ -647,81 +631,5 @@ lazy val `harness-web-app-template--ui-web` =
     )
     .dependsOn(
       `harness-web-app-template--api-model`.js % testAndCompile,
-      `harness-web-ui` % testAndCompile,
-    )
-
-// TODO (KR) : remove legacy
-
-lazy val `harness-web-app-template--legacy--model` =
-  crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-web-app-template/model"))
-    .settings(
-      name := "harness-web-app-template--legacy--model",
-      publish / skip := true,
-      miscSettings,
-      testSettings,
-    )
-    .dependsOn(
-      `harness-web` % testAndCompile,
-      `harness-email-model` % testAndCompile,
-      `harness-payments` % testAndCompile,
-    )
-
-lazy val `harness-web-app-template--legacy--db-model` =
-  project
-    .in(file("harness-web-app-template/db-model"))
-    .settings(
-      name := "harness-web-app-template--legacy--db-model",
-      publish / skip := true,
-      miscSettings,
-      testSettings,
-    )
-    .dependsOn(
-      `harness-sql` % testAndCompile,
-      `harness-web-app-template--legacy--model`.jvm % testAndCompile,
-    )
-
-lazy val `harness-web-app-template--legacy--api` =
-  project
-    .in(file("harness-web-app-template/api"))
-    .settings(
-      name := "harness-web-app-template--legacy--api",
-      publish / skip := true,
-      miscSettings,
-      testSettings,
-      libraryDependencies ++= Seq(
-        "org.mindrot" % "jbcrypt" % "0.4",
-      ),
-      assemblyJarName := {
-        val appVersion = scala.sys.env.get("WEB_SERVER_VERSION")
-        val versionSuffix = appVersion.fold("")(v => s"--$v")
-        s"../artifacts/${name.value}$versionSuffix.jar"
-      },
-    )
-    .dependsOn(
-      `harness-web-app-template--legacy--model`.jvm % testAndCompile,
-      `harness-web-app-template--legacy--db-model` % testAndCompile,
-      `harness-http-server` % testAndCompile,
-      `harness-email` % testAndCompile,
-      `harness-archive-client`.jvm % testAndCompile,
-    )
-
-lazy val `harness-web-app-template--legacy--ui-web` =
-  project
-    .in(file("harness-web-app-template/ui-web"))
-    .enablePlugins(ScalaJSPlugin)
-    .settings(
-      name := "harness-web-app-template--legacy--ui-web",
-      publish / skip := true,
-      webCompDirs := Seq(
-        file("harness-web-app-template/api/src/main/resources/res/js"),
-        file("harness-web-app-template/res/js"),
-      ),
-      miscSettings,
-      testSettings,
-      scalaJSUseMainModuleInitializer := true,
-    )
-    .dependsOn(
-      `harness-web-app-template--legacy--model`.js % testAndCompile,
       `harness-web-ui` % testAndCompile,
     )
