@@ -466,7 +466,6 @@ lazy val `harness-archive--api-model` =
       `harness-web` % testAndCompile,
       `harness-email-model` % testAndCompile,
       `harness-pk` % testAndCompile,
-      `harness-payments` % testAndCompile,
       `harness-zio-test` % Test,
     )
 

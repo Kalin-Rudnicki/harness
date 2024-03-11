@@ -2,12 +2,15 @@ package harness.archive.domain.impl.storage.inMemory
 
 import harness.archive.api.model as Api
 import harness.archive.domain.model.*
-import zio.*
+import zio.{Trace as _, *}
 
 final case class DbState(
     users: DbState.UserTable,
     sessions: DbState.SessionTable,
-    paymentMethods: DbState.PaymentMethodTable,
+    apps: DbState.AppTable,
+    appTokens: DbState.AppTokenTable,
+    logs: DbState.LogTable,
+    traces: DbState.TraceTable,
 )
 object DbState {
 
@@ -15,7 +18,10 @@ object DbState {
     DbState(
       users = UserTable(Map.empty),
       sessions = SessionTable(Map.empty),
-      paymentMethods = PaymentMethodTable(Map.empty),
+      apps = DbState.AppTable(Map.empty),
+      appTokens = DbState.AppTokenTable(Map.empty),
+      logs = DbState.LogTable(Map.empty),
+      traces = DbState.TraceTable(Map.empty),
     )
 
   val layer: ULayer[Ref.Synchronized[DbState]] =
@@ -59,8 +65,21 @@ object DbState {
     object TokenIndex extends UniqueIndex[Api.user.UserToken](_.token)
   }
 
-  final case class PaymentMethodTable(state: Map[Api.paymentMethod.PaymentMethodId, PaymentMethod]) extends Table[Api.paymentMethod.PaymentMethodId, PaymentMethod] {
-    object ForUserIndex extends ManyIndex[Api.user.UserId](_.userId)
+  final case class AppTable(state: Map[Api.app.AppId, App]) extends Table[Api.app.AppId, App] {
+    object UserAndNameIndex extends UniqueIndex[(Api.user.UserId, String)](app => (app.userId, app.name))
+    object UserIndex extends ManyIndex[Api.user.UserId](_.userId)
+  }
+
+  final case class AppTokenTable(state: Map[Api.app.AppTokenId, AppToken]) extends Table[Api.app.AppTokenId, AppToken] {
+    object TokenIndex extends UniqueIndex[Api.app.AppToken](_.token)
+  }
+
+  final case class LogTable(state: Map[Api.log.LogId, Log]) extends Table[Api.log.LogId, Log] {
+    object AppIndex extends ManyIndex[Api.app.AppId](_.appId)
+  }
+
+  final case class TraceTable(state: Map[Api.telemetry.TraceId, Trace]) extends Table[Api.telemetry.TraceId, Trace] {
+    object AppIndex extends ManyIndex[Api.app.AppId](_.appId)
   }
 
 }

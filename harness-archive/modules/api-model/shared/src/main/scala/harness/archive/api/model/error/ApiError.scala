@@ -10,9 +10,6 @@ object ApiError {
   case object InvalidSessionToken extends ApiError
   case object UsernameAlreadyExists extends ApiError
   case object InvalidLoginCredentials extends ApiError
-  case object EmailNotVerified extends ApiError
-  case object EmailAlreadyVerified extends ApiError
-  case object InvalidEmailVerificationCode extends ApiError
   case object InternalServerError extends ApiError
   final case class InvalidInput(error: String) extends ApiError
 

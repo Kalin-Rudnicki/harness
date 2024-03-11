@@ -1,10 +1,9 @@
 package harness.archive.domain.model
 
 import cats.data.NonEmptyList
-import harness.email.EmailAddress
-import harness.zio.ZIOJsonInstances.*
 import harness.archive.api.model.error.ApiError
 import harness.archive.api.model as Api
+import harness.zio.ZIOJsonInstances.*
 import zio.json.*
 
 sealed trait DomainError {
@@ -12,14 +11,11 @@ sealed trait DomainError {
   final def toApi: ApiError =
     this match {
       // =====| Core |=====
-      case DomainError.MissingSessionToken                => ApiError.MissingSessionToken
-      case DomainError.InvalidSessionToken                => ApiError.InvalidSessionToken
-      case DomainError.UsernameAlreadyExists(_)           => ApiError.UsernameAlreadyExists
-      case DomainError.InvalidUsername(_)                 => ApiError.InvalidLoginCredentials
-      case DomainError.InvalidPassword                    => ApiError.InvalidLoginCredentials
-      case DomainError.EmailNotVerified                   => ApiError.EmailNotVerified
-      case DomainError.EmailAlreadyVerified(_)            => ApiError.EmailAlreadyVerified
-      case DomainError.InvalidEmailVerificationCode(_, _) => ApiError.InvalidEmailVerificationCode
+      case DomainError.MissingSessionToken      => ApiError.MissingSessionToken
+      case DomainError.InvalidSessionToken      => ApiError.InvalidSessionToken
+      case DomainError.UsernameAlreadyExists(_) => ApiError.UsernameAlreadyExists
+      case DomainError.InvalidUsername(_)       => ApiError.InvalidLoginCredentials
+      case DomainError.InvalidPassword          => ApiError.InvalidLoginCredentials
       // =====| Misc |=====
       case DomainError.FailedToSendEmail(_)        => ApiError.InternalServerError
       case DomainError.UnexpectedStorageError(_)   => ApiError.InternalServerError
@@ -43,12 +39,6 @@ object DomainError {
   final case class InvalidUsername(username: String) extends DomainError
 
   case object InvalidPassword extends DomainError
-
-  case object EmailNotVerified extends DomainError
-
-  final case class EmailAlreadyVerified(email: EmailAddress) extends DomainError
-
-  final case class InvalidEmailVerificationCode(userId: Api.user.UserId, code: Api.user.EmailVerificationCode) extends DomainError
 
   // =====| Misc |=====
 

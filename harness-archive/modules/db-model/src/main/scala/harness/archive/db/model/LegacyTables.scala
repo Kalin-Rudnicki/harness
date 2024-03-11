@@ -1,84 +1,63 @@
 package harness.archive.db.model
 
-import harness.email.EmailAddress
-import harness.sql.*
 import harness.archive.api.model as Api
+import harness.sql.*
 
 object LegacyTables {
 
   object user {
 
-    final case class V1[F[_]](
-        id: F[User.Id],
-        firstName: F[String],
-        lastName: F[String],
-        username: F[String],
-        lowerUsername: F[String],
-        encryptedPassword: F[String],
-        email: F[EmailAddress],
-    ) extends Table.WithId[F, User.Id] {
-      def show: String = s"'$username' ($id)"
-    }
-    object V1 extends Table.Companion.WithId[Api.user.UserId, user.V1] {
-
-      override implicit lazy val tableSchema: TableSchema[user.V1] =
-        TableSchema.derived[user.V1]("user") {
-          new user.V1.Cols(
-            id = User.Id.pkCol,
-            firstName = Col.string("first_name"),
-            lastName = Col.string("last_name"),
-            username = Col.string("username"),
-            lowerUsername = Col.string("lower_username"),
-            encryptedPassword = Col.string("encrypted_password"),
-            email = Col.encoded[EmailAddress]("email"),
-          )
-        }
-
-    }
-
-    final case class V2[F[_]](
-        id: F[User.Id],
-        firstName: F[String],
-        lastName: F[String],
-        username: F[String],
-        lowerUsername: F[String],
-        encryptedPassword: F[String],
-        email: F[EmailAddress],
-        verificationEmailCodes: F[Option[Set[Api.user.EmailVerificationCode]]],
-    ) extends Table.WithId[F, User.Id] {
-      def show: String = s"'$username' ($id)"
-    }
-    object V2 extends Table.Companion.WithId[Api.user.UserId, user.V2] {
-
-      override implicit lazy val tableSchema: TableSchema[user.V2] =
-        TableSchema.derived[user.V2]("user") {
-          new user.V2.Cols(
-            id = User.Id.pkCol,
-            firstName = Col.string("first_name"),
-            lastName = Col.string("last_name"),
-            username = Col.string("username"),
-            lowerUsername = Col.string("lower_username"),
-            encryptedPassword = Col.string("encrypted_password"),
-            email = Col.encoded[EmailAddress]("email"),
-            verificationEmailCodes = Col.json[Set[Api.user.EmailVerificationCode]]("verification_email_codes").optional,
-          )
-        }
-
-    }
-
-    export template.db.model.User as V3
+    export harness.archive.db.model.User as V1
 
   }
 
   object session {
 
-    export template.db.model.Session as V1
+    export harness.archive.db.model.Session as V1
 
   }
 
-  object paymentMethod {
+  object app {
 
-    export template.db.model.PaymentMethod as V1
+    final case class V1[F[_]](
+        id: F[App.Id],
+        name: F[String],
+        logDurationMap: F[Api.app.DurationMap],
+        traceDurationMap: F[Api.app.DurationMap],
+    ) extends Table.WithId[F, App.Id]
+    object V1 extends Table.Companion.WithId[Api.app.AppId, app.V1] {
+
+      override implicit lazy val tableSchema: TableSchema[app.V1] =
+        TableSchema.derived[app.V1]("archive", "app") {
+          new app.V1.Cols(
+            id = App.Id.pkCol,
+            name = Col.string("name"),
+            logDurationMap = Col.jsonb[Api.app.DurationMap]("log_duration_map"),
+            traceDurationMap = Col.jsonb[Api.app.DurationMap]("trace_duration_map"),
+          )
+        }
+
+    }
+
+    export harness.archive.db.model.App as V2
+
+  }
+
+  object appToken {
+
+    export harness.archive.db.model.AppToken as V1
+
+  }
+
+  object log {
+
+    export harness.archive.db.model.Log as V1
+
+  }
+
+  object trace {
+
+    export harness.archive.db.model.Trace as V1
 
   }
 

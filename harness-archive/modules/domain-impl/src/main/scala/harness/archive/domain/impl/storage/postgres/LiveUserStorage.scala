@@ -1,14 +1,12 @@
 package harness.archive.domain.impl.storage.postgres
 
-import harness.payments.model.ids.*
-import harness.sql.*
-import harness.sql.query.{given, *}
-import harness.zio.*
-import harness.archive.api.model as Api
 import harness.archive.db.model as Db
 import harness.archive.domain.model.DomainError
 import harness.archive.domain.model as Domain
 import harness.archive.domain.storage.UserStorage
+import harness.sql.*
+import harness.sql.query.{given, *}
+import harness.zio.*
 import zio.*
 
 final case class LiveUserStorage(con: JDBCConnection) extends UserStorage {
@@ -19,12 +17,6 @@ final case class LiveUserStorage(con: JDBCConnection) extends UserStorage {
 
   override def byUsername(username: String): ZIO[Logger & Telemetry, DomainError, Option[Domain.User]] =
     con.use { Q.byUsername(username).option }.mapBoth(DomainError.UnexpectedStorageError(_), _.map(Db.User.toDomain))
-
-  override def setEmailCodes(id: Api.user.UserId, codes: Option[Set[Api.user.EmailVerificationCode]]): ZIO[Logger & Telemetry, DomainError, Unit] =
-    con.use { Q.setEmailCodes(id, codes).single }.mapError(DomainError.UnexpectedStorageError(_))
-
-  override def setStripeCustomerId(id: Api.user.UserId, customerId: Option[CustomerId]): ZIO[Logger & Telemetry, DomainError, Unit] =
-    con.use { Q.setStripeCustomerId(id, customerId).single }.mapError(DomainError.UnexpectedStorageError(_))
 
 }
 object LiveUserStorage {
@@ -43,20 +35,6 @@ object LiveUserStorage {
             .returning { u => u }
         }
         .cmap[String](_.toLowerCase)
-
-    val setEmailCodes: QueryI[(Api.user.UserId, Option[Set[Api.user.EmailVerificationCode]])] =
-      Prepare.updateI("User - setEmailVerified") { Input[Db.User.Id] ~ Input[Option[Set[Api.user.EmailVerificationCode]]] } { case (userId, codes) =>
-        Update[Db.User]("u")
-          .where(_.id === userId)
-          .set(_.verificationEmailCodes := codes)
-      }
-
-    val setStripeCustomerId: QueryI[(Api.user.UserId, Option[CustomerId])] =
-      Prepare.updateI("User - setStripeCustomerId") { Input[Db.User.Id] ~ Input[Option[CustomerId]] } { case (userId, customerId) =>
-        Update[Db.User]("u")
-          .where(_.id === userId)
-          .set(_.stripeCustomerId := customerId)
-      }
 
   }
 

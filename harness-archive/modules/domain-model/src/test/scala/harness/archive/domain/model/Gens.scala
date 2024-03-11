@@ -1,9 +1,8 @@
 package harness.archive.domain.model
 
-import harness.email.EmailAddress
-import harness.payments.model.ids as StripeIds
-import org.mindrot.jbcrypt.BCrypt
 import harness.archive.api.model as Api
+import harness.email.EmailAddress
+import org.mindrot.jbcrypt.BCrypt
 import zio.*
 import zio.test.*
 
@@ -40,8 +39,6 @@ object Gens {
       lowerUsername = username.toLowerCase,
       encryptedPassword = BCrypt.hashpw(password, BCrypt.gensalt),
       email = email,
-      verificationEmailCodes = None,
-      stripeCustomerId = None,
     )
 
   val genUser: Gen[Sized, User] =
@@ -55,23 +52,5 @@ object Gens {
       user <- genUser
       session <- genSession(user)
     } yield (user, session)
-
-  def genPaymentMethod(user: User): Gen[Any, PaymentMethod] =
-    for {
-      id <- Gen.fromZIO(Api.paymentMethod.PaymentMethodId.genZio)
-      stripeId <- Gen.fromZIO(StripeIds.PaymentMethodId.genZio)
-    } yield PaymentMethod(
-      id = id,
-      userId = user.id,
-      stripeId = stripeId,
-      typeString = "dummy",
-      typeDetails = None,
-    )
-
-  val genUserAndPaymentMethod: Gen[Sized, (User, PaymentMethod)] =
-    for {
-      user <- genUser
-      paymentMethod <- genPaymentMethod(user)
-    } yield (user, paymentMethod)
 
 }

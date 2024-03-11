@@ -1,10 +1,9 @@
 package harness.archive.domain.model
 
 import cats.syntax.option.*
-import harness.email.EmailAddress
-import harness.payments.model.ids as StripeIds
-import org.mindrot.jbcrypt.BCrypt
 import harness.archive.api.model as Api
+import harness.email.EmailAddress
+import org.mindrot.jbcrypt.BCrypt
 
 final case class User(
     id: Api.user.UserId,
@@ -14,8 +13,6 @@ final case class User(
     lowerUsername: String,
     encryptedPassword: String,
     email: EmailAddress,
-    verificationEmailCodes: Option[Set[Api.user.EmailVerificationCode]],
-    stripeCustomerId: Option[StripeIds.CustomerId],
 ) { self =>
 
   def toApi: Api.user.User =
@@ -25,13 +22,12 @@ final case class User(
       lastName = self.lastName,
       username = self.username,
       email = self.email,
-      emailIsVerified = self.verificationEmailCodes.isEmpty,
     )
 
 }
 object User {
 
-  def fromSignUp(req: Api.user.SignUp, code: Api.user.EmailVerificationCode): User =
+  def fromSignUp(req: Api.user.SignUp): User =
     User(
       id = Api.user.UserId.gen,
       firstName = req.firstName,
@@ -40,8 +36,6 @@ object User {
       lowerUsername = req.username.toLowerCase,
       encryptedPassword = BCrypt.hashpw(req.password, BCrypt.gensalt),
       email = req.email,
-      verificationEmailCodes = Set(code).some,
-      stripeCustomerId = None,
     )
 
 }

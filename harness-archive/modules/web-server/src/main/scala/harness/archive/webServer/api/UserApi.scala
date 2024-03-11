@@ -1,23 +1,20 @@
 package harness.archive.webServer.api
 
 import cats.syntax.option.*
-import harness.email.SendEmail
-import harness.zio.*
-import org.mindrot.jbcrypt.BCrypt
 import harness.archive.api.model as Api
-import harness.archive.domain.email.*
 import harness.archive.domain.model.*
 import harness.archive.domain.storage.*
+import harness.zio.*
+import org.mindrot.jbcrypt.BCrypt
 import zio.*
 
 final case class UserApi(
     userStorage: UserStorage,
     sessionStorage: SessionStorage,
-    emailService: EmailService,
 ) {
 
   def fromSessionToken(token: Api.user.UserToken): ZIO[HarnessEnv, DomainError, User] =
-    SessionUtils.userFromSessionTokenAllowUnverifiedEmail(token, sessionStorage)
+    SessionUtils.userFromSessionToken(token, sessionStorage)
 
   def fromSessionTokenOptional(token: Option[Api.user.UserToken]): ZIO[HarnessEnv, DomainError, Option[User]] =
     ZIO.foreach(token)(fromSessionToken)
@@ -43,52 +40,17 @@ final case class UserApi(
       _ <- Logger.log.info("Attempting sign-up", "username" -> req.username.toLowerCase)
       existingUser <- userStorage.byUsername(req.username)
       _ <- ZIO.fail(DomainError.UsernameAlreadyExists(req.username.toLowerCase)).when(existingUser.nonEmpty)
-      emailVerificationCode = Api.user.EmailVerificationCode.gen
-      user = User.fromSignUp(req, emailVerificationCode)
+      user = User.fromSignUp(req)
       session = Session.forUser(user)
       _ <- Logger.log.info("Creating user", "username" -> user.lowerUsername, "id" -> user.id)
       _ <- userStorage.insert(user)
       _ <- sessionStorage.insert(session)
-      _ <- emailService.sendEmail(SendEmail.Recipient.to(user.email))(
-        // TODO (KR) : update copy
-        subject = "Welcome to the Template App, please verify your email address",
-        body = s"Your code: $emailVerificationCode",
-      )
     } yield (user, session.token)
-
-  def verifyEmail(token: Api.user.UserToken, code: Api.user.EmailVerificationCode): ZIO[HarnessEnv, DomainError, Unit] =
-    for {
-      _ <- Logger.log.info("Attempting to verify email")
-      user <- SessionUtils.userFromSessionTokenAllowUnverifiedEmail(token, sessionStorage)
-      validCodes <- user.verificationEmailCodes match {
-        case Some(validCodes) => ZIO.succeed(validCodes)
-        case None             => ZIO.fail(DomainError.EmailAlreadyVerified(user.email))
-      }
-      _ <- ZIO.fail(DomainError.InvalidEmailVerificationCode(user.id, code)).unless(validCodes.contains(code))
-      _ <- userStorage.setEmailCodes(user.id, None)
-    } yield ()
-
-  def resendEmailCode(token: Api.user.UserToken): ZIO[HarnessEnv, DomainError, Unit] =
-    for {
-      _ <- Logger.log.info("Attempting to resend email code")
-      user <- SessionUtils.userFromSessionTokenAllowUnverifiedEmail(token, sessionStorage)
-      validCodes <- user.verificationEmailCodes match {
-        case Some(validCodes) => ZIO.succeed(validCodes)
-        case None             => ZIO.fail(DomainError.EmailAlreadyVerified(user.email))
-      }
-      newCode = Api.user.EmailVerificationCode.gen
-      _ <- userStorage.setEmailCodes(user.id, (validCodes + newCode).some)
-      _ <- emailService.sendEmail(SendEmail.Recipient.to(user.email))(
-        // TODO (KR) : update copy
-        subject = "Welcome to the Template App, please verify your email address",
-        body = s"Your new code: $newCode",
-      )
-    } yield ()
 
 }
 object UserApi {
 
-  val layer: URLayer[UserStorage & SessionStorage & EmailService, UserApi] =
+  val layer: URLayer[UserStorage & SessionStorage, UserApi] =
     ZLayer.fromFunction { UserApi.apply }
 
 }

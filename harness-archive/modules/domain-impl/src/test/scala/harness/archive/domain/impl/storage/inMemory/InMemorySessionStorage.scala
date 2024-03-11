@@ -13,6 +13,7 @@ final case class InMemorySessionStorage(stateRef: Ref.Synchronized[DbState]) ext
       for {
         _ <- state.users.get(session.userId)
         _ <- state.sessions.verifyKeyDne(session.id)
+        _ <- state.sessions.TokenIndex.verifyKeyDne(session.token)
         updatedSessions = state.sessions.state.updated(session.id, session)
       } yield state.copy(sessions = DbState.SessionTable(updatedSessions))
     }

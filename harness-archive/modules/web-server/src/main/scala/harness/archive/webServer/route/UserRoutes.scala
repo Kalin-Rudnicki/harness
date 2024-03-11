@@ -50,19 +50,6 @@ object UserRoutes {
           } yield HttpResponse.encodeJson(user.toApi).withCookie(Cookie(sessionConfig.key, token.value).rootPath.secure(sessionConfig.isSecure))
         }
       },
-      (HttpMethod.POST / "verify-email").implement { _ =>
-        for {
-          token <- sessionToken
-          code <- HttpRequest.query.get[Api.user.EmailVerificationCode]("code").mapError(_.toDomain)
-          _ <- ZIO.serviceWithZIO[UserApi](_.verifyEmail(token, code))
-        } yield HttpResponse.fromHttpCode.Ok
-      },
-      (HttpMethod.POST / "resend-email-code").implement { _ =>
-        for {
-          token <- sessionToken
-          _ <- ZIO.serviceWithZIO[UserApi](_.resendEmailCode(token))
-        } yield HttpResponse.fromHttpCode.Ok
-      },
     )
 
 }
