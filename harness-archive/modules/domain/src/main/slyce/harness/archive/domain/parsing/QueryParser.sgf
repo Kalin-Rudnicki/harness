@@ -1,0 +1,27 @@
+
+@start: Query
+@lookAhead: 2
+
+Query ~ < "&"
+        | < "|"
+        : Text "=" "[" ( Text . "," ^Text )+ "]"
+        | Text "~=" "[" ( Text . "," ^Text )+ "]"
+        | Text "?"
+        | Text CompOp Text
+        | "(" Query ")"
+        ;
+
+CompOp ^ "="
+       | "!="
+       | "~="
+       | "<"
+       | ">"
+       | ">="
+       | "<="
+       ;
+
+Text : "\"" TextElem* "\""
+       | chars
+       ;
+
+TextElem ^ chars | escChar ;

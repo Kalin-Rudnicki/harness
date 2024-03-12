@@ -11,11 +11,16 @@ sealed trait DomainError {
   final def toApi: ApiError =
     this match {
       // =====| Core |=====
-      case DomainError.MissingSessionToken      => ApiError.MissingSessionToken
-      case DomainError.InvalidSessionToken      => ApiError.InvalidSessionToken
-      case DomainError.UsernameAlreadyExists(_) => ApiError.UsernameAlreadyExists
-      case DomainError.InvalidUsername(_)       => ApiError.InvalidLoginCredentials
-      case DomainError.InvalidPassword          => ApiError.InvalidLoginCredentials
+      case DomainError.MissingSessionToken              => ApiError.MissingSessionToken
+      case DomainError.InvalidSessionToken              => ApiError.InvalidSessionToken
+      case DomainError.MissingAppToken                  => ApiError.MissingAppToken
+      case DomainError.InvalidAppToken                  => ApiError.InvalidAppToken
+      case DomainError.AppNotFound(_, _)                  => ApiError.AppNotFound
+      case DomainError.UsernameAlreadyExists(_)         => ApiError.UsernameAlreadyExists
+      case DomainError.AppNameAlreadyExists(_, _)       => ApiError.AppNameAlreadyExists
+      case DomainError.InvalidUsername(_)               => ApiError.InvalidLoginCredentials
+      case DomainError.InvalidPassword                  => ApiError.InvalidLoginCredentials
+      case DomainError.UserDoesNotHaveAccessToApp(_, _) => ApiError.UserDoesNotHaveAccessToApp
       // =====| Misc |=====
       case DomainError.FailedToSendEmail(_)        => ApiError.InternalServerError
       case DomainError.UnexpectedStorageError(_)   => ApiError.InternalServerError
@@ -34,11 +39,21 @@ object DomainError {
 
   case object InvalidSessionToken extends DomainError
 
+  case object MissingAppToken extends DomainError
+
+  case object InvalidAppToken extends DomainError
+
+  final case class AppNotFound(userId: Api.user.UserId, appName: String) extends DomainError
+
   final case class UsernameAlreadyExists(username: String) extends DomainError
+
+  final case class AppNameAlreadyExists(userId: Api.user.UserId, appName: String) extends DomainError
 
   final case class InvalidUsername(username: String) extends DomainError
 
   case object InvalidPassword extends DomainError
+
+  final case class UserDoesNotHaveAccessToApp(userId: Api.user.UserId, appId: Api.app.AppId) extends DomainError
 
   // =====| Misc |=====
 

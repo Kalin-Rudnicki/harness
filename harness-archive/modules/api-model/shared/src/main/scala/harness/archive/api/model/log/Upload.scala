@@ -7,7 +7,6 @@ import zio.Chunk
 import zio.json.*
 
 final case class Upload(
-    appId: Api.app.AppId,
     logs: Chunk[Upload.Log],
 )
 object Upload {
