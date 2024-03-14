@@ -13,6 +13,8 @@ import template.api.model as Api
 import template.domain.email.*
 import template.domain.impl.email.*
 import template.domain.impl.storage.postgres.*
+import template.domain.impl.storage.postgres.StorageUtils.errorMapper
+import template.domain.model.DomainError
 import template.webServer.api.*
 import template.webServer.route.*
 import zio.*
@@ -24,7 +26,7 @@ object Main extends ExecutableApp {
   // override val config: ExecutableApp.Config = ExecutableApp.Config.default.addArchiveDecoders
 
   type ServerEnv = JDBCConnectionPool & EmailService & PaymentProcessor & StdClientConfig & PaymentProcessor.StripePaymentProcessor.Config & SessionConfig
-  type ReqEnv = UserApi & PaymentApi & Transaction
+  type ReqEnv = UserApi & PaymentApi & Transaction[DomainError]
 
   val serverLayer: RLayer[HarnessEnv & Scope, ServerEnv] =
     ZLayer.makeSome[HarnessEnv & Scope, ServerEnv](
@@ -45,7 +47,7 @@ object Main extends ExecutableApp {
   val reqLayer: URLayer[ServerEnv & JDBCConnection & Scope, ReqEnv] =
     ZLayer.makeSome[ServerEnv & JDBCConnection & Scope, ReqEnv](
       // db
-      Transaction.liveLayer,
+      Transaction.liveLayer[DomainError],
       LiveUserStorage.liveLayer,
       LiveSessionStorage.liveLayer,
       LivePaymentMethodStorage.liveLayer,

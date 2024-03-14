@@ -56,6 +56,8 @@ lazy val testSettings =
 
 lazy val ZioJsonVersion = "0.6.2"
 
+lazy val MonocleVersion = "3.0.0-M6"
+
 // =====| Projects |=====
 
 lazy val `harness-root` =
@@ -104,6 +106,7 @@ lazy val `harness-modules` =
       `harness-payments`.jvm,
       `harness-payments`.js,
       `harness-sql`,
+      `harness-sql-mock`,
       `harness-kafka`,
       `harness-web`.js,
       `harness-web`.jvm,
@@ -256,6 +259,22 @@ lazy val `harness-sql` =
       `harness-pk`.jvm % testAndCompile,
     )
 
+lazy val `harness-sql-mock` =
+  project
+    .in(file("modules/harness-sql-mock"))
+    .settings(
+      name := "harness-sql-mock",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      libraryDependencies ++= Seq(
+        "com.github.julien-truffaut" %%% "monocle-core" % MonocleVersion,
+        "com.github.julien-truffaut" %%% "monocle-macro" % MonocleVersion,
+      ),
+      Test / fork := true,
+    )
+    .dependsOn(`harness-sql` % testAndCompile)
+
 lazy val `harness-kafka` =
   project
     .in(file("modules/harness-kafka"))
@@ -340,8 +359,8 @@ lazy val `harness-web` =
       libraryDependencies ++= Seq(
         "com.lihaoyi" %%% "scalatags" % "0.11.1",
         "io.github.cquiroz" %%% "scala-java-time" % "2.3.0",
-        "com.github.julien-truffaut" %%% "monocle-core" % "3.0.0-M6",
-        "com.github.julien-truffaut" %%% "monocle-macro" % "3.0.0-M6",
+        "com.github.julien-truffaut" %%% "monocle-core" % MonocleVersion,
+        "com.github.julien-truffaut" %%% "monocle-macro" % MonocleVersion,
       ),
     )
     .dependsOn(
@@ -593,6 +612,7 @@ lazy val `harness-web-app-template--domain-impl` =
       `harness-web-app-template--domain` % testAndCompile,
       `harness-web-app-template--db-model` % testAndCompile,
       `harness-email` % testAndCompile,
+      `harness-sql-mock` % Test,
     )
 
 lazy val `harness-web-app-template--web-server` =

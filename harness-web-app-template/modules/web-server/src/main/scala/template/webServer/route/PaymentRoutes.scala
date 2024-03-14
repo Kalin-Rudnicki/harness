@@ -4,13 +4,14 @@ import harness.http.server.{given, *}
 import harness.payments.model as PM
 import harness.sql.query.Transaction
 import harness.web.*
+import template.domain.model.DomainError
 import template.webServer.api.*
 import template.webServer.route.RouteUtils.*
 import zio.*
 
 object PaymentRoutes {
 
-  val routes: Route[PaymentApi & SessionConfig & Transaction] =
+  val routes: Route[PaymentApi & SessionConfig & Transaction[DomainError]] =
     Route.oneOf(
       (HttpMethod.POST / "create-intent").implement { _ =>
         for {

@@ -1,6 +1,7 @@
 package template.domain.impl.storage.inMemory
 
-import template.api.model as Api
+import harness.sql.mock.*
+import harness.zio.*
 import template.domain.model.*
 import zio.*
 
@@ -13,54 +14,37 @@ object DbState {
 
   val empty: DbState =
     DbState(
-      users = UserTable(Map.empty),
-      sessions = SessionTable(Map.empty),
-      paymentMethods = PaymentMethodTable(Map.empty),
+      MockTable.empty,
+      MockTable.empty,
+      MockTable.empty,
     )
 
-  val layer: ULayer[Ref.Synchronized[DbState]] =
-    ZLayer.fromZIO(Ref.Synchronized.make(DbState.empty))
+  private implicit val em: ErrorMapper[Throwable, DomainError] = DomainError.UnexpectedStorageError(_)
+  val layer: ULayer[MockState[DomainError, DbState]] =
+    MockState.layer { DbState.empty }
 
-  abstract class Table[K, V] { self =>
-
-    val state: Map[K, V]
-
-    final def find(key: K): Option[V] = state.get(key)
-    final def get(key: K): IO[DomainError, V] =
-      ZIO.getOrFailWith(DomainError.MissingExpectedInStorage(key.toString))(state.get(key))
-
-    final def verifyKeyDne(key: K): IO[DomainError.UnexpectedStorageError, Unit] =
-      if (state.contains(key)) ZIO.fail(DomainError.UnexpectedStorageError.fromMessage(s"${self.getClass.getSimpleName} key already exists: $key"))
-      else ZIO.unit
-
-    abstract class UniqueIndex[I](f: V => I) { self2 =>
-      private val index: Map[I, V] = state.values.map(v => f(v) -> v).toMap
-      final def find(i: I): Option[V] = index.get(i)
-      final def get(key: I): IO[DomainError, V] =
-        ZIO.getOrFailWith(DomainError.MissingExpectedInStorage(key.toString))(find(key))
-
-      final def verifyKeyDne(key: I): IO[DomainError.UnexpectedStorageError, Unit] =
-        if (index.contains(key)) ZIO.fail(DomainError.UnexpectedStorageError.fromMessage(s"${self.getClass.getSimpleName}.${self2.getClass.getSimpleName} key already exists: $key"))
-        else ZIO.unit
-    }
-
-    abstract class ManyIndex[I](f: V => I) {
-      private val index: Map[I, List[V]] = state.values.toList.groupBy(f)
-      final def find(i: I): List[V] = index.getOrElse(i, Nil)
-    }
-
+  final class UserTable private (values: Chunk[User]) extends MockTable[User, UserTable]("User", values) {
+    val PK = primaryKeyIndex(_.id)
+    val UsernameIndex = UniqueIndex[String]("UsernameIndex", _.lowerUsername)
+  }
+  object UserTable {
+    implicit val builder: MockTable.Builder[User, UserTable] = MockTable.Builder(new UserTable(_))
   }
 
-  final case class UserTable(state: Map[Api.user.UserId, User]) extends Table[Api.user.UserId, User] {
-    object UsernameIndex extends UniqueIndex[String](_.lowerUsername)
+  final class SessionTable private (values: Chunk[Session]) extends MockTable[Session, SessionTable]("Session", values) {
+    val PK = primaryKeyIndex(_.id)
+    val TokenIndex = UniqueIndex("TokenIndex", _.token)
+  }
+  object SessionTable {
+    implicit val builder: MockTable.Builder[Session, SessionTable] = MockTable.Builder(new SessionTable(_))
   }
 
-  final case class SessionTable(state: Map[Api.user.SessionId, Session]) extends Table[Api.user.SessionId, Session] {
-    object TokenIndex extends UniqueIndex[Api.user.UserToken](_.token)
+  final class PaymentMethodTable private (values: Chunk[PaymentMethod]) extends MockTable[PaymentMethod, PaymentMethodTable]("PaymentMethod", values) {
+    val PK = primaryKeyIndex(_.id)
+    val ForUserIndex = ManyIndex("ForUserIndex", _.userId)
   }
-
-  final case class PaymentMethodTable(state: Map[Api.paymentMethod.PaymentMethodId, PaymentMethod]) extends Table[Api.paymentMethod.PaymentMethodId, PaymentMethod] {
-    object ForUserIndex extends ManyIndex[Api.user.UserId](_.userId)
+  object PaymentMethodTable {
+    implicit val builder: MockTable.Builder[PaymentMethod, PaymentMethodTable] = MockTable.Builder(new PaymentMethodTable(_))
   }
 
 }

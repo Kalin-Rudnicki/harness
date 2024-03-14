@@ -157,7 +157,7 @@ object MigrationRunner {
             _ <- MigrationQueries.insert(migrationPlan.migration).single.when(persist).mapError(MigrationError.QueryError(_))
           } yield ()
         }
-        .provideSomeLayer[HarnessEnv & JDBCConnection](Transaction.liveLayer)
+        .provideSomeLayer[HarnessEnv & JDBCConnection](Transaction.liveLayer[MigrationError])
     else
       Logger.log.info(s"Skipping db migration ${migrationPlan.version} (already ran)")
 
@@ -200,7 +200,7 @@ object MigrationRunner {
           _ <- MigrationQueries.deleteById(migration.id).single.mapError(MigrationError.QueryError(_))
         } yield ()
       }
-      .provideSomeLayer[HarnessEnv & JDBCConnection](Transaction.liveLayer)
+      .provideSomeLayer[HarnessEnv & JDBCConnection](Transaction.liveLayer[MigrationError])
 
   private implicit val errorLogger: ErrorLogger[MigrationError] =
     ErrorLogger.withToString[MigrationError].atLevel.error

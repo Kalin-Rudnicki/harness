@@ -1,34 +1,25 @@
 package harness.sql.query
 
-import cats.syntax.either.*
 import harness.sql.*
 import harness.sql.error.QueryError
 import harness.zio.*
 import zio.*
 
-trait Transaction { self =>
+trait Transaction[E] { self =>
 
-  def inTransactionEither[R <: Logger & Telemetry, E, A](effect: ZIO[R, E, A]): ZIO[R, Either[QueryError, E], A]
-  final def inTransaction[R <: Logger & Telemetry, E, A](effect: ZIO[R, E, A])(implicit em: ErrorMapper[QueryError, E]): ZIO[R, E, A] =
-    self.inTransactionEither(effect).mapError(_.fold(em.mapError, identity))
+  def inTransaction[R <: Logger & Telemetry, A](effect: ZIO[R, E, A]): ZIO[R, E, A]
 
-  def inSavepointEither[R <: Logger & Telemetry, E, A](effect: ZIO[R, E, A]): ZIO[R, Either[QueryError, E], A]
-  final def inSavepoint[R <: Logger & Telemetry, E, A](effect: ZIO[R, E, A])(implicit em: ErrorMapper[QueryError, E]): ZIO[R, E, A] =
-    self.inSavepointEither(effect).mapError(_.fold(em.mapError, identity))
+  def inSavepoint[R <: Logger & Telemetry, A](effect: ZIO[R, E, A]): ZIO[R, E, A]
 
 }
 object Transaction {
 
-  def inTransactionEither[R <: Logger & Telemetry, E, A](effect: ZIO[R, E, A]): ZIO[Transaction & R, Either[QueryError, E], A] =
-    ZIO.serviceWithZIO[Transaction](_.inTransactionEither(effect))
-  def inTransaction[R <: Logger & Telemetry, E, A](effect: ZIO[R, E, A])(implicit em: ErrorMapper[QueryError, E]): ZIO[Transaction & R, E, A] =
-    ZIO.serviceWithZIO[Transaction](_.inTransaction(effect))
+  def inTransaction[R <: Logger & Telemetry, E: Tag, A](effect: ZIO[R, E, A]): ZIO[Transaction[E] & R, E, A] =
+    ZIO.serviceWithZIO[Transaction[E]](_.inTransaction(effect))
 
-  // NOTE : These should only be run inside a transaction
-  def inSavepointEither[R <: Logger & Telemetry, E, A](effect: ZIO[R, E, A]): ZIO[Transaction & R, Either[QueryError, E], A] =
-    ZIO.serviceWithZIO[Transaction](_.inSavepointEither(effect))
-  def inSavepoint[R <: Logger & Telemetry, E, A](effect: ZIO[R, E, A])(implicit em: ErrorMapper[QueryError, E]): ZIO[Transaction & R, E, A] =
-    ZIO.serviceWithZIO[Transaction](_.inSavepoint(effect))
+  // NOTE : This should only be run inside a transaction
+  def inSavepoint[R <: Logger & Telemetry, E: Tag, A](effect: ZIO[R, E, A]): ZIO[Transaction[E] & R, E, A] =
+    ZIO.serviceWithZIO[Transaction[E]](_.inSavepoint(effect))
 
   // =====|  |=====
 
@@ -60,32 +51,34 @@ object Transaction {
 
   private object Helpers {
 
-    def genericTransaction[R <: JDBCConnection & Logger & Telemetry, E, A](begin: Query, rollback: Query, commit: Query)(effect: ZIO[R, E, A]): ZIO[R, Either[QueryError, E], A] =
+    def genericTransaction[R <: JDBCConnection & Logger & Telemetry, E, A](
+        begin: Query,
+        rollback: Query,
+        commit: Query,
+    )(effect: ZIO[R, E, A])(implicit errorMapper: ErrorMapper[QueryError, E]): ZIO[R, E, A] =
       (
-        begin().unit.mapError(_.asLeft) *>
-          effect
-            .mapError(_.asRight)
-            .interruptible
+        begin().unit.mapError(errorMapper.mapError) *>
+          effect.interruptible
             .foldCauseZIO(
               e =>
                 rollback().unit
-                  .mapError(_.asLeft)
+                  .mapError(errorMapper.mapError)
                   .foldCauseZIO(
                     e2 => ZIO.failCause(Cause.Then(e, e2)),
                     _ => ZIO.failCause(e),
                   ),
-              a => commit().unit.mapBoth(_.asLeft, _ => a),
+              a => commit().unit.mapBoth(errorMapper.mapError, _ => a),
             )
       ).uninterruptible
 
-    def inTransaction[R <: JDBCConnection & Logger & Telemetry, E, A](effect: ZIO[R, E, A]): ZIO[R, Either[QueryError, E], A] =
+    def inTransaction[R <: JDBCConnection & Logger & Telemetry, E, A](effect: ZIO[R, E, A])(implicit errorMapper: ErrorMapper[QueryError, E]): ZIO[R, E, A] =
       genericTransaction(
         begin = Transaction.raw.begin,
         rollback = Transaction.raw.rollback,
         commit = Transaction.raw.commit,
       )(effect)
 
-    def inSavepoint[R <: JDBCConnection & Logger & Telemetry, E, A](effect: ZIO[R, E, A]): ZIO[R, Either[QueryError, E], A] =
+    def inSavepoint[R <: JDBCConnection & Logger & Telemetry, E, A](effect: ZIO[R, E, A])(implicit errorMapper: ErrorMapper[QueryError, E]): ZIO[R, E, A] =
       Savepoint.gen.flatMap { savepoint =>
         genericTransaction(
           begin = Transaction.raw.savepoint(savepoint),
@@ -96,29 +89,29 @@ object Transaction {
 
   }
 
-  final class Live(con: JDBCConnection) extends Transaction {
+  final class Live[E](con: JDBCConnection)(implicit errorMapper: ErrorMapper[QueryError, E]) extends Transaction[E] {
 
-    override def inTransactionEither[R <: Logger & Telemetry, E, A](effect: ZIO[R, E, A]): ZIO[R, Either[QueryError, E], A] =
+    override def inTransaction[R <: Logger & Telemetry, A](effect: ZIO[R, E, A]): ZIO[R, E, A] =
       con.use { Helpers.inTransaction(effect) }
 
-    override def inSavepointEither[R <: Logger & Telemetry, E, A](effect: ZIO[R, E, A]): ZIO[R, Either[QueryError, E], A] =
+    override def inSavepoint[R <: Logger & Telemetry, A](effect: ZIO[R, E, A]): ZIO[R, E, A] =
       con.use { Helpers.inSavepoint(effect) }
 
   }
 
-  final class UseSavepointForTransaction(con: JDBCConnection) extends Transaction {
+  final class UseSavepointForTransaction[E](con: JDBCConnection)(implicit errorMapper: ErrorMapper[QueryError, E]) extends Transaction[E] {
 
-    override def inTransactionEither[R <: Logger & Telemetry, E, A](effect: ZIO[R, E, A]): ZIO[R, Either[QueryError, E], A] =
+    override def inTransaction[R <: Logger & Telemetry, A](effect: ZIO[R, E, A]): ZIO[R, E, A] =
       con.use { Helpers.inSavepoint(effect) }
 
-    override def inSavepointEither[R <: Logger & Telemetry, E, A](effect: ZIO[R, E, A]): ZIO[R, Either[QueryError, E], A] =
+    override def inSavepoint[R <: Logger & Telemetry, A](effect: ZIO[R, E, A]): ZIO[R, E, A] =
       con.use { Helpers.inSavepoint(effect) }
 
   }
 
-  final class RollbackLayer(con: JDBCConnection) extends Transaction {
+  final class RollbackLayer[E](con: JDBCConnection)(implicit errorMapper: ErrorMapper[QueryError, E]) extends Transaction[E] {
 
-    override def inTransactionEither[R <: Logger & Telemetry, E, A](effect: ZIO[R, E, A]): ZIO[R, Either[QueryError, E], A] =
+    override def inTransaction[R <: Logger & Telemetry, A](effect: ZIO[R, E, A]): ZIO[R, E, A] =
       con.use {
         Helpers.genericTransaction(
           begin = Transaction.raw.begin,
@@ -127,7 +120,7 @@ object Transaction {
         )(effect)
       }
 
-    override def inSavepointEither[R <: Logger & Telemetry, E, A](effect: ZIO[R, E, A]): ZIO[R, Either[QueryError, E], A] =
+    override def inSavepoint[R <: Logger & Telemetry, A](effect: ZIO[R, E, A]): ZIO[R, E, A] =
       con.use {
         Savepoint.gen.flatMap { savepoint =>
           Helpers.genericTransaction(
@@ -140,21 +133,21 @@ object Transaction {
 
   }
 
-  final class Transactionless extends Transaction {
-    override def inTransactionEither[R <: Logger & Telemetry, E, A](effect: ZIO[R, E, A]): ZIO[R, Either[QueryError, E], A] = effect.mapError(_.asRight)
-    override def inSavepointEither[R <: Logger & Telemetry, E, A](effect: ZIO[R, E, A]): ZIO[R, Either[QueryError, E], A] = effect.mapError(_.asRight)
+  final class Transactionless[E] extends Transaction[E] {
+    override def inTransaction[R <: Logger & Telemetry, A](effect: ZIO[R, E, A]): ZIO[R, E, A] = effect
+    override def inSavepoint[R <: Logger & Telemetry, A](effect: ZIO[R, E, A]): ZIO[R, E, A] = effect
   }
 
-  val liveLayer: URLayer[JDBCConnection, Transaction] =
-    ZLayer.fromFunction(new Live(_))
+  def liveLayer[E: Tag](implicit errorMapper: ErrorMapper[QueryError, E]): URLayer[JDBCConnection, Transaction[E]] =
+    ZLayer.fromFunction(new Live[E](_))
 
-  val savepointLayer: URLayer[JDBCConnection, Transaction] =
-    ZLayer.fromFunction(new UseSavepointForTransaction(_))
+  def savepointLayer[E: Tag](implicit errorMapper: ErrorMapper[QueryError, E]): URLayer[JDBCConnection, Transaction[E]] =
+    ZLayer.fromFunction(new UseSavepointForTransaction[E](_))
 
-  val rollbackLayer: URLayer[JDBCConnection, Transaction] =
-    ZLayer.fromFunction(new RollbackLayer(_))
+  def rollbackLayer[E: Tag](implicit errorMapper: ErrorMapper[QueryError, E]): URLayer[JDBCConnection, Transaction[E]] =
+    ZLayer.fromFunction(new RollbackLayer[E](_))
 
-  val transactionlessLayer: ULayer[Transaction] =
-    ZLayer.succeed(new Transactionless)
+  def transactionlessLayer[E: Tag]: ULayer[Transaction[E]] =
+    ZLayer.succeed(new Transactionless[E])
 
 }

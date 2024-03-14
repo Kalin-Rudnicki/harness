@@ -4,14 +4,14 @@ import harness.http.server.{given, *}
 import harness.sql.query.Transaction
 import harness.web.*
 import template.api.model as Api
-import template.domain.impl.storage.postgres.StorageUtils.errorMapper
+import template.domain.model.DomainError
 import template.webServer.api.*
 import template.webServer.route.RouteUtils.*
 import zio.*
 
 object UserRoutes {
 
-  val routes: Route[UserApi & SessionConfig & Transaction] =
+  val routes: Route[UserApi & SessionConfig & Transaction[DomainError]] =
     "user" /: Route.oneOf(
       (HttpMethod.GET / "from-session-token").implement { _ =>
         for {

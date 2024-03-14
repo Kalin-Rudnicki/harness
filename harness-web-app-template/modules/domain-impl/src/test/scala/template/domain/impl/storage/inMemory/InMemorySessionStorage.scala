@@ -1,46 +1,34 @@
 package template.domain.impl.storage.inMemory
 
+import harness.sql.mock.*
 import harness.zio.*
 import template.api.model as Api
 import template.domain.model.*
 import template.domain.storage.SessionStorage
 import zio.*
 
-final case class InMemorySessionStorage(stateRef: Ref.Synchronized[DbState]) extends SessionStorage {
+final case class InMemorySessionStorage(state: MockState[DomainError, DbState]) extends SessionStorage {
 
   override def insert(session: Session): ZIO[Logger & Telemetry, DomainError, Unit] =
-    stateRef.updateZIO { state =>
-      for {
-        _ <- state.users.get(session.userId)
-        _ <- state.sessions.verifyKeyDne(session.id)
-        updatedSessions = state.sessions.state.updated(session.id, session)
-      } yield state.copy(sessions = DbState.SessionTable(updatedSessions))
-    }
+    state.focusAndUpdateW(_.sessions) { (a, b) => a.users.PK.get(session.userId) *> (b + session) }
 
   override def sessionFromSessionToken(token: Api.user.UserToken): ZIO[Logger & Telemetry, DomainError, Option[Session]] =
-    stateRef.get.map {
-      _.sessions.TokenIndex.find(token)
-    }
+    state.get.map { _.sessions.TokenIndex.find(token) }
 
   override def userFromSessionToken(token: Api.user.UserToken): ZIO[Logger & Telemetry, DomainError, Option[User]] =
-    (for {
-      state <- stateRef.get
-      session <- ZIO.succeed(state.sessions.TokenIndex.find(token)).some
-      user <- ZIO.succeed(state.users.find(session.userId)).some
-    } yield user).unsome
+    state.get.map { state =>
+      state.sessions.TokenIndex.find(token).flatMap { session =>
+        state.users.PK.find(session.userId)
+      }
+    }
 
   override def deleteById(id: Api.user.SessionId): ZIO[Logger & Telemetry, DomainError, Unit] =
-    stateRef.updateZIO { state =>
-      for {
-        _ <- state.sessions.get(id)
-        updatedSessions = state.sessions.state.removed(id)
-      } yield state.copy(sessions = DbState.SessionTable(updatedSessions))
-    }
+    state.focusAndUpdate(_.sessions) { _.PK.removed(id) }
 
 }
 object InMemorySessionStorage {
 
-  val layer: URLayer[Ref.Synchronized[DbState], InMemorySessionStorage] =
+  val layer: URLayer[MockState[DomainError, DbState], InMemorySessionStorage] =
     ZLayer.fromFunction { InMemorySessionStorage.apply }
 
 }
