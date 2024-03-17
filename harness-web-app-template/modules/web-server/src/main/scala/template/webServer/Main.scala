@@ -84,7 +84,7 @@ object Main extends ExecutableApp {
       .withLayer[ServerEnv & ServerConfig, Throwable] {
         serverLayer ++ HConfig.readLayer[ServerConfig]("http")
       }
-      .withEffectSimple {
+      .withThrowableEffect {
         MigrationRunner.runMigrationsFromPool(migrations) *>
           routes.flatMap { Server.start[ServerEnv, ReqEnv](JDBCConnection.poolLayer >>> reqLayer) }
       }

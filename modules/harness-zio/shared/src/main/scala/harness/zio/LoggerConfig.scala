@@ -6,7 +6,7 @@ import zio.*
 import zio.json.*
 
 final case class LoggerConfig(
-    context: Map[String, String],
+    context: Option[Map[String, String]],
     sources: List[LoggerConfig.Src],
 ) {
 
@@ -15,7 +15,7 @@ final case class LoggerConfig(
       Logger(
         sources = sources,
         defaultMinLogTolerance = Logger.LogLevel.Never,
-        defaultContext = context,
+        defaultContext = context.getOrElse(Map.empty),
       )
     }
 

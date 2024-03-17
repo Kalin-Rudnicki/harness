@@ -275,11 +275,11 @@ object ExecutableBuilders {
 
     final def withEffect[E2 >: E: ErrorLogger](effect: => ZIO[HarnessEnv & R & Scope, E2, Any]): Executable = this.withEffect[E2] { _ => effect }
 
-    final def withEffectSimple[E2 >: E <: Throwable](effect: P => ZIO[HarnessEnv & R & Scope, E2, Any]): Executable =
-      this.withEffect[E2] { effect }(using ErrorLogger.throwablePrettyErrorLogger)
+    final def withThrowableEffect[E2 >: E <: Throwable](effect: P => ZIO[HarnessEnv & R & Scope, E2, Any]): Executable =
+      this.withEffect[E2] { effect }(using ErrorLogger.ThrowableInstances.getMessageErrorLogger(Logger.LogLevel.Fatal))
 
-    final def withEffectSimple[E2 >: E <: Throwable](effect: => ZIO[HarnessEnv & R & Scope, E2, Any]): Executable =
-      this.withEffect[E2] { _ => effect }(using ErrorLogger.throwablePrettyErrorLogger)
+    final def withThrowableEffect[E2 >: E <: Throwable](effect: => ZIO[HarnessEnv & R & Scope, E2, Any]): Executable =
+      this.withEffect[E2] { _ => effect }(using ErrorLogger.ThrowableInstances.getMessageErrorLogger(Logger.LogLevel.Fatal))
 
   }
 

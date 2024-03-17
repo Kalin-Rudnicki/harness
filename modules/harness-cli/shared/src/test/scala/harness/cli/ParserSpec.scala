@@ -35,7 +35,7 @@ object ParserSpec extends PlainHarnessSpec {
 
   @unused
   private def isBuildFail(duplicateParamAssertion: Assertion[Name]): Assertion[FinalizedParser.Result[Any]] =
-    isSubtype[FinalizedParser.Result.BuildFail](duplicateParamAssertion.imap[FinalizedParser.Result.BuildFail]("duplicateParam")(_.duplicateParam))
+    isSubtype[FinalizedParser.Result.ParamNameConflict](duplicateParamAssertion.imap[FinalizedParser.Result.ParamNameConflict]("duplicateParam")(_.duplicateParam))
 
   private def isHelp(helpExtraAssertion: Assertion[Boolean], messageAssertion: Assertion[HelpMessage]): Assertion[FinalizedParser.Result[Any]] =
     isSubtype[FinalizedParser.Result.Help](

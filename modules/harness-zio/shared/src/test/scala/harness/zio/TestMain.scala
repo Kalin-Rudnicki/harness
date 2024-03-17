@@ -19,7 +19,7 @@ object TestMain extends ExecutableApp {
   override val executable: Executable =
     Executable
       .withParser(Parser.unit)
-      .withEffect {
+      .withThrowableEffect {
         for {
           _ <- Logger.log.info("=====| TestMain |=====")
           jsonStrings = List(
@@ -29,6 +29,8 @@ object TestMain extends ExecutableApp {
             """{"C":{}}""",
           )
           _ <- ZIO.foreachDiscard(jsonStrings) { jsonString => Logger.log.info(s"$jsonString\n${jsonString.fromJson[Ex]}") }
+          path <- Path("abc/def.ghi")
+          _ <- path.ensureIsFile
         } yield ()
       }
 

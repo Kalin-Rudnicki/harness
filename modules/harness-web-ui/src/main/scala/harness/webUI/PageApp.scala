@@ -140,7 +140,7 @@ trait PageApp[EnvFromServer <: HasStdClientConfig: Tag: JsonDecoder] extends ZIO
             )
           }
         }
-    } yield ()).logErrorCauseSimpleAndContinue(Logger.LogLevel.Error, Logger.LogLevel.Debug.some)(using ErrorLogger.throwablePrettyErrorLogger)
+    } yield ()).logErrorCauseSimpleAndContinue(Logger.LogLevel.Error, Logger.LogLevel.Debug.some)(using ErrorLogger.ThrowableInstances.jsonErrorLogger)
 
 }
 object PageApp {
@@ -151,7 +151,7 @@ object PageApp {
   ): Unit =
     Unsafe.unsafe { implicit unsafe =>
       runtime.unsafe.runToFuture {
-        effect.logErrorCauseSimpleAndContinue(Logger.LogLevel.Error, Logger.LogLevel.Debug.some)(using ErrorLogger.throwablePrettyErrorLogger)
+        effect.logErrorCauseSimpleAndContinue(Logger.LogLevel.Error, Logger.LogLevel.Debug.some)(using ErrorLogger.ThrowableInstances.jsonErrorLogger)
       }
     }
 

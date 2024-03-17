@@ -26,11 +26,16 @@ object FinalizedParser {
     sealed trait NonSuccess extends Result[Nothing]
 
     final case class Help(helpExtra: Boolean, message: HelpMessage) extends Result.NonSuccess
+
+    sealed trait FailedToBuildParser extends Result.NonSuccess
+    final case class ParamNameConflict(duplicateParam: Name) extends FailedToBuildParser
+
     final case class ParseFail(fail: ParsingFailure) extends Result.NonSuccess {
       override def toString: String = s"ParseFail:\n$fail"
     }
-    final case class BuildFail(duplicateParam: Name) extends Result.NonSuccess
+
     final case class InvalidArg(msg: String) extends Result.NonSuccess
+
   }
 
 }

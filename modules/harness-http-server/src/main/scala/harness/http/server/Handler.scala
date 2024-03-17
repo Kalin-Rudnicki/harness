@@ -109,7 +109,7 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
               .provideSomeLayer[HarnessEnv & ServerEnv](builtInReqLayer)
               .telemetrize("HTTP Request Handler", Logger.LogLevel.Detailed, "path" -> exchange.getRequestURI.getPath)
           }
-          .logErrorCauseSimpleAndContinue(Logger.LogLevel.Error, Logger.LogLevel.Debug.some)(using ErrorLogger.throwablePrettyErrorLogger)
+          .logErrorCauseSimpleAndContinue(Logger.LogLevel.Error, Logger.LogLevel.Debug.some)(using ErrorLogger.ThrowableInstances.jsonErrorLogger)
       }
     }
   }

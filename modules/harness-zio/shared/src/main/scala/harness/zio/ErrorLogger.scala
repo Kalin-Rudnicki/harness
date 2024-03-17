@@ -76,13 +76,23 @@ object ErrorLogger {
   implicit val nothingErrorLogger: ErrorLogger[Nothing] =
     ErrorLogger.withToString[Nothing].atLevel.always
 
-  val throwablePrettyErrorLogger: ErrorLogger[Throwable] =
-    ErrorLogger
-      .withShow[Throwable] {
-        case jsonShowable: JsonShowable[?] => jsonShowable.showJsonPretty
-        case t                             => t.toJsonPretty
-      }
-      .atLevel
-      .error
+  object ThrowableInstances {
+
+    def getMessageErrorLogger(level: Logger.LogLevel): ErrorLogger[Throwable] =
+      ErrorLogger.withGetMessage[Throwable].atLevel(level)
+    implicit def getMessageErrorLogger: ErrorLogger[Throwable] =
+      getMessageErrorLogger(Logger.LogLevel.Error)
+
+    def jsonErrorLogger(level: Logger.LogLevel): ErrorLogger[Throwable] =
+      ErrorLogger
+        .withShow[Throwable] {
+          case jsonShowable: JsonShowable[?] => jsonShowable.showJsonPretty
+          case t                             => t.toJsonPretty
+        }
+        .atLevel(level)
+    implicit def jsonErrorLogger: ErrorLogger[Throwable] =
+      jsonErrorLogger(Logger.LogLevel.Error)
+
+  }
 
 }

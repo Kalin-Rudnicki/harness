@@ -7,16 +7,10 @@ import zio.json.ast.Json
 
 sealed trait ConfigError extends Throwable {
 
-  override final def getMessage: String = {
-    def showPath(path: List[String]): String =
-      path match {
-        case Nil => s"`root`"
-        case _   => path.mkString(".")
-      }
-
+  override final def getMessage: String =
     this match {
-      case error: ConfigError.LoadError =>
-        error match {
+      case loadError: ConfigError.LoadError =>
+        loadError match {
           case ConfigError.LoadError.ConfigTargetDNE(target) =>
             s"Config target does not exist: $target"
           case ConfigError.LoadError.FailedToDecode(target, error) =>
@@ -24,17 +18,18 @@ sealed trait ConfigError extends Throwable {
           case ConfigError.LoadError.Generic(target, cause) =>
             s"Generic error loading config target $target: ${cause.safeGetMessage}"
         }
-      case error: ConfigError.ReadError =>
-        error match {
-          case ConfigError.ReadError.ObjectMissingKey(path, key, json) =>
-            s"Config object is missing key '$key' at path ${showPath(path)}\nJson: ${json.toJson}"
-          case ConfigError.ReadError.ExpectedJsonObject(path, json) =>
-            s"Config object at path ${showPath(path)} expected object\nJson: ${json.toJson}"
-          case ConfigError.ReadError.DecodingFailure(path, message, json) =>
-            s"Failed to decode config object at path ${showPath(path)}: $message\nJson: ${json.toJson}"
-        }
+      case readError: ConfigError.ReadError =>
+        val baseMessage: String =
+          readError match {
+            case ConfigError.ReadError.ObjectMissingKey(_, key, _) =>
+              s"Config object is missing key '$key' at path ${readError.showPath}"
+            case ConfigError.ReadError.ExpectedJsonObject(_, _) =>
+              s"Expected json object at path ${readError.showPath}"
+            case ConfigError.ReadError.DecodingFailure(_, message, _) =>
+              s"Failed to decode config object at path ${readError.showPath}: $message"
+          }
+        s"$baseMessage\nConfig json @ ${readError.showPath}: ${readError.jsonAtPath.toJson}"
     }
-  }
 
 }
 object ConfigError {
@@ -46,11 +41,18 @@ object ConfigError {
     final case class Generic(target: ConfigTarget, cause: Throwable) extends ConfigError.LoadError
   }
 
-  sealed trait ReadError extends ConfigError
+  sealed trait ReadError extends ConfigError {
+    val path: List[String]
+    val jsonAtPath: Json
+    final lazy val showPath: String = path match {
+      case Nil => "<root>"
+      case _   => path.mkString(".")
+    }
+  }
   object ReadError {
-    final case class ObjectMissingKey(path: List[String], key: String, json: Json) extends ConfigError.ReadError
-    final case class ExpectedJsonObject(path: List[String], json: Json) extends ConfigError.ReadError
-    final case class DecodingFailure(path: List[String], message: String, json: Json) extends ConfigError.ReadError
+    final case class ObjectMissingKey(path: List[String], key: String, jsonAtPath: Json) extends ConfigError.ReadError
+    final case class ExpectedJsonObject(path: List[String], jsonAtPath: Json) extends ConfigError.ReadError
+    final case class DecodingFailure(path: List[String], message: String, jsonAtPath: Json) extends ConfigError.ReadError
   }
 
   sealed trait ConfigTarget

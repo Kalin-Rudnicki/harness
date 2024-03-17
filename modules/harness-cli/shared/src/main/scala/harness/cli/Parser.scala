@@ -48,7 +48,7 @@ trait Parser[T] { self =>
           Set(duplicateParam),
           HelpMessage.duplicateParam(duplicateParam),
           HelpMessage.duplicateParam(duplicateParam),
-          _ => FinalizedParser.Result.BuildFail(duplicateParam),
+          _ => FinalizedParser.Result.ParamNameConflict(duplicateParam),
         )
     }
 

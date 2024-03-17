@@ -12,7 +12,7 @@ object TestMain extends ExecutableApp {
         HConfig.readLayer[PaymentProcessor.StripePaymentProcessor.Config]("payment", "stripe") >>>
           PaymentProcessor.StripePaymentProcessor.layer
       }
-      .withEffectSimple {
+      .withThrowableEffect {
         for {
           _ <- Logger.log.info("payments.TestMain")
         } yield ()
