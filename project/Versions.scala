@@ -1,0 +1,31 @@
+//
+
+object Versions {
+
+  val bcrypt = "0.4"
+
+  val catsCore = "2.8.0"
+
+  val javaMail = "1.6.2"
+
+  val monocle = "3.0.0-M6"
+
+  val postgresql = "42.5.0"
+
+  val scalaJavaTime = "2.3.0"
+
+  val scalaTags = "0.11.1"
+
+  val scalaXml = "2.0.0"
+
+  val shapeless3Deriving = "3.3.0"
+
+  val slyce = "2.0.9"
+
+  val stripe = "24.11.0"
+
+  val zio = "2.0.20"
+  val zioJson = "0.6.2"
+  val zioKafka = "2.7.1"
+
+}

@@ -54,10 +54,6 @@ lazy val testSettings =
     testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
   )
 
-lazy val ZioJsonVersion = "0.6.2"
-
-lazy val MonocleVersion = "3.0.0-M6"
-
 // =====| Projects |=====
 
 lazy val `harness-root` =
@@ -71,6 +67,8 @@ lazy val `harness-root` =
     )
     .aggregate(
       `harness-modules`,
+      `harness-deriving`.jvm, // TODO (KR) : move to modules once shapeless3 utils are public
+      `harness-deriving`.js, // TODO (KR) : move to modules once shapeless3 utils are public
       `harness-web-app-template`,
       `harness-archive`,
     )
@@ -125,9 +123,9 @@ lazy val `harness-test` =
       publishSettings,
       miscSettings,
       libraryDependencies ++= Seq(
-        "org.typelevel" %%% "cats-core" % "2.8.0",
-        "dev.zio" %%% "zio-test" % "2.0.20",
-        "dev.zio" %%% "zio-test-sbt" % "2.0.20",
+        "org.typelevel" %%% "cats-core" % Versions.catsCore,
+        "dev.zio" %%% "zio-test" % Versions.zio,
+        "dev.zio" %%% "zio-test-sbt" % Versions.zio,
       ),
     )
 
@@ -153,7 +151,7 @@ lazy val `harness-core` =
       miscSettings,
       testSettings,
       libraryDependencies ++= Seq(
-        "org.typelevel" %%% "cats-core" % "2.8.0",
+        "org.typelevel" %%% "cats-core" % Versions.catsCore,
       ),
       sonatypeCredentialHost := "s01.oss.sonatype.org",
     )
@@ -182,7 +180,7 @@ lazy val `harness-xml` =
       miscSettings,
       testSettings,
       libraryDependencies ++= Seq(
-        "org.scala-lang.modules" %% "scala-xml" % "2.0.0",
+        "org.scala-lang.modules" %% "scala-xml" % Versions.scalaXml,
       ),
       sonatypeCredentialHost := "s01.oss.sonatype.org",
     )
@@ -212,8 +210,8 @@ lazy val `harness-zio` =
       miscSettings,
       testSettings,
       libraryDependencies ++= Seq(
-        "dev.zio" %%% "zio" % "2.0.20",
-        "dev.zio" %%% "zio-json" % ZioJsonVersion,
+        "dev.zio" %%% "zio" % Versions.zio,
+        "dev.zio" %%% "zio-json" % Versions.zioJson,
       ),
     )
     .jvmSettings(
@@ -233,7 +231,7 @@ lazy val `harness-pk` =
       testSettings,
       Test / fork := true,
       libraryDependencies ++= Seq(
-        "dev.zio" %%% "zio-json" % ZioJsonVersion,
+        "dev.zio" %%% "zio-json" % Versions.zioJson,
       ),
     )
     .dependsOn(
@@ -249,8 +247,8 @@ lazy val `harness-sql` =
       miscSettings,
       testSettings,
       libraryDependencies ++= Seq(
-        "org.typelevel" %% "shapeless3-deriving" % "3.3.0",
-        "org.postgresql" % "postgresql" % "42.5.0",
+        "org.typelevel" %% "shapeless3-deriving" % Versions.shapeless3Deriving,
+        "org.postgresql" % "postgresql" % Versions.postgresql,
       ),
       Test / fork := true,
     )
@@ -268,8 +266,8 @@ lazy val `harness-sql-mock` =
       miscSettings,
       testSettings,
       libraryDependencies ++= Seq(
-        "com.github.julien-truffaut" %%% "monocle-core" % MonocleVersion,
-        "com.github.julien-truffaut" %%% "monocle-macro" % MonocleVersion,
+        "com.github.julien-truffaut" %%% "monocle-core" % Versions.monocle,
+        "com.github.julien-truffaut" %%% "monocle-macro" % Versions.monocle,
       ),
       Test / fork := true,
     )
@@ -284,7 +282,7 @@ lazy val `harness-kafka` =
       miscSettings,
       testSettings,
       libraryDependencies ++= Seq(
-        "dev.zio" %% "zio-kafka" % "2.7.1",
+        "dev.zio" %% "zio-kafka" % Versions.zioKafka,
       ),
       Test / fork := true,
     )
@@ -304,7 +302,7 @@ lazy val `harness-email-model` =
     )
     .jvmSettings(
       libraryDependencies ++= Seq(
-        "com.sun.mail" % "javax.mail" % "1.6.2",
+        "com.sun.mail" % "javax.mail" % Versions.javaMail,
       ),
     )
     .dependsOn(
@@ -337,7 +335,7 @@ lazy val `harness-payments` =
     )
     .jvmSettings(
       libraryDependencies ++= Seq(
-        "com.stripe" % "stripe-java" % "24.11.0",
+        "com.stripe" % "stripe-java" % Versions.stripe,
       ),
     )
     .jsConfigure(_.dependsOn(`harness-web-ui` % testAndCompile))
@@ -357,10 +355,10 @@ lazy val `harness-web` =
     )
     .jsSettings(
       libraryDependencies ++= Seq(
-        "com.lihaoyi" %%% "scalatags" % "0.11.1",
-        "io.github.cquiroz" %%% "scala-java-time" % "2.3.0",
-        "com.github.julien-truffaut" %%% "monocle-core" % MonocleVersion,
-        "com.github.julien-truffaut" %%% "monocle-macro" % MonocleVersion,
+        "com.lihaoyi" %%% "scalatags" % Versions.scalaTags,
+        "io.github.cquiroz" %%% "scala-java-time" % Versions.scalaJavaTime,
+        "com.github.julien-truffaut" %%% "monocle-core" % Versions.monocle,
+        "com.github.julien-truffaut" %%% "monocle-macro" % Versions.monocle,
       ),
     )
     .dependsOn(
@@ -408,6 +406,21 @@ lazy val `harness-web-ui` =
     .dependsOn(
       `harness-http-client`.js % testAndCompile,
     )
+
+lazy val `harness-deriving` =
+  crossProject(JSPlatform, JVMPlatform)
+    .in(file("modules/harness-deriving"))
+    .settings(
+      name := "harness-deriving",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      libraryDependencies ++= Seq(
+        "org.typelevel" %% "shapeless3-deriving" % "tmp-local--0.0.2", // TODO (KR) : use shared once published
+      ),
+      sonatypeCredentialHost := "s01.oss.sonatype.org",
+    )
+    .dependsOn(`harness-core` % testAndCompile)
 
 lazy val `harness-js-plugin` =
   project
@@ -489,8 +502,8 @@ lazy val `harness-archive-api` =
       miscSettings,
       testSettings,
       libraryDependencies ++= Seq(
-        "org.mindrot" % "jbcrypt" % "0.4",
-        MyOrg %% "slyce-parse" % "2.0.9",
+        "org.mindrot" % "jbcrypt" % Versions.bcrypt,
+        MyOrg %% "slyce-parse" % Versions.slyce,
       ),
     )
     .dependsOn(
@@ -565,7 +578,7 @@ lazy val `harness-web-app-template--domain-model` =
       miscSettings,
       testSettings,
       libraryDependencies ++= Seq(
-        "org.mindrot" % "jbcrypt" % "0.4",
+        "org.mindrot" % "jbcrypt" % Versions.bcrypt,
       ),
     )
     .dependsOn(
