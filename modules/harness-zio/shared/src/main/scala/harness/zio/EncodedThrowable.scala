@@ -1,5 +1,6 @@
 package harness.zio
 
+import harness.core.*
 import zio.json.*
 
 final case class EncodedThrowable(
@@ -17,7 +18,7 @@ object EncodedThrowable {
       case _ =>
         EncodedThrowable(
           throwable.getClass.getName,
-          Option(throwable.getMessage).getOrElse(throwable.toString),
+          throwable.safeGetMessage,
           Option(throwable.getCause).map(EncodedThrowable.fromThrowable),
         )
     }

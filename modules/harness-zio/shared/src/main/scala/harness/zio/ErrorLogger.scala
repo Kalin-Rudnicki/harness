@@ -1,5 +1,6 @@
 package harness.zio
 
+import harness.core.*
 import harness.zio.ZIOJsonInstances.throwableJsonCodec
 import zio.*
 import zio.json.*
@@ -23,7 +24,7 @@ final case class ErrorLogger[-E](
         log(value, context*) *>
           logTrace(trace)
       case Cause.Die(value, trace) =>
-        Logger.log(causeLevel, s"ZIO Died (${value.getClass.getName}): ${Option(value.getMessage).getOrElse(value.toString)}", context*) *>
+        Logger.log(causeLevel, s"ZIO Died (${value.getClass.getName}): ${value.safeGetMessage}", context*) *>
           logTrace(trace)
       case Cause.Interrupt(fiberId, trace) =>
         Logger.log(causeLevel, s"Interrupted: $fiberId", context*) *>
@@ -60,7 +61,7 @@ object ErrorLogger {
   def make[E](convert: E => (Logger.LogLevel, String)): ErrorLogger[E] = ErrorLogger(convert)
 
   def withToString[E]: ErrorLogger.Builder[E] = new Builder[E](_.toString)
-  def withGetMessage[E <: Throwable]: ErrorLogger.Builder[E] = new Builder[E](e => Option(e.getMessage).getOrElse(e.toString))
+  def withGetMessage[E <: Throwable]: ErrorLogger.Builder[E] = new Builder[E](_.safeGetMessage)
   def withShow[E](f: E => String): ErrorLogger.Builder[E] = new Builder[E](f)
   def withJsonShow[E: JsonEncoder]: ErrorLogger.Builder[E] = new Builder[E](_.toJson)
   def withJsonPrettyShow[E: JsonEncoder]: ErrorLogger.Builder[E] = new Builder[E](_.toJsonPretty)

@@ -104,7 +104,7 @@ object StringDecoder {
     }
 
     def attemptDate(date: => LocalDate): EitherNel[String, LocalDate] =
-      Try(date).toEither.leftMap(_.getMessage).toEitherNel
+      Try(date).toEither.leftMap(_.safeGetMessage).toEitherNel
 
     str match {
       case us2Year(month, day, year)    => attemptDate(LocalDate.of(guessYear(year.toInt), month.toInt, day.toInt))
@@ -129,7 +129,7 @@ object StringDecoder {
     val hourMinuteSecondPM = s"$numsOneTwo:$numsTwo$numsTwo$someSpacing(?:PM|pm)".r
 
     def attemptTime(time: => LocalTime): EitherNel[String, LocalTime] =
-      Try(time).toEither.leftMap(_.getMessage).toEitherNel
+      Try(time).toEither.leftMap(_.safeGetMessage).toEitherNel
 
     def pmTime(hour: Int): Int =
       if (hour == 12) 0
