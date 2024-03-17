@@ -6,7 +6,9 @@ final case class EncodedThrowable(
     className: String,
     message: String,
     cause: Option[EncodedThrowable],
-) extends Throwable
+) extends Throwable {
+  override def getMessage: String = this.toJsonPretty
+}
 object EncodedThrowable {
 
   def fromThrowable(throwable: Throwable): EncodedThrowable =

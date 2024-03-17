@@ -1,6 +1,15 @@
 package harness.sql.error
 
-sealed trait ConnectionError extends Throwable
+import harness.core.*
+
+sealed trait ConnectionError extends Throwable {
+
+  override final def getMessage: String = this match {
+    case ConnectionError.Generic(cause) =>
+      s"Generic connection error (${cause.getClass.getName}): ${cause.safeGetMessage}"
+  }
+
+}
 object ConnectionError {
 
   final case class Generic(cause: Throwable) extends ConnectionError

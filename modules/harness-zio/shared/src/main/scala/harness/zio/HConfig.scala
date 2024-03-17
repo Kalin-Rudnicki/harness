@@ -23,7 +23,7 @@ final case class HConfig(configJson: Json) { self =>
                 case Some((_, json)) => loop(tail, json, head :: rSeenJsonPath)
                 case None            => ZIO.fail(ConfigError.ReadError.ObjectMissingKey(rSeenJsonPath.reverse, head, json))
               }
-            case _ => ZIO.fail(ConfigError.ReadError.UnexpectedNonObject(rSeenJsonPath.reverse, json))
+            case _ => ZIO.fail(ConfigError.ReadError.ExpectedJsonObject(rSeenJsonPath.reverse, json))
           }
         case Nil =>
           // NOTE : `fromJsonAST` is not used, because ZIO json doesn't properly decode missing values to None with that function

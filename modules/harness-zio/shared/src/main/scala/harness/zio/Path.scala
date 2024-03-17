@@ -57,11 +57,11 @@ trait Path {
 
   def readBytes: IO[FSError.UnableToReadFromFile, Array[Byte]]
   def readString: IO[FSError.UnableToReadFromFile, String]
-  inline final def readJson[T](implicit decoder: JsonDecoder[T]): IO[FSError.UnableToReadFromFile | FSError.MalformedFileContents, T] =
+  inline final def readJson[T](implicit decoder: JsonDecoder[T]): IO[FSError.UnableToReadFromFile | FSError.UnableToDecodeFileContents, T] =
     readString.flatMap {
       decoder.decodeJson(_) match {
         case Right(value) => ZIO.succeed(value)
-        case Left(error)  => ZIO.fail(FSError.MalformedFileContents(error, show))
+        case Left(error)  => ZIO.fail(FSError.UnableToDecodeFileContents(error, show))
       }
     }
 
