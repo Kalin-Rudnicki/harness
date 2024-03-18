@@ -12,7 +12,7 @@ import zio.*
 object PaymentRoutes {
 
   val routes: Route[PaymentApi & SessionConfig & Transaction[DomainError]] =
-    Route.oneOf(
+    "payment" /: Route.oneOf(
       (HttpMethod.POST / "create-intent").implement { _ =>
         for {
           token <- sessionToken

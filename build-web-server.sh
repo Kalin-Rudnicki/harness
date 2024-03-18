@@ -18,9 +18,9 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY harness-web-app-template/res res
-COPY harness-web-app-template/api/target/artifacts/harness-web-app-template--api--$BUILD__DOCKER_TAG.jar web-server.jar
+COPY harness-web-app-template/modules/web-server/target/artifacts/harness-web-app-template--web-server--$BUILD__DOCKER_TAG.jar web-server.jar
 
-CMD [\"java\", \"-jar\", \"web-server.jar\", \"--dev\", \"-C=env:HARNESS_CFG\", \"--\", \"server\"]
+CMD [\"java\", \"-jar\", \"web-server.jar\", \"-C=env:HARNESS_CFG\", \"--\", \"server\"]
 """
 
 BUILD__DOCKERFILE_TEMPFILE=$(mktemp --tmpdir=.)
@@ -30,7 +30,7 @@ export WEB_SERVER_VERSION="$BUILD__DOCKER_TAG"
 
 sbt \
   "harness-web-app-template--ui-web/webComp --full" \
-  harness-web-app-template--api/assembly
+  harness-web-app-template--web-server/assembly
 
 docker build --file "$BUILD__DOCKERFILE_TEMPFILE" -t "$BUILD__DOCKER_APP_NAME:$BUILD__DOCKER_TAG" .
 

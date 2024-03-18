@@ -80,13 +80,16 @@ object Main extends ExecutableApp {
     )
 
   override val executable: Executable =
-    Executable
-      .withLayer[ServerEnv & ServerConfig, Throwable] {
-        serverLayer ++ HConfig.readLayer[ServerConfig]("http")
-      }
-      .withThrowableEffect {
-        MigrationRunner.runMigrationsFromPool(migrations) *>
-          routes.flatMap { Server.start[ServerEnv, ReqEnv](JDBCConnection.poolLayer >>> reqLayer) }
-      }
+    Executable.fromSubCommands(
+      "server" ->
+        Executable
+          .withLayer[ServerEnv & ServerConfig, Throwable] {
+            serverLayer ++ HConfig.readLayer[ServerConfig]("http")
+          }
+          .withThrowableEffect {
+            MigrationRunner.runMigrationsFromPool(migrations) *>
+              routes.flatMap { Server.start[ServerEnv, ReqEnv](JDBCConnection.poolLayer >>> reqLayer) }
+          },
+    )
 
 }

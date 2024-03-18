@@ -15,7 +15,7 @@ object SessionUtils {
 
   def userFromSessionToken(token: Api.user.UserToken, storage: SessionStorage): ZIO[Logger & Telemetry, DomainError, User] =
     userFromSessionTokenAllowUnverifiedEmail(token, storage)
-      .tap { user => ZIO.fail(DomainError.EmailNotVerified).when(user.verificationEmailCodes.isEmpty) }
+      .tap { user => ZIO.fail(DomainError.EmailNotVerified).when(user.verificationEmailCodes.nonEmpty) }
 
   def sessionFromSessionToken(token: Api.user.UserToken, storage: SessionStorage): ZIO[Logger & Telemetry, DomainError, Session] =
     storage

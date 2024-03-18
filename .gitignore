@@ -12,33 +12,28 @@ project/project/project/metals.sbt
 
 -- Harness Web App Template --
 
-harness-web-app-template/modules/web-server/src/main/resources/ssl
-harness-web-app-template/modules/web-server/src/main/resources/secrets.conf.json
-harness-web-app-template/modules/web-server/src/main/resources/archive-secrets.conf.json
+harness-web-app-template/modules/web-server/src/main/resources/*secrets*.conf.json
 harness-web-app-template/modules/web-server/src/main/resources/res/js
 
-harness-web-app-template/res/ssl
 harness-web-app-template/res/js
 
 harness-web-app-template/petaform/.internal
-harness-web-app-template/petaform/config/**/secrets.conf
-harness-web-app-template/petaform/config/**/*-secrets.conf
+harness-web-app-template/petaform/config/**/*secrets*.conf
 
 -- Harness Archive --
 
--- TODO
+harness-archive/modules/web-server/src/main/resources/ssl
+harness-archive/modules/web-server/src/main/resources/*secrets*.conf.json
+harness-archive/modules/web-server/src/main/resources/res/js
 
--- Harness Web App Template (Legacy) --
+harness-archive/res/ssl
+harness-archive/res/js
 
-harness-web-app-template/api/src/main/resources/res/js
-harness-web-app-template/api/src/main/resources/ssl
-
-harness-web-app-template/api/src/main/resources/secrets.conf.json
-harness-web-app-template/api/src/main/resources/archive-secrets.conf.json
+harness-archive/petaform/.internal
+harness-archive/petaform/config/**/*secrets*.conf
 
 -- Harness Archive (Legacy) --
 
-harness-archive/res/js
 harness-archive/api/src/main/resources/res/js
 harness-archive/api/src/main/resources/secrets.conf.json
 harness-archive/api/src/main/resources/ssl
