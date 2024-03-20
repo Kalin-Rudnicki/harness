@@ -16,10 +16,8 @@ sealed trait MockError extends Throwable {
       s"\n  Unexpected call to capability ${givenCapability.name}$expStr"
     case MockError.UnsatisfiedCalls(expectations) =>
       s"\n  Unsatisfied seeded calls (test can not exit with remaining expectations):${expectations.toList.map(e => s"\n    - ${e.name}").mkString}"
-    case MockError.OverlappingCapabilityImplementations(capabilities) =>
-      s"\n  Conflicting capabilities provided for:${capabilities.toList.map(c => s"\n    - ${c.name}").mkString}"
-    case MockError.CanNotSeedImplementedCapability(capability) =>
-      s"\n  Can not seed capability which is implemented: ${capability.name}"
+    case MockError.CapabilityIsAlreadyImplemented(capability) =>
+      s"\n  Capability is already implemented: ${capability.name}"
   }
 
   override final def toString: String = getMessage
@@ -36,11 +34,7 @@ object MockError {
       expectations: NonEmptyList[ErasedCapability],
   ) extends MockError
 
-  final case class OverlappingCapabilityImplementations(
-      capabilities: NonEmptyList[ErasedCapability],
-  ) extends MockError
-
-  final case class CanNotSeedImplementedCapability(
+  final case class CapabilityIsAlreadyImplemented(
       capability: ErasedCapability,
   ) extends MockError
 

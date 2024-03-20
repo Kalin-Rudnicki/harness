@@ -1,8 +1,8 @@
 package harness.zio.mock
 
 import harness.zio.*
-import harness.zio.test.*
 import harness.zio.mock.*
+import harness.zio.test.*
 import java.util.UUID
 import zio.*
 import zio.test.*
@@ -97,6 +97,7 @@ object ExampleSpec extends DefaultHarnessSpec {
 
   override def spec: TestSpec =
     specImpl.provideSome[HarnessEnv](
+      Proxy.layer,
       (
         Service1Mock.GetPerson.implement.success(Person(UUID.randomUUID, "first", "last", 18)) ++
           Service2Mock.empty

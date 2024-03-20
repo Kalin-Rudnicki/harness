@@ -2,8 +2,8 @@ package harness.zio.mock
 
 import cats.data.NonEmptyList
 import harness.zio.*
-import harness.zio.test.*
 import harness.zio.mock.error.MockError
+import harness.zio.test.*
 import zio.*
 import zio.test.*
 import zio.test.Assertion.*
@@ -37,7 +37,7 @@ object MockSpec extends DefaultHarnessSpec {
   }
 
   private def makeTest(name: String)(mocked: Mocked[ExService])(testF: => ZIO[HarnessEnv & ExService & Proxy, Any, TestResult]): TestSpec =
-    test(name) { testF.provideSomeLayer[HarnessEnv](mocked.toLayer) }
+    test(name) { testF.provideSomeLayer[HarnessEnv](Proxy.layer >+> mocked.toLayer) }
 
   private def makeSeedTest(name: String)(testF: => ZIO[HarnessEnv & ExService & Proxy, Any, TestResult]): Spec[HarnessEnv & ExService & Proxy, Any] =
     test(name) { testF }
@@ -124,7 +124,7 @@ object MockSpec extends DefaultHarnessSpec {
           res4 == 125,
         )
       },
-    ).provideSomeLayer[HarnessEnv](ExServiceMock.empty.toLayer)
+    ).provideSomeLayer[HarnessEnv](Proxy.layer >+> ExServiceMock.empty.toLayer)
 
   private val negativeSeedSpec: TestSpec =
     suite("negative")(

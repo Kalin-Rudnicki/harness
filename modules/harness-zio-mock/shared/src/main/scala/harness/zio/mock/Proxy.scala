@@ -6,7 +6,7 @@ import harness.zio.mock.error.MockError
 import zio.*
 
 final class Proxy private (
-    private val impls: Map[ErasedCapability, ErasedEffectImpl],
+    private val implsRef: Ref[Map[ErasedCapability, ErasedEffectImpl]],
     private val expectationsRef: Ref[List[ErasedExpectation]],
 ) {
 
@@ -14,7 +14,7 @@ final class Proxy private (
       capability: Mock[Z]#Capability[I, R, E, A],
       i: I,
   ): ZIO[R, E, A] =
-    impls.get(capability) match {
+    implsRef.get.map(_.get(capability)).flatMap {
       case Some(effectImpl) =>
         val typed: EffectImpl[I, R, E, A] = effectImpl.asInstanceOf
         typed(i)
@@ -139,19 +139,33 @@ final class Proxy private (
 
   // =====|  |=====
 
+  private def ensureCapabilityIsNotImplemented(capability: ErasedCapability): UIO[Unit] =
+    ZIO.die(MockError.CapabilityIsAlreadyImplemented(capability)).whenZIO(implsRef.get.map(_.contains(capability))).unit
+
+  // TODO (KR) : check that capability is not in seeded expectations
+  private[mock] def putImpl[Z, I, R, E, A](capability: Mock[Z]#Capability[I, R, E, A], effect: I => ZIO[R, E, A]): UIO[Unit] =
+    ensureCapabilityIsNotImplemented(capability) *>
+      implsRef.update(_.updated(capability, effect))
+
   private[mock] def prependSeed[Z, I, R, E, A](capability: Mock[Z]#Capability[I, R, E, A], effect: I => ZIO[R, E, A]): UIO[Unit] =
-    ZIO.die(MockError.CanNotSeedImplementedCapability(capability)).when(impls.contains(capability)) *>
+    ensureCapabilityIsNotImplemented(capability) *>
       expectationsRef.update(Expectation(capability, effect) :: _)
 
   private[mock] def appendSeed[Z, I, R, E, A](capability: Mock[Z]#Capability[I, R, E, A], effect: I => ZIO[R, E, A]): UIO[Unit] =
-    ZIO.die(MockError.CanNotSeedImplementedCapability(capability)).when(impls.contains(capability)) *>
+    ensureCapabilityIsNotImplemented(capability) *>
       expectationsRef.update(_ :+ Expectation(capability, effect))
 
 }
 object Proxy {
 
-  private def makeScoped(impls: Map[ErasedCapability, ErasedEffectImpl]): URIO[Scope, Proxy] =
-    Ref.make(List.empty[ErasedExpectation]).map { new Proxy(impls, _) }.withFinalizer {
+  private val makeWithoutFinalizer: UIO[Proxy] =
+    for {
+      implsRef <- Ref.make(Map.empty[ErasedCapability, ErasedEffectImpl])
+      expectationsRef <- Ref.make(List.empty[ErasedExpectation])
+    } yield new Proxy(implsRef, expectationsRef)
+
+  private val makeWithFinalizer: URIO[Scope, Proxy] =
+    makeWithoutFinalizer.withFinalizer {
       _.expectationsRef.get.flatMap {
         _.toNel match {
           case Some(unsatisfiedExpectations) => ZIO.die(MockError.UnsatisfiedCalls(unsatisfiedExpectations.map(_.capability)))
@@ -160,7 +174,7 @@ object Proxy {
       }
     }
 
-  private[mock] def make(impls: Map[ErasedCapability, ErasedEffectImpl]): ULayer[Proxy] =
-    ZLayer.scoped { makeScoped(impls) }
+  val layer: ULayer[Proxy] =
+    ZLayer.scoped { makeWithFinalizer }
 
 }
