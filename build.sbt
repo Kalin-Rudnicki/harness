@@ -136,6 +136,7 @@ lazy val `harness-zio-test` =
       name := "harness-zio-test",
       publishSettings,
       miscSettings,
+      testSettings,
     )
     .dependsOn(
       `harness-zio` % testAndCompile,
