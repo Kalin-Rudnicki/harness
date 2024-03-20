@@ -67,10 +67,10 @@ lazy val `harness-root` =
     )
     .aggregate(
       `harness-modules`,
-      `harness-deriving`.jvm, // TODO (KR) : move to modules once shapeless3 utils are public
-      `harness-deriving`.js, // TODO (KR) : move to modules once shapeless3 utils are public
+      // `harness-deriving`.jvm, // TODO (KR) : move to modules once shapeless3 utils are public
+      // `harness-deriving`.js, // TODO (KR) : move to modules once shapeless3 utils are public
       `harness-web-app-template`,
-      `harness-archive`,
+      // `harness-archive`,
     )
 
 lazy val `harness-modules` =
