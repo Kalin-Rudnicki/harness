@@ -1,9 +1,9 @@
-package harness.zio.test.mock
+package harness.zio.mock
 
 import cats.data.NonEmptyList
 import harness.zio.*
 import harness.zio.test.*
-import harness.zio.test.mock.error.MockError
+import harness.zio.mock.error.MockError
 import zio.*
 import zio.test.*
 import zio.test.Assertion.*

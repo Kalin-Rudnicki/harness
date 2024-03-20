@@ -1,4 +1,4 @@
-package harness.zio.test.mock
+package harness.zio.mock
 
 import zio.*
 
@@ -10,6 +10,6 @@ object Types {
   type ErasedCapabilityZ[Z] = Mock[Z]#Capability[?, ?, ?, ?]
   type ErasedCapability = Mock[?]#Capability[?, ?, ?, ?]
 
-  type ErasedSeededExpectation = SeededExpectation[?, ?, ?, ?, ?]
-  
+  type ErasedExpectation = Expectation[?, ?, ?, ?, ?]
+
 }

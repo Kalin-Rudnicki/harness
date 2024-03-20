@@ -1,13 +1,13 @@
-package harness.zio.test.mock
+package harness.zio.mock
 
 import cats.syntax.list.*
-import harness.zio.test.mock.Types.*
-import harness.zio.test.mock.error.MockError
+import harness.zio.mock.Types.*
+import harness.zio.mock.error.MockError
 import zio.*
 
 final class Proxy private (
     private val impls: Map[ErasedCapability, ErasedEffectImpl],
-    private val expectationsRef: Ref[List[ErasedSeededExpectation]],
+    private val expectationsRef: Ref[List[ErasedExpectation]],
 ) {
 
   def apply[Z, I, R, E, A](
@@ -141,17 +141,17 @@ final class Proxy private (
 
   private[mock] def prependSeed[Z, I, R, E, A](capability: Mock[Z]#Capability[I, R, E, A], effect: I => ZIO[R, E, A]): UIO[Unit] =
     ZIO.die(MockError.CanNotSeedImplementedCapability(capability)).when(impls.contains(capability)) *>
-      expectationsRef.update(SeededExpectation(capability, effect) :: _)
+      expectationsRef.update(Expectation(capability, effect) :: _)
 
   private[mock] def appendSeed[Z, I, R, E, A](capability: Mock[Z]#Capability[I, R, E, A], effect: I => ZIO[R, E, A]): UIO[Unit] =
     ZIO.die(MockError.CanNotSeedImplementedCapability(capability)).when(impls.contains(capability)) *>
-      expectationsRef.update(_ :+ SeededExpectation(capability, effect))
+      expectationsRef.update(_ :+ Expectation(capability, effect))
 
 }
 object Proxy {
 
   private def makeScoped(impls: Map[ErasedCapability, ErasedEffectImpl]): URIO[Scope, Proxy] =
-    Ref.make(List.empty[ErasedSeededExpectation]).map { new Proxy(impls, _) }.withFinalizer {
+    Ref.make(List.empty[ErasedExpectation]).map { new Proxy(impls, _) }.withFinalizer {
       _.expectationsRef.get.flatMap {
         _.toNel match {
           case Some(unsatisfiedExpectations) => ZIO.die(MockError.UnsatisfiedCalls(unsatisfiedExpectations.map(_.capability)))

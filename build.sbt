@@ -96,6 +96,8 @@ lazy val `harness-modules` =
       `harness-cli`.jvm,
       `harness-zio`.js,
       `harness-zio`.jvm,
+      `harness-zio-mock`.js,
+      `harness-zio-mock`.jvm,
       `harness-pk`.js,
       `harness-pk`.jvm,
       `harness-email-model`.jvm,
@@ -220,6 +222,26 @@ lazy val `harness-zio` =
     )
     .dependsOn(
       `harness-cli` % testAndCompile,
+    )
+
+lazy val `harness-zio-mock` =
+  crossProject(JSPlatform, JVMPlatform)
+    .in(file("modules/harness-zio-mock"))
+    .settings(
+      name := "harness-zio-mock",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      libraryDependencies ++= Seq(
+        "org.typelevel" %%% "cats-core" % Versions.catsCore,
+        "dev.zio" %%% "zio" % Versions.zio,
+      ),
+    )
+    .jvmSettings(
+      Test / fork := true,
+    )
+    .dependsOn(
+      `harness-zio-test` % Test,
     )
 
 lazy val `harness-pk` =

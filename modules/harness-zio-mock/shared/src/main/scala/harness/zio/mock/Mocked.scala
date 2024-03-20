@@ -1,8 +1,8 @@
-package harness.zio.test.mock
+package harness.zio.mock
 
 import cats.syntax.list.*
-import harness.zio.test.mock.Types.*
-import harness.zio.test.mock.error.MockError
+import harness.zio.mock.Types.*
+import harness.zio.mock.error.MockError
 import zio.*
 
 sealed trait Mocked[Z] { self =>

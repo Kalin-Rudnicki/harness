@@ -1,8 +1,8 @@
-package harness.zio.test.mock.error
+package harness.zio.mock.error
 
 import cats.data.NonEmptyList
-import harness.zio.test.mock.*
-import harness.zio.test.mock.Types.*
+import harness.zio.mock.*
+import harness.zio.mock.Types.*
 
 sealed trait MockError extends Throwable {
 

@@ -1,4 +1,4 @@
-package harness.zio.test.mock
+package harness.zio.mock
 
 import java.util.UUID
 import zio.*
