@@ -14,24 +14,29 @@ final class Proxy private (
       capability: Mock[Z]#Capability[I, R, E, A],
       i: I,
   ): ZIO[R, E, A] =
-    implsRef.get.map(_.get(capability)).flatMap {
-      case Some(effectImpl) =>
-        val typed: EffectImpl[I, R, E, A] = effectImpl.asInstanceOf
-        typed(i)
-      case None =>
-        expectationsRef
-          .modify {
-            case head :: tail if head.capability == capability =>
-              val result: EffectImpl[I, R, E, A] = head.effect.asInstanceOf
-              (result, tail)
-            case seededExpectations =>
+    for {
+      impl <- implsRef.get.map(_.get(capability))
+      effect <- expectationsRef.modify {
+        case head :: tail if head.capability == capability =>
+          val result: EffectImpl[I, R, E, A] = head.effect.asInstanceOf
+          (result, tail)
+        case seededExpectations =>
+          impl match {
+            case Some(effectImpl) =>
+              val typed: EffectImpl[I, R, E, A] = effectImpl.asInstanceOf
               (
-                _ => ZIO.die(MockError.UnexpectedCall(capability, seededExpectations.map(_.capability))),
+                typed,
+                seededExpectations,
+              )
+            case None =>
+              (
+                (_: I) => ZIO.die(MockError.UnexpectedCall(capability, seededExpectations.map(_.capability))),
                 seededExpectations,
               )
           }
-          .flatMap(_(i))
-    }
+      }
+      result <- effect(i)
+    } yield result
 
   def apply[Z, I, R, E, A](
       capability: Mock[Z]#Capability[I, R, E, A],
@@ -139,21 +144,15 @@ final class Proxy private (
 
   // =====|  |=====
 
-  private def ensureCapabilityIsNotImplemented(capability: ErasedCapability): UIO[Unit] =
-    ZIO.die(MockError.CapabilityIsAlreadyImplemented(capability)).whenZIO(implsRef.get.map(_.contains(capability))).unit
-
-  // TODO (KR) : check that capability is not in seeded expectations
   private[mock] def putImpl[Z, I, R, E, A](capability: Mock[Z]#Capability[I, R, E, A], effect: I => ZIO[R, E, A]): UIO[Unit] =
-    ensureCapabilityIsNotImplemented(capability) *>
+    ZIO.die(MockError.CapabilityIsAlreadyImplemented(capability)).whenZIO(implsRef.get.map(_.contains(capability))) *>
       implsRef.update(_.updated(capability, effect))
 
   private[mock] def prependSeed[Z, I, R, E, A](capability: Mock[Z]#Capability[I, R, E, A], effect: I => ZIO[R, E, A]): UIO[Unit] =
-    ensureCapabilityIsNotImplemented(capability) *>
-      expectationsRef.update(Expectation(capability, effect) :: _)
+    expectationsRef.update(Expectation(capability, effect) :: _)
 
   private[mock] def appendSeed[Z, I, R, E, A](capability: Mock[Z]#Capability[I, R, E, A], effect: I => ZIO[R, E, A]): UIO[Unit] =
-    ensureCapabilityIsNotImplemented(capability) *>
-      expectationsRef.update(_ :+ Expectation(capability, effect))
+    expectationsRef.update(_ :+ Expectation(capability, effect))
 
 }
 object Proxy {

@@ -154,6 +154,24 @@ object MockSpec extends DefaultHarnessSpec {
       },
     )
 
+  private val positiveImplAndSeedSpec: TestSpec =
+    suite("positive")(
+      makeTest("Prefers seeded expectation to impl if that is the next expected call") {
+        ExServiceMock.Funct1.implement.successI { _ * 2 }
+      } {
+        for {
+          res1 <- ExService.funct1(1)
+          _ <- ExServiceMock.Funct1.seed.success(10)
+          res2 <- ExService.funct1(2)
+          res3 <- ExService.funct1(3)
+        } yield assertTrue(
+          res1 == 2,
+          res2 == 10,
+          res3 == 6,
+        )
+      },
+    )
+
   override def spec: TestSpec =
     suite("ExServiceSpec")(
       suite("impl")(
@@ -162,6 +180,9 @@ object MockSpec extends DefaultHarnessSpec {
       suite("seed")(
         positiveSeedSpec,
         negativeSeedSpec,
+      ),
+      suite("impl + seed")(
+        positiveImplAndSeedSpec,
       ),
     )
 
