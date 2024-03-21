@@ -30,8 +30,11 @@ abstract class Mock[Z](implicit rTag: Tag[Z]) { myMock =>
         case _                            => false
       }
 
+    final def namePart: String =
+      myCapability.getClass.getSimpleName.stripSuffix("$")
+      
     final def name: String =
-      s"${myMock.name}<${myCapability.getClass.getSimpleName.stripSuffix("$")}>"
+      s"${myMock.name}<$namePart>"
 
     // =====|  |=====
 
