@@ -23,22 +23,35 @@ sealed trait MockError extends Throwable {
                  |  currently seeded calls:$seededCallsStr
                  |$hintHeader
                  |  It looks like you have no upcoming seeded calls to ${givenCapability.name}.
-                 |  Either your code called this function when you didn't want it to, or you forgot to seed this call.""".stripMargin
+                 |  Likely causes & solutions:
+                 |    1) You do not expect this call to actually happen.
+                 |       solution: fix your code such that the call is not made.
+                 |    2) You do in deed expect this call to happen.
+                 |       solution: your code that is seeding calls is incorrect, add code to seed this expectation.""".stripMargin
             case nextIndex =>
               val unexpected = expectations.take(nextIndex)
               s"""Unexpected call to capability ${givenCapability.name}
                  |  currently seeded calls:$seededCallsStr
                  |$hintHeader
                  |  It looks like you seeded a call to ${givenCapability.name} later on.
-                 |  This most likely means that you did not account for the following calls: ${unexpected.map(e => s"\n    - ${e.name}").mkString}
-                 |  Either your code called these functions when you didn't want it to, or you forgot to seed these calls.""".stripMargin
+                 |  Calls that are expected before that call: ${unexpected.map(e => s"\n    - ${e.name}").mkString}
+                 |  Likely causes & solutions:
+                 |    1) You do in deed expect these other calls to happen first.
+                 |       solution: fix your code such that these other calls happen first.
+                 |    2) You do in deed expect these calls to be made, and followed by the call that is currently failing, but you also expect that call to happen now.
+                 |       solution: your code that is seeding calls is incorrect, add code to seed this expectation first.
+                 |    3) You don't expect these other calls to be made.
+                 |       solution: your code that is seeding calls is incorrect, remove the code that seeds these other expectations.""".stripMargin
           }
         case MockError.UnsatisfiedCalls(expectations) =>
           s"""Unsatisfied seeded calls:${expectations.toList.map(e => s"\n  - ${e.name}").mkString}
              |$hintHeader
              |  Tests can not exit with seeded calls that did not end up being called.
-             |  This means you either need to remove calls you didn't expect to actually be called,
-             |  or your test is failing, because calls you expected to be made were not made.""".stripMargin
+             |  Likely causes & solutions:
+             |    1) You do in deed expect these calls to happen, and they didn't.
+             |       solution: fix your code such that these calls are actually made.
+             |    2) You do not actually expect these calls to happen.
+             |       solution: your code that is seeding calls is incorrect, remove the code that seeds these expectations.""".stripMargin
         case MockError.CapabilityIsAlreadyImplemented(capability) =>
           val mockImplStr = s"${capability.getMock.name}.${capability.namePart}.implement.___(___)"
           s"""Capability is already implemented: ${capability.name}
