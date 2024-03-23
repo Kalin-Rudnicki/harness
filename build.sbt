@@ -96,6 +96,7 @@ lazy val `harness-modules` =
       `harness-cli`.jvm,
       `harness-zio`.js,
       `harness-zio`.jvm,
+      `harness-console`,
       `harness-zio-mock`.js,
       `harness-zio-mock`.jvm,
       `harness-pk`.js,
@@ -242,6 +243,21 @@ lazy val `harness-zio-mock` =
     )
     .dependsOn(
       `harness-zio-test` % Test,
+    )
+
+lazy val `harness-console` =
+  project
+    .in(file("modules/harness-console"))
+    .settings(
+      name := "harness-console",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      Test / fork := true,
+    )
+    .dependsOn(
+      `harness-zio`.jvm,
+      `harness-zio-test`.jvm % Test,
     )
 
 lazy val `harness-pk` =
