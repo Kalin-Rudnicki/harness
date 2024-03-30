@@ -1,4 +1,4 @@
-package harness.deriving
+package harness.deriving.shapeless
 
 import scala.Tuple.Union
 import scala.deriving.*

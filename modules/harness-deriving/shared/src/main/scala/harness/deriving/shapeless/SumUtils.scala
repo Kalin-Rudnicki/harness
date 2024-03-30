@@ -1,4 +1,4 @@
-package harness.deriving
+package harness.deriving.shapeless
 
 import shapeless3.deriving.*
 
@@ -15,5 +15,4 @@ object SumUtils {
       inst.inject[R](coproductInstanceIndexOf(_t)) { [t] => (i: F[t]) => f[t](i, _t.asInstanceOf[t]) }
 
   }
-
 }

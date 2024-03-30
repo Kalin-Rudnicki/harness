@@ -1,6 +1,5 @@
 package harness.web
 
-import cats.syntax.option.*
 import harness.test.PlainHarnessSpec
 import scala.reflect.ClassTag
 import zio.json.*

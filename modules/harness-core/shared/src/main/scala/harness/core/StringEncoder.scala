@@ -2,6 +2,7 @@ package harness.core
 
 import java.time.*
 import java.util.UUID
+import scala.reflect.ClassTag
 
 trait StringEncoder[-T] {
 
@@ -49,5 +50,8 @@ object StringEncoder {
 
   implicit def list[T: StringEncoder]: StringEncoder[List[T]] =
     list[T](",")
+
+  def `enum`[E <: Enum[E], Enc: StringEncoder](implicit ewe: Enum.WithEnc[E, Enc], ct: ClassTag[E]): StringEncoder[E] =
+    StringEncoder[Enc].imap[E](ewe.encode)
 
 }

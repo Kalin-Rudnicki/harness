@@ -67,8 +67,10 @@ lazy val `harness-root` =
     )
     .aggregate(
       `harness-modules`,
-      // `harness-deriving`.jvm, // TODO (KR) : move to modules once shapeless3 utils are public
-      // `harness-deriving`.js, // TODO (KR) : move to modules once shapeless3 utils are public
+      `harness-deriving`.jvm, // TODO (KR) : move to modules once shapeless3 utils are public
+      `harness-deriving`.js, // TODO (KR) : move to modules once shapeless3 utils are public
+      `harness-schema`.jvm, // TODO (KR) : move to modules once shapeless3 utils are public
+      `harness-schema`.js, // TODO (KR) : move to modules once shapeless3 utils are public
       `harness-web-app-template`,
       // `harness-archive`,
     )
@@ -223,6 +225,23 @@ lazy val `harness-zio` =
     )
     .dependsOn(
       `harness-cli` % testAndCompile,
+    )
+
+lazy val `harness-schema` =
+  crossProject(JSPlatform, JVMPlatform)
+    .in(file("modules/harness-schema"))
+    .settings(
+      name := "harness-schema",
+      publishSettings,
+      miscSettings,
+      testSettings,
+    )
+    .jvmSettings(
+      Test / fork := true,
+    )
+    .dependsOn(
+      `harness-zio` % testAndCompile,
+      `harness-deriving` % testAndCompile,
     )
 
 lazy val `harness-zio-mock` =
@@ -455,11 +474,14 @@ lazy val `harness-deriving` =
       miscSettings,
       testSettings,
       libraryDependencies ++= Seq(
-        "org.typelevel" %% "shapeless3-deriving" % "tmp-local--0.0.2", // TODO (KR) : use shared once published
+        "org.typelevel" %% "shapeless3-deriving" % "tmp-local--0.0.4", // TODO (KR) : use shared once published
       ),
       sonatypeCredentialHost := "s01.oss.sonatype.org",
     )
-    .dependsOn(`harness-core` % testAndCompile)
+    .dependsOn(
+      `harness-core` % testAndCompile,
+      `harness-zio-test` % Test,
+    )
 
 lazy val `harness-js-plugin` =
   project
