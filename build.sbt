@@ -67,10 +67,6 @@ lazy val `harness-root` =
     )
     .aggregate(
       `harness-modules`,
-      `harness-deriving`.jvm, // TODO (KR) : move to modules once shapeless3 utils are public
-      `harness-deriving`.js, // TODO (KR) : move to modules once shapeless3 utils are public
-      `harness-schema`.jvm, // TODO (KR) : move to modules once shapeless3 utils are public
-      `harness-schema`.js, // TODO (KR) : move to modules once shapeless3 utils are public
       `harness-web-app-template`,
       // `harness-archive`,
     )
@@ -101,6 +97,10 @@ lazy val `harness-modules` =
       `harness-console`,
       `harness-zio-mock`.js,
       `harness-zio-mock`.jvm,
+      `harness-deriving`.jvm,
+      `harness-deriving`.js,
+      `harness-schema`.jvm,
+      `harness-schema`.js,
       `harness-pk`.js,
       `harness-pk`.jvm,
       `harness-email-model`.jvm,
@@ -473,9 +473,6 @@ lazy val `harness-deriving` =
       publishSettings,
       miscSettings,
       testSettings,
-      libraryDependencies ++= Seq(
-        "org.typelevel" %% "shapeless3-deriving" % "tmp-local--0.0.4", // TODO (KR) : use shared once published
-      ),
       sonatypeCredentialHost := "s01.oss.sonatype.org",
     )
     .dependsOn(
