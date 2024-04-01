@@ -25,13 +25,15 @@ abstract class K0T[UB] {
   inline def summonFieldInstances[T <: Tuple, F[_], G[_ <: UB]]: List[F[G[UB]]] =
     summonAll[FieldInstances[T, F, G]].toIArray.toList.asInstanceOf[List[F[G[UB]]]]
 
-  final case class ProductInstances[F <: UB, T[_ <: UB]](
-      m: Mirror.ProductOf[F],
-      ev: F <:< Product,
-      rawInstances: List[LazyDerived[T[UB]]],
+  final class ProductInstances[F <: UB, T[_ <: UB]](val m: ProductGeneric[F])(
+      val ev: m.MirroredMonoType <:< Product,
+      val rawInstances: List[LazyDerived[T[UB]]],
   ) {
 
     lazy val instances: List[T[UB]] = rawInstances.map(_.derived)
+
+    def instantiate(fields: List[m.MirroredType]): F =
+      m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(Tuple.fromArray(fields.toArray[Any]).asInstanceOf)
 
     final case class withInstance(a: F) {
 
@@ -76,24 +78,20 @@ abstract class K0T[UB] {
   }
   object ProductInstances {
     inline given of[F <: UB, T[_ <: UB]](using m: ProductGeneric[F]): ProductInstances[F, T] =
-      ProductInstances[F, T](
-        m,
-        summonInline[F <:< Product],
-        // summonAll[FieldInstances[m.MirroredElemTypes, LazyDerived, F]].toIArray.toList.asInstanceOf[List[LazyDerived[F[UB]]]],
+      new ProductInstances[F, T](m)(
+        summonInline[m.MirroredMonoType <:< Product],
         summonFieldInstances[m.MirroredElemTypes, LazyDerived, T],
       )
   }
 
-  final case class SumInstances[F <: UB, T[_ <: UB]](
-      m: Mirror.SumOf[F],
-      children: List[T[UB]],
+  final class SumInstances[F <: UB, T[_ <: UB]](val m: SumGeneric[F])(
+      val children: List[T[UB]],
   ) {
 
-    def narrow[G[B <: UB] <: T[B]](implicit fCt: ClassTag[T[UB]], gCt: ClassTag[G[UB]]): SumInstances[F, G] =
-      SumInstances[F, G](
-        m,
+    def narrow[G[B <: UB] <: T[B]](implicit fCt: ClassTag[T[m.MirroredType]], gCt: ClassTag[G[m.MirroredType]]): SumInstances[F, G] =
+      new SumInstances[F, G](m)(
         children.asInstanceOf[List[Matchable]].map {
-          case gCt(c) => c
+          case gCt(c) => c.asInstanceOf
           case other  => throw new RuntimeException(s"Unable to narrow ${fCt.runtimeClass.getName} to ${gCt.runtimeClass.getName} ($other)")
         },
       )
@@ -106,8 +104,7 @@ abstract class K0T[UB] {
   }
   object SumInstances {
     inline given of[A <: UB, F[_ <: UB]](using m: SumGeneric[A]): SumInstances[A, F] =
-      SumInstances[A, F](
-        m,
+      new SumInstances[A, F](m)(
         summonFieldInstances[m.MirroredElemTypes, Derived, F].map(_.derived),
       )
   }

@@ -36,16 +36,15 @@ abstract class K1T[UB] {
   inline def summonFieldInstances[T <: [_ <: UB] =>> Tuple, F[_], G[_[_ <: UB]]]: List[F[G[[_ <: UB] =>> Any]]] =
     summonAll[FieldInstances[T, F, G]].toIArray.toList.asInstanceOf[List[F[G[[_ <: UB] =>> Any]]]]
 
-  // TODO (KR) : remove
-  type AnyF[X <: UB] = Any
-
-  final case class ProductInstances[F[_ <: UB], T[_[_ <: UB]]](
-      m: ProductGeneric[F],
-      ev: F[UB] <:< Product,
-      rawInstances: List[LazyDerived[T[[_ <: UB] =>> Any]]],
+  final class ProductInstances[F[_ <: UB], T[_[_ <: UB]]](val m: ProductGeneric[F])(
+      val ev: m.MirroredMonoType <:< Product,
+      val rawInstances: List[LazyDerived[T[[_ <: UB] =>> Any]]],
   ) {
 
     lazy val instances: List[T[[_ <: UB] =>> Any]] = rawInstances.map(_.derived)
+
+    def instantiate[A <: UB](fields: List[m.MirroredType[A]]): F[A] =
+      m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(Tuple.fromArray(fields.toArray[Any]).asInstanceOf).asInstanceOf[F[A]]
 
     final case class withInstance[A <: UB](a: F[A]) {
 
@@ -64,12 +63,10 @@ abstract class K1T[UB] {
       object mapInstantiate {
 
         def apply[B <: UB](f: [t[_ <: UB]] => (T[t], t[A]) => t[B]): F[B] =
-          m.asInstanceOf[Mirror.ProductOf[F[B]]]
-            .fromTuple(Tuple.fromArray(map(f).toArray).asInstanceOf)
+          instantiate(map(f).asInstanceOf)
 
         def withLabels[B <: UB](labels: Labelling[m.MirroredMonoType])(f: [t[_ <: UB]] => (String, T[t], t[A]) => t[B]): F[B] =
-          m.asInstanceOf[Mirror.ProductOf[F[B]]]
-            .fromTuple(Tuple.fromArray(map.withLabels(labels)(f).toArray).asInstanceOf)
+          instantiate(map.withLabels(labels)(f).asInstanceOf)
 
       }
 
@@ -78,7 +75,7 @@ abstract class K1T[UB] {
         def apply[R](z: R)(f: [t[_ <: UB]] => (R, T[t], t[A]) => R): R =
           productElements.zip(instances).foldLeft(z) { case (acc, (b, i)) => f(acc, i, b) }
 
-        def withLabels[R](labels: Labelling[m.MirroredMonoType], z: R)(f: [t[_ <: UB]] => (R, String, T[t], t[UB]) => R): R =
+        def withLabels[R](labels: Labelling[m.MirroredMonoType], z: R)(f: [t[_ <: UB]] => (R, String, T[t], t[A]) => R): R =
           labels.elemLabels.zip(productElements).zip(instances).foldLeft(z) { case (acc, ((l, b), i)) => f(acc, l, i, b) }
 
       }
@@ -102,22 +99,19 @@ abstract class K1T[UB] {
   }
   object ProductInstances {
     inline given of[F[_ <: UB], T[_[_ <: UB]]](using m: ProductGeneric[F]): ProductInstances[F, T] =
-      ProductInstances[F, T](
-        m,
-        summonInline[ProductGeneric[F]#MirroredMonoType <:< Product],
+      new ProductInstances[F, T](m)(
+        summonInline[m.MirroredMonoType <:< Product],
         summonFieldInstances[m.MirroredElemTypes, LazyDerived, T],
       )
   }
 
-  final case class SumInstances[F[_ <: UB], T[_[_ <: UB]]](
-      m: SumGeneric[F],
+  final class SumInstances[F[_ <: UB], T[_[_ <: UB]]](val m: SumGeneric[F])(
       children: List[T[[_ <: UB] =>> Any]],
   ) {
 
     // TODO (KR) : Im not sure on this one...
     def narrow[G[B[_ <: UB]] <: T[B]](implicit fCt: ClassTag[T[m.MirroredType]], gCt: ClassTag[G[m.MirroredType]]): SumInstances[F, G] =
-      SumInstances[F, G](
-        m,
+      new SumInstances[F, G](m)(
         children.asInstanceOf[List[Matchable]].map {
           case gCt(c) => c.asInstanceOf
           case other  => throw new RuntimeException(s"Unable to narrow ${fCt.runtimeClass.getName} to ${gCt.runtimeClass.getName} ($other)")
@@ -132,8 +126,7 @@ abstract class K1T[UB] {
   }
   object SumInstances {
     inline given of[F[_ <: UB], T[_[_ <: UB]]](using m: SumGeneric[F]): SumInstances[F, T] =
-      SumInstances[F, T](
-        m,
+      new SumInstances[F, T](m)(
         summonFieldInstances[m.MirroredElemTypes, Derived, T].map(_.derived),
       )
   }
