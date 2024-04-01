@@ -4,51 +4,53 @@ import scala.compiletime.*
 import scala.deriving.Mirror
 import scala.reflect.ClassTag
 
-object K0 {
+abstract class K0T[UB] {
 
-  type Instances1[T <: Tuple, F[_]] <: Tuple =
+  type Instances1[T <: Tuple, F[_ <: UB]] <: Tuple =
     T match {
       case EmptyTuple => EmptyTuple
       case x *: xs    => F[x] *: Instances1[xs, F]
     }
-  type Instances2[T <: Tuple, F[_], G[_]] <: Tuple =
+  type Instances2[T <: Tuple, F[_], G[_ <: UB]] <: Tuple =
     T match {
       case EmptyTuple => EmptyTuple
       case x *: xs    => F[G[x]] *: Instances2[xs, F, G]
     }
 
-  inline def summonInstances1[T <: Tuple, F[_]]: List[F[Any]] =
-    summonAll[Instances1[T, F]].toIArray.toList.asInstanceOf[List[F[Any]]]
-  inline def summonInstances2[T <: Tuple, F[_], G[_]]: List[F[G[Any]]] =
-    summonAll[Instances2[T, F, G]].toIArray.toList.asInstanceOf[List[F[G[Any]]]]
+  inline def summonInstances1[T <: Tuple, F[_]]: List[F[UB]] =
+    summonAll[Instances1[T, F]].toIArray.toList.asInstanceOf[List[F[UB]]]
+  inline def summonInstances2[T <: Tuple, F[_], G[_]]: List[F[G[UB]]] =
+    summonAll[Instances2[T, F, G]].toIArray.toList.asInstanceOf[List[F[G[UB]]]]
 
-  final case class ProductInstances[A, F[_]](
+  final case class ProductInstances[A, F[_ <: UB]](
       mirror: Mirror.ProductOf[A],
       ev: A <:< Product,
-      rawInstances: List[LazyDerived[F[Any]]],
+      rawInstances: List[LazyDerived[F[UB]]],
   ) {
 
-    lazy val instances: List[F[Any]] = rawInstances.map(_.derived)
+    lazy val instances: List[F[UB]] = rawInstances.map(_.derived)
 
     final case class withInstance(a: A) {
 
+      private def productElements: List[UB] = ev(a).productIterator.toList.asInstanceOf[List[UB]]
+
       object map {
 
-        def apply[B](f: [t] => (F[t], t) => B): List[B] =
-          ev(a).productIterator.toList.zip(instances).map { case (b, i) => f(i, b) }
+        def apply[B](f: [t <: UB] => (F[t], t) => B): List[B] =
+          productElements.zip(instances).map { case (b, i) => f(i, b) }
 
-        def withLabels[B](labels: Labelling[A])(f: [t] => (String, F[t], t) => B): List[B] =
-          labels.elemLabels.zip(ev(a).productIterator.toList).zip(instances).map { case ((l, b), i) => f(l, i, b) }
+        def withLabels[B](labels: Labelling[A])(f: [t <: UB] => (String, F[t], t) => B): List[B] =
+          labels.elemLabels.zip(productElements).zip(instances).map { case ((l, b), i) => f(l, i, b) }
 
       }
 
       object foldLeft {
 
-        def apply[R](z: R)(f: [t] => (R, F[t], t) => R): R =
-          ev(a).productIterator.toList.zip(instances).foldLeft(z) { case (acc, (b, i)) => f(acc, i, b) }
+        def apply[R](z: R)(f: [t <: UB] => (R, F[t], t) => R): R =
+          productElements.zip(instances).foldLeft(z) { case (acc, (b, i)) => f(acc, i, b) }
 
-        def withLabels[R](labels: Labelling[A], z: R)(f: [t] => (R, String, F[t], t) => R): R =
-          labels.elemLabels.zip(ev(a).productIterator.toList).zip(instances).foldLeft(z) { case (acc, ((l, b), i)) => f(acc, l, i, b) }
+        def withLabels[R](labels: Labelling[A], z: R)(f: [t <: UB] => (R, String, F[t], t) => R): R =
+          labels.elemLabels.zip(productElements).zip(instances).foldLeft(z) { case (acc, ((l, b), i)) => f(acc, l, i, b) }
 
       }
 
@@ -58,10 +60,10 @@ object K0 {
 
       object foldLeft {
 
-        def apply[R](z: R)(f: [t] => (R, F[t]) => R): R =
+        def apply[R](z: R)(f: [t <: UB] => (R, F[t]) => R): R =
           instances.foldLeft(z) { case (acc, i) => f(acc, i) }
 
-        def withLabels[R](labels: Labelling[A], z: R)(f: [t] => (R, String, F[t]) => R): R =
+        def withLabels[R](labels: Labelling[A], z: R)(f: [t <: UB] => (R, String, F[t]) => R): R =
           labels.elemLabels.zip(instances).foldLeft(z) { case (acc, (l, i)) => f(acc, l, i) }
 
       }
@@ -74,7 +76,7 @@ object K0 {
       ProductInstances[A, F](
         m,
         summonInline[A <:< Product],
-        summonAll[Instances2[m.MirroredElemTypes, LazyDerived, F]].toIArray.toList.asInstanceOf[List[LazyDerived[F[Any]]]],
+        summonAll[Instances2[m.MirroredElemTypes, LazyDerived, F]].toIArray.toList.asInstanceOf[List[LazyDerived[F[UB]]]],
       )
   }
 
@@ -122,3 +124,5 @@ object K0 {
   }
 
 }
+
+object K0 extends K0T[Any]
