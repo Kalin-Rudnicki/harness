@@ -110,9 +110,12 @@ lazy val `harness-modules` =
       `harness-xml`,
 
       // Web
+      `harness-endpoint`.js,
+      `harness-endpoint`.jvm,
       `harness-http-client`.js,
       `harness-http-client`.jvm,
       `harness-http-server`,
+      `harness-http-server-2`,
       `harness-web`.js,
       `harness-web`.jvm,
       `harness-web-ui`,
@@ -330,6 +333,21 @@ lazy val `harness-cli` =
 
 // =====| Web |=====
 
+lazy val `harness-endpoint` =
+  crossProject(JSPlatform, JVMPlatform)
+    .in(file("modules/harness-endpoint"))
+    .settings(
+      name := "harness-endpoint",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      Test / fork := true,
+    )
+    .dependsOn(
+      `harness-web` % testAndCompile,
+      `harness-schema` % testAndCompile,
+    )
+
 lazy val `harness-http-client` =
   crossProject(JSPlatform, JVMPlatform)
     .in(file("modules/harness-http-client"))
@@ -355,6 +373,20 @@ lazy val `harness-http-server` =
     )
     .dependsOn(
       `harness-web`.jvm % testAndCompile,
+    )
+
+// TODO (KR) : remove 1 and rename
+lazy val `harness-http-server-2` =
+  project
+    .in(file("modules/harness-http-server-2"))
+    .settings(
+      name := "harness-http-server-2",
+      publishSettings,
+      miscSettings,
+      testSettings,
+    )
+    .dependsOn(
+      `harness-endpoint`.jvm % testAndCompile,
     )
 
 lazy val `harness-web` =

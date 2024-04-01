@@ -1,7 +1,6 @@
 package harness.zio
 
-import harness.core.*
-import java.time.OffsetDateTime
+import java.time.Instant
 import zio.*
 import zio.json.*
 
@@ -41,16 +40,16 @@ object Telemetry {
       logLevel: Logger.LogLevel,
       telemetryContext: Map[String, String],
   ): ZIO[Telemetry & Logger & R, E, A] =
-    Clock.currentDateTime.flatMap { startDateTime =>
+    Clock.instant.flatMap { startInstant =>
       effect.foldCauseZIO(
         { cause =>
-          Clock.currentDateTime.flatMap { endDateTime =>
-            Telemetry.telemetrize(label, logLevel, startDateTime, endDateTime, false, telemetryContext) *> ZIO.failCause(cause)
+          Clock.instant.flatMap { endInstant =>
+            Telemetry.telemetrize(label, logLevel, startInstant, endInstant, false, telemetryContext) *> ZIO.failCause(cause)
           }
         },
         { a =>
-          Clock.currentDateTime.flatMap { endDateTime =>
-            Telemetry.telemetrize(label, logLevel, startDateTime, endDateTime, true, telemetryContext) *> ZIO.succeed(a)
+          Clock.instant.flatMap { endInstant =>
+            Telemetry.telemetrize(label, logLevel, startInstant, endInstant, true, telemetryContext) *> ZIO.succeed(a)
           }
         },
       )
@@ -59,30 +58,49 @@ object Telemetry {
   def telemetrize(
       label: String,
       logLevel: Logger.LogLevel,
-      startDateTime: OffsetDateTime,
-      endDateTime: OffsetDateTime,
+      startInstant: Instant,
+      endInstant: Instant,
       success: Boolean,
       telemetryContext: Map[String, String],
   ): URIO[Telemetry & Logger, Unit] =
     for {
       telemetry <- ZIO.service[Telemetry]
       logContext <- Logger.getContext
-      _ <- telemetry.telemetrize(Telemetry.Trace(logLevel, label, startDateTime, endDateTime, success, telemetryContext, logContext))
+      _ <- telemetry.telemetrize(Telemetry.Trace(logLevel, label, startInstant, endInstant, success, telemetryContext, logContext))
     } yield ()
 
   // =====| Types |=====
 
+  final class StartMarker(startInstant: Instant) {
+
+    def markEnd(label: String, logLevel: Logger.LogLevel, success: Boolean, telemetryContext: (String, Any)*): URIO[Telemetry & Logger, Unit] =
+      Clock.instant.flatMap { endInstant =>
+        telemetrize(
+          label,
+          logLevel,
+          startInstant,
+          endInstant,
+          success,
+          telemetryContext.map { case (k, v) => k -> String.valueOf(v) }.toMap,
+        )
+      }
+
+  }
+  object StartMarker {
+    def make: UIO[StartMarker] = Clock.instant.map(new StartMarker(_))
+  }
+
   final case class Trace(
       logLevel: Logger.LogLevel,
       label: String,
-      startDateTime: OffsetDateTime,
-      endDateTime: OffsetDateTime,
+      startInstant: Instant,
+      endInstant: Instant,
       success: Boolean,
       telemetryContext: Map[String, String],
       logContext: Map[String, String],
   ) { self =>
 
-    def duration: Duration = java.time.Duration.between(startDateTime, endDateTime)
+    def duration: Duration = Duration.fromInterval(startInstant, endInstant)
 
     def toLoggerEvent: Logger.Event =
       Logger.Event.AtLogLevel(
@@ -90,7 +108,7 @@ object Telemetry {
         { () =>
           Logger.Event.Output(
             self.telemetryContext + ("success" -> self.success.toString),
-            s"TELEMETRY - (${self.label}) [${self.duration.prettyPrint}]${if (self.success) "" else " *** FAIL ***"}",
+            s"TELEMETRY - (${self.label}) [${self.duration.render}]${if (self.success) "" else " *** FAIL ***"}",
           )
         },
       )

@@ -5,6 +5,7 @@ import harness.zio.EncodedThrowable
 import zio.*
 import zio.json.*
 
+// TODO (KR) : Remove 
 trait ErrorCodec[E] {
   val encode: E => String
   val decode: String => Either[String, E]

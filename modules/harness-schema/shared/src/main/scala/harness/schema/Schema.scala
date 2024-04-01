@@ -19,6 +19,16 @@ sealed trait Schema[A] { self =>
   def tiemap[B: Tag](to: A => Either[String, B], from: B => A): Schema[B]
   def timap[B: Tag](to: A => B, from: B => A): Schema[B]
 
+  final def encode(value: A): String = self match {
+    case schema: JsonSchema[A] => value.toJson(using schema.codec.encoder)
+    case schema: RawSchema[A]  => schema.codec.encoder.encode(value)
+  }
+
+  final def decode(string: String): Either[String, A] = self match {
+    case schema: JsonSchema[A] => string.fromJson[A](using schema.codec.decoder)
+    case schema: RawSchema[A]  => schema.codec.decoder.decode(string)
+  }
+
   final val ref: SchemaRef = SchemaRef(tag, UUID.randomUUID)
 
 }

@@ -20,6 +20,7 @@ abstract class K11T[UB] {
   type Identity[t <: UB] = t
   type Const[c] = [_[_ <: UB]] =>> c
   type ~>[A[_ <: UB], B[_ <: UB]] = [t <: UB] => A[t] => B[t]
+  type Zip[A[_ <: UB], B[_ <: UB]] = [t <: UB] =>> (A[t], B[t])
 
   type Head[T <: [_[_ <: UB]] =>> Any, A[_ <: UB]] =
     T[A] match {
@@ -48,6 +49,20 @@ abstract class K11T[UB] {
 
     def instantiate[A[_ <: UB]](fields: List[m.MirroredType[A]]): F[A] =
       m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(Tuple.fromArray(fields.toArray[Any]).asInstanceOf).asInstanceOf[F[A]]
+
+    object withoutInstance {
+
+      object foldLeft {
+
+        def apply[R](z: R)(f: [t[_[_ <: UB]]] => (R, T[t]) => R): R =
+          instances.foldLeft(z) { case (acc, i) => f(acc, i) }
+
+        def withLabels[R](labels: Labelling[m.MirroredMonoType], z: R)(f: [t[_[_ <: UB]]] => (R, String, T[t]) => R): R =
+          labels.elemLabels.zip(instances).foldLeft(z) { case (acc, (l, i)) => f(acc, l, i) }
+
+      }
+
+    }
 
     final case class withInstance[A[_ <: UB]](a: F[A]) {
 
@@ -85,15 +100,28 @@ abstract class K11T[UB] {
 
     }
 
-    object withoutInstance {
+    final case class withInstance2[A[_ <: UB], B[_ <: UB]](a: F[A], b: F[B]) {
 
-      object foldLeft {
+      private def productElementsA: List[T[[_[_ <: UB]] =>> Any]] = ev(a.asInstanceOf).productIterator.toList.asInstanceOf[List[T[[_[_ <: UB]] =>> Any]]]
+      private def productElementsB: List[T[[_[_ <: UB]] =>> Any]] = ev(b.asInstanceOf).productIterator.toList.asInstanceOf[List[T[[_[_ <: UB]] =>> Any]]]
 
-        def apply[R](z: R)(f: [t[_[_ <: UB]]] => (R, T[t]) => R): R =
-          instances.foldLeft(z) { case (acc, i) => f(acc, i) }
+      object map {
 
-        def withLabels[R](labels: Labelling[m.MirroredMonoType], z: R)(f: [t[_[_ <: UB]]] => (R, String, T[t]) => R): R =
-          labels.elemLabels.zip(instances).foldLeft(z) { case (acc, (l, i)) => f(acc, l, i) }
+        def apply[C](f: [t[_[_ <: UB]]] => (T[t], t[A], t[B]) => C): List[C] =
+          productElementsA.zip(productElementsB).zip(instances).map { case ((a, b), i) => f(i, a, b) }
+
+        def withLabels[C](labels: Labelling[m.MirroredMonoType])(f: [t[_[_ <: UB]]] => (String, T[t], t[A], t[B]) => C): List[C] =
+          labels.elemLabels.zip(productElementsA.zip(productElementsB)).zip(instances).map { case ((l, (a, b)), i) => f(l, i, a, b) }
+
+      }
+
+      object mapInstantiate {
+
+        def apply[C[_ <: UB]](f: [t[_[_ <: UB]]] => (T[t], t[A], t[B]) => t[C]): F[C] =
+          instantiate(map(f).asInstanceOf)
+
+        def withLabels[C[_ <: UB]](labels: Labelling[m.MirroredMonoType])(f: [t[_[_ <: UB]]] => (String, T[t], t[A], t[B]) => t[C]): F[C] =
+          instantiate(map.withLabels(labels)(f).asInstanceOf)
 
       }
 

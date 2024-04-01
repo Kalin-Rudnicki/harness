@@ -91,7 +91,7 @@ abstract class K0T[UB] {
     def narrow[G[B <: UB] <: T[B]](implicit fCt: ClassTag[T[m.MirroredType]], gCt: ClassTag[G[m.MirroredType]]): SumInstances[F, G] =
       new SumInstances[F, G](m)(
         children.asInstanceOf[List[Matchable]].map {
-          case gCt(c) => c.asInstanceOf
+          case gCt(c) => c.asInstanceOf[G[UB]]
           case other  => throw new RuntimeException(s"Unable to narrow ${fCt.runtimeClass.getName} to ${gCt.runtimeClass.getName} ($other)")
         },
       )
