@@ -8,7 +8,6 @@ import harness.deriving.*
 import harness.zio.*
 import harness.zio.ZIOJsonInstances.catsNelJsonCodec
 import java.util.UUID
-import scala.deriving.*
 import scala.reflect.ClassTag
 import zio.Tag
 import zio.json.*
@@ -189,7 +188,7 @@ object JsonSchema extends K0.Derivable[JsonSchema] {
 
   }
 
-  override inline implicit def genProduct[A](implicit m: Mirror.ProductOf[A]): Derived[JsonSchema[A]] = {
+  override inline implicit def genProduct[A](implicit m: K0.ProductGeneric[A]): Derived[JsonSchema[A]] = {
     val tag = Tag[A]
     val inst = K0.ProductInstances.of[A, JsonSchema]
     val labels = Labelling.of[A]
@@ -211,7 +210,7 @@ object JsonSchema extends K0.Derivable[JsonSchema] {
     )
   }
 
-  override inline implicit def genSum[A](implicit m: Mirror.SumOf[A]): Derived[JsonSchema[A]] = {
+  override inline implicit def genSum[A](implicit m: K0.SumGeneric[A]): Derived[JsonSchema[A]] = {
     val tag = Tag[A]
     val inst = K0.SumInstances.of[A, JsonSchema].narrow[ProductJsonObj] // TODO (KR) : potentially relax this only for when there is a descriptor
     val descriptor = OptionalAnnotation[A, jsonDiscriminator]

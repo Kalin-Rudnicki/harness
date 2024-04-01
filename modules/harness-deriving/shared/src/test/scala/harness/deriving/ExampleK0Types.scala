@@ -2,7 +2,7 @@ package harness.deriving
 
 import cats.syntax.option.*
 
-object ExampleTypes {
+object ExampleK0Types {
 
   /*
   implicit val productSimpleInstance: MyTypeClass[ProductSimple] = MyTypeClass.derive

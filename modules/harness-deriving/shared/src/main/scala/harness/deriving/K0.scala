@@ -6,50 +6,53 @@ import scala.reflect.ClassTag
 
 abstract class K0T[UB] {
 
-  type Instances1[T <: Tuple, F[_ <: UB]] <: Tuple =
+  type Kind[C, O <: UB] = C {
+    type MirroredType = O
+    type MirroredMonoType = O
+    type MirroredElemTypes <: Tuple
+  }
+
+  type Generic[O <: UB] = Kind[Mirror, O]
+  type ProductGeneric[O <: UB] = Kind[Mirror.Product, O]
+  type SumGeneric[O <: UB] = Kind[Mirror.Sum, O]
+
+  type FieldInstances[T <: Tuple, W[_], F[_ <: UB]] <: Tuple =
     T match {
       case EmptyTuple => EmptyTuple
-      case x *: xs    => F[x] *: Instances1[xs, F]
-    }
-  type Instances2[T <: Tuple, F[_], G[_ <: UB]] <: Tuple =
-    T match {
-      case EmptyTuple => EmptyTuple
-      case x *: xs    => F[G[x]] *: Instances2[xs, F, G]
+      case x *: xs    => W[F[x]] *: FieldInstances[xs, W, F]
     }
 
-  inline def summonInstances1[T <: Tuple, F[_]]: List[F[UB]] =
-    summonAll[Instances1[T, F]].toIArray.toList.asInstanceOf[List[F[UB]]]
-  inline def summonInstances2[T <: Tuple, F[_], G[_]]: List[F[G[UB]]] =
-    summonAll[Instances2[T, F, G]].toIArray.toList.asInstanceOf[List[F[G[UB]]]]
+  inline def summonFieldInstances[T <: Tuple, F[_], G[_ <: UB]]: List[F[G[UB]]] =
+    summonAll[FieldInstances[T, F, G]].toIArray.toList.asInstanceOf[List[F[G[UB]]]]
 
-  final case class ProductInstances[A, F[_ <: UB]](
-      mirror: Mirror.ProductOf[A],
-      ev: A <:< Product,
-      rawInstances: List[LazyDerived[F[UB]]],
+  final case class ProductInstances[F <: UB, T[_ <: UB]](
+      m: Mirror.ProductOf[F],
+      ev: F <:< Product,
+      rawInstances: List[LazyDerived[T[UB]]],
   ) {
 
-    lazy val instances: List[F[UB]] = rawInstances.map(_.derived)
+    lazy val instances: List[T[UB]] = rawInstances.map(_.derived)
 
-    final case class withInstance(a: A) {
+    final case class withInstance(a: F) {
 
       private def productElements: List[UB] = ev(a).productIterator.toList.asInstanceOf[List[UB]]
 
       object map {
 
-        def apply[B](f: [t <: UB] => (F[t], t) => B): List[B] =
+        def apply[B](f: [t <: UB] => (T[t], t) => B): List[B] =
           productElements.zip(instances).map { case (b, i) => f(i, b) }
 
-        def withLabels[B](labels: Labelling[A])(f: [t <: UB] => (String, F[t], t) => B): List[B] =
+        def withLabels[B](labels: Labelling[F])(f: [t <: UB] => (String, T[t], t) => B): List[B] =
           labels.elemLabels.zip(productElements).zip(instances).map { case ((l, b), i) => f(l, i, b) }
 
       }
 
       object foldLeft {
 
-        def apply[R](z: R)(f: [t <: UB] => (R, F[t], t) => R): R =
+        def apply[R](z: R)(f: [t <: UB] => (R, T[t], t) => R): R =
           productElements.zip(instances).foldLeft(z) { case (acc, (b, i)) => f(acc, i, b) }
 
-        def withLabels[R](labels: Labelling[A], z: R)(f: [t <: UB] => (R, String, F[t], t) => R): R =
+        def withLabels[R](labels: Labelling[F], z: R)(f: [t <: UB] => (R, String, T[t], t) => R): R =
           labels.elemLabels.zip(productElements).zip(instances).foldLeft(z) { case (acc, ((l, b), i)) => f(acc, l, i, b) }
 
       }
@@ -60,10 +63,10 @@ abstract class K0T[UB] {
 
       object foldLeft {
 
-        def apply[R](z: R)(f: [t <: UB] => (R, F[t]) => R): R =
+        def apply[R](z: R)(f: [t <: UB] => (R, T[t]) => R): R =
           instances.foldLeft(z) { case (acc, i) => f(acc, i) }
 
-        def withLabels[R](labels: Labelling[A], z: R)(f: [t <: UB] => (R, String, F[t]) => R): R =
+        def withLabels[R](labels: Labelling[F], z: R)(f: [t <: UB] => (R, String, T[t]) => R): R =
           labels.elemLabels.zip(instances).foldLeft(z) { case (acc, (l, i)) => f(acc, l, i) }
 
       }
@@ -72,53 +75,53 @@ abstract class K0T[UB] {
 
   }
   object ProductInstances {
-    inline given of[A, F[_]](using m: Mirror.ProductOf[A]): ProductInstances[A, F] =
-      ProductInstances[A, F](
+    inline given of[F <: UB, T[_ <: UB]](using m: ProductGeneric[F]): ProductInstances[F, T] =
+      ProductInstances[F, T](
         m,
-        summonInline[A <:< Product],
-        summonAll[Instances2[m.MirroredElemTypes, LazyDerived, F]].toIArray.toList.asInstanceOf[List[LazyDerived[F[UB]]]],
+        summonInline[F <:< Product],
+        // summonAll[FieldInstances[m.MirroredElemTypes, LazyDerived, F]].toIArray.toList.asInstanceOf[List[LazyDerived[F[UB]]]],
+        summonFieldInstances[m.MirroredElemTypes, LazyDerived, T],
       )
   }
 
-  // TODO (KR) : does sum need to be lazy as well?
-  final case class SumInstances[A, F[_]](
-      mirror: Mirror.SumOf[A],
-      children: List[F[Any]],
+  final case class SumInstances[F <: UB, T[_ <: UB]](
+      m: Mirror.SumOf[F],
+      children: List[T[UB]],
   ) {
 
-    def narrow[G[B] <: F[B]](implicit fCt: ClassTag[F[Any]], gCt: ClassTag[G[Any]]): SumInstances[A, G] =
-      SumInstances[A, G](
-        mirror,
+    def narrow[G[B <: UB] <: T[B]](implicit fCt: ClassTag[T[UB]], gCt: ClassTag[G[UB]]): SumInstances[F, G] =
+      SumInstances[F, G](
+        m,
         children.asInstanceOf[List[Matchable]].map {
           case gCt(c) => c
           case other  => throw new RuntimeException(s"Unable to narrow ${fCt.runtimeClass.getName} to ${gCt.runtimeClass.getName} ($other)")
         },
       )
 
-    final case class withInstance(a: A) {
-      val ord: Int = mirror.ordinal(a)
-      val inst: F[a.type] = children(ord).asInstanceOf
+    final case class withInstance(a: F) {
+      val ord: Int = m.ordinal(a)
+      val inst: T[F] = children(ord).asInstanceOf
     }
 
   }
   object SumInstances {
-    inline given of[A, F[_]](using m: Mirror.SumOf[A]): SumInstances[A, F] =
+    inline given of[A <: UB, F[_ <: UB]](using m: SumGeneric[A]): SumInstances[A, F] =
       SumInstances[A, F](
         m,
-        summonAll[Instances2[m.MirroredElemTypes, Derived, F]].toIArray.toList.asInstanceOf[List[Derived[F[Any]]]].map(_.derived),
+        summonFieldInstances[m.MirroredElemTypes, Derived, F].map(_.derived),
       )
   }
 
-  trait Derivable[F[_]] {
+  trait Derivable[T[_ <: UB]] {
 
-    inline implicit def genProduct[A](implicit m: Mirror.ProductOf[A]): Derived[F[A]]
+    inline implicit def genProduct[F <: UB](implicit m: ProductGeneric[F]): Derived[T[F]]
 
-    inline implicit def genSum[A](implicit m: Mirror.SumOf[A]): Derived[F[A]]
+    inline implicit def genSum[F <: UB](implicit m: SumGeneric[F]): Derived[T[F]]
 
-    inline final def derive[A](using m: Mirror.Of[A]): F[A] =
+    inline final def derive[F <: UB](using m: Generic[F]): T[F] =
       inline m match {
-        case m: Mirror.ProductOf[A] => genProduct[A](using m).derived
-        case m: Mirror.SumOf[A]     => genSum[A](using m).derived
+        case m: ProductGeneric[F] => genProduct[F](using m).derived
+        case m: SumGeneric[F]     => genSum[F](using m).derived
       }
 
   }

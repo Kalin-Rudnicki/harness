@@ -1,14 +1,14 @@
 package harness.deriving
 
 import harness.core.*
-import harness.deriving.ExampleTypes.*
+import harness.deriving.ExampleK0Types.*
 import harness.zio.*
 import harness.zio.test.*
 import scala.deriving.Mirror.{ProductOf, SumOf}
 import zio.test.*
 import zio.test.Assertion.*
 
-object ExampleDerivationSpec extends DefaultHarnessSpec {
+object ExampleK0DerivationSpec extends DefaultHarnessSpec {
 
   trait Show[A] {
     def show(a: A): IndentedString
@@ -76,7 +76,7 @@ object ExampleDerivationSpec extends DefaultHarnessSpec {
   // override def logLevel: Logger.LogLevel = Logger.LogLevel.Debug
 
   override def spec: TestSpec =
-    suite("ExampleDerivationSpec")(
+    suite("ExampleK0DerivationSpec")(
       makeSuite("ProductSimple")(productSimpleInstance, ProductSimple.instances),
       makeSuite("SumSimple")(sumSimpleInstance, SumSimple.instances),
       makeSuite("SelfRecursiveProduct")(selfRecursiveProductInstance, SelfRecursiveProduct.instances),

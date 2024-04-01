@@ -1,7 +1,7 @@
 package harness.schema
 
 import harness.core.*
-import harness.deriving.ExampleTypes.*
+import harness.deriving.ExampleK0Types.*
 import harness.schema.internal.*
 import harness.zio.*
 import harness.zio.test.*
