@@ -1,6 +1,6 @@
 package harness.zio
 
-trait ErrorMapper[E1, E2] {
+trait ErrorMapper[-E1, E2] {
   def mapError(e: E1): E2
 }
 object ErrorMapper {

@@ -321,29 +321,21 @@ object EndpointSpec {
         inputWithoutCookiesCodec = self.inputWithoutCookiesCodec,
       )
     }
-    def /#[B](h: headerOrCookie[B])(implicit zipC: Zip[AllWithCookies, B], zipH: Zip[AllWithoutCookies, B]): Builder3[Path, zipC.Out, zipH.Out] = {
+    def /#[B](h: headerOrCookie[B])(implicit zipC: Zip[AllWithCookies, B]): Builder3[Path, zipC.Out, AllWithoutCookies] = {
       val mySchema = NonBodyInputCodec.OtherSchema.HeaderOrCookieSchema(h.name, h.schema, true)
-      val parseB: (List[String], Option[String]) => NonBodyInputCodec.Result[B] = {
-        case (value :: Nil, _)  => NonBodyInputCodec.Result.fromEither(mySchema, h.schema.decode(value))
-        case (_ :: _ :: _, _)   => NonBodyInputCodec.Result.Fail(mySchema, NonBodyInputCodec.FailureReason.DoesNotAcceptMultiple)
-        case (Nil, Some(value)) => NonBodyInputCodec.Result.fromEither(mySchema, h.schema.decode(value))
-        case (Nil, None)        => NonBodyInputCodec.Result.Fail(mySchema, NonBodyInputCodec.FailureReason.Missing)
-      }
-      new Builder3[Path, zipC.Out, zipH.Out](
+      new Builder3[Path, zipC.Out, AllWithoutCookies](
         method = method,
         name = name,
         inputWithCookiesCodec = makeCodec[AllWithCookies, B](
           mySchema,
           inputWithCookiesCodec,
-          b => (h.schema.encode(b) :: Nil, None),
-          parseB,
+          b => (Nil, h.schema.encode(b).some),
+          {
+            case (_, Some(value)) => NonBodyInputCodec.Result.fromEither(mySchema, h.schema.decode(value))
+            case (_, None)        => NonBodyInputCodec.Result.Fail(mySchema, NonBodyInputCodec.FailureReason.Missing)
+          },
         ),
-        inputWithoutCookiesCodec = makeCodec[AllWithoutCookies, B](
-          mySchema,
-          inputWithoutCookiesCodec,
-          b => (h.schema.encode(b) :: Nil, None),
-          parseB,
-        ),
+        inputWithoutCookiesCodec = self.inputWithoutCookiesCodec,
       )
     }
 
@@ -388,29 +380,21 @@ object EndpointSpec {
         inputWithoutCookiesCodec = self.inputWithoutCookiesCodec,
       )
     }
-    def /#?[B](h: headerOrCookie[B])(implicit zipC: Zip[AllWithCookies, Option[B]], zipH: Zip[AllWithoutCookies, Option[B]]): Builder3[Path, zipC.Out, zipH.Out] = {
+    def /#?[B](h: headerOrCookie[B])(implicit zipC: Zip[AllWithCookies, Option[B]]): Builder3[Path, zipC.Out, AllWithoutCookies] = {
       val mySchema = NonBodyInputCodec.OtherSchema.HeaderOrCookieSchema(h.name, h.schema, false)
-      val parseB: (List[String], Option[String]) => NonBodyInputCodec.Result[Option[B]] = {
-        case (value :: Nil, _)  => NonBodyInputCodec.Result.fromEither(mySchema, h.schema.decode(value).map(_.some))
-        case (_ :: _ :: _, _)   => NonBodyInputCodec.Result.Fail(mySchema, NonBodyInputCodec.FailureReason.DoesNotAcceptMultiple)
-        case (Nil, Some(value)) => NonBodyInputCodec.Result.fromEither(mySchema, h.schema.decode(value).map(_.some))
-        case (Nil, None)        => NonBodyInputCodec.Result.Success(None)
-      }
-      new Builder3[Path, zipC.Out, zipH.Out](
+      new Builder3[Path, zipC.Out, AllWithoutCookies](
         method = method,
         name = name,
         inputWithCookiesCodec = makeCodec[AllWithCookies, Option[B]](
           mySchema,
           inputWithCookiesCodec,
-          b => (b.map(h.schema.encode).toList, None),
-          parseB,
+          b => (Nil, b.map(h.schema.encode)),
+          {
+            case (_, Some(value)) => NonBodyInputCodec.Result.fromEither(mySchema, h.schema.decode(value).map(_.some))
+            case (_, None)        => NonBodyInputCodec.Result.Success(None)
+          },
         ),
-        inputWithoutCookiesCodec = makeCodec[AllWithoutCookies, Option[B]](
-          mySchema,
-          inputWithoutCookiesCodec,
-          b => (b.map(h.schema.encode).toList, None),
-          parseB,
-        ),
+        inputWithoutCookiesCodec = self.inputWithoutCookiesCodec,
       )
     }
 

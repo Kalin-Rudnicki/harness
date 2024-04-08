@@ -27,7 +27,7 @@ object OutputResult {
           length <- path.size
           stream <- path.inputStream
         } yield OutputResult(length, stream.transferTo)
-      case OutputStream.Raw(stream) =>
+      case OutputStream.ForwardRaw(stream) =>
         for {
           bytes <- ZIO.attempt(stream.readAllBytes())
           // TODO (KR) : handle if there is too many bytes

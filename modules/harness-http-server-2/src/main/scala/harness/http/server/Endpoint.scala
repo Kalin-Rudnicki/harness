@@ -67,6 +67,6 @@ object Endpoint {
       zip: Zipper[T],
       mapK: MapK[T],
   ): T[Endpoint.Projection[R]] =
-    MapK.mapK(Zipper.zip(spec, impl)) { [t <: EndpointType.Any] => (a: K11ET.Zip[EndpointSpec, Implementation.Projection[R]][t]) => Endpoint(a._1, a._2) }
+    mapK.mapK(Zipper.zip(spec, impl)) { [t <: EndpointType.Any] => (a: K11ET.Zip[EndpointSpec, Implementation.Projection[R]][t]) => Endpoint(a._1, a._2) }
 
 }

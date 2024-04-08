@@ -4,6 +4,7 @@ import cats.syntax.option.*
 import harness.endpoint.spec.*
 import harness.endpoint.typeclass.*
 import harness.endpoint.types.*
+import harness.http.client.*
 import harness.web.HttpCode
 import harness.zio.*
 import java.util.UUID
@@ -70,18 +71,21 @@ object TmpMain extends ExecutableApp {
   final case class Pattern1[F[_ <: EndpointType.Any]](
       route1: F[Pattern1.Route1],
       route2: F[Pattern1.Route2],
+      route3: F[Pattern1.Route3],
   )
   object Pattern1 {
 
-    type Route1 = EndpointType[UUID, UUID, BodyType.None, BodyType.Encoded[String], ApiError]
-    type Route2 = EndpointType[(UUID, String), (UUID, String), BodyType.None, BodyType.Encoded[String], ApiError]
+    type Route1 = EndpointType.Basic[UUID, BodyType.None, BodyType.Encoded[String], ApiError]
+    type Route2 = EndpointType.Basic[(UUID, String), BodyType.None, BodyType.Encoded[String], ApiError]
+    type Route3 = EndpointType.Basic[UUID, BodyType.None, BodyType.Encoded[String], ApiError]
 
   }
 
   val specs: Pattern1[EndpointSpec] =
-    Pattern1[EndpointSpec](
+    "api" /: Pattern1[EndpointSpec](
       route1 = EndpointSpec.get("Route 1") / "route-1" / path[UUID]("id") /--> body.raw[String] /!--> errorBody.json[ApiError],
       route2 = EndpointSpec.get("Route 2") / "route-2" /? query[UUID]("id") /# header.raw[String]("Auth") /--> body.raw[String] /!--> errorBody.json[ApiError],
+      route3 = EndpointSpec.get("Route 3") / "route-3" / path[UUID]("id") /--> body.raw[String] /!--> errorBody.json[ApiError],
     )
 
   val impls: Pattern1[Implementation.Projection[Service1]] =
@@ -97,32 +101,51 @@ object TmpMain extends ExecutableApp {
             .serviceWithZIO[Service1](_.sayHi(id.toString))
             .as(HttpResponse(id.toString))
       },
+      route3 = Implementation[Pattern1.Route3] { (id: UUID) =>
+        ZIO.fail(DomainError.InternalDefect(new RuntimeException("Oh no!!!")): DomainError)
+      },
     )
 
   val endpoint: Pattern1[Endpoint.Projection[Service1]] =
-    Endpoint.make("api" /: specs, impls)
+    Endpoint.make(specs, impls)
+
+  val client: Pattern1[EndpointSend] =
+    EndpointSend.make("http://localhost:3030", specs)
 
   override val executable: Executable =
-    Executable
-      .withLayer {
-        ZLayer.succeed {
-          Server.Config(
-            3030.some,
-            "res",
-            true,
-            None,
-            true,
-          )
+    Executable.fromSubCommands(
+      "server" -> Executable
+        .withLayer {
+          ZLayer.succeed {
+            Server.Config(
+              3030.some,
+              "res",
+              true,
+              None,
+              true,
+            )
+          }
         }
-      }
-      .withThrowableEffect {
+        .withThrowableEffect {
+          for {
+            _ <- Logger.log.info("=====| Server |=====")
+            _ <- Server.start[Any, Service1, Pattern1](
+              Service1.layer,
+              endpoint,
+            )
+          } yield ()
+        },
+      "client" -> Executable.withLayer { HttpClient.defaultLayer }.withEffect {
         for {
-          _ <- Logger.log.info("=====| Tmp Main |=====")
-          _ <- Server.start[Any, Service1, Pattern1](
-            Service1.layer,
-            endpoint,
-          )
+          _ <- Logger.log.info("=====| Client |=====")
+          res1 <- client.route1(UUID.randomUUID, ()).either
+          res2 <- client.route2((UUID.randomUUID, "my-auth"), ()).either
+          res3 <- client.route3(UUID.randomUUID, ()).either
+          _ <- Logger.log.info(res1)
+          _ <- Logger.log.info(res2)
+          _ <- Logger.log.info(res3)
         } yield ()
-      }
+      },
+    )
 
 }

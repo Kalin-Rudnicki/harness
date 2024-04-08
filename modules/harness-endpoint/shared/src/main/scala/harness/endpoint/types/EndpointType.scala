@@ -12,4 +12,5 @@ package harness.endpoint.types
 final class EndpointType[InputWithCookies, InputWithoutCookies, InputBody <: BodyType, OutputBody <: BodyType, Error] private ()
 object EndpointType {
   type Any = EndpointType[?, ?, ? <: BodyType, ? <: BodyType, ?]
+  type Basic[Input, InputBody <: BodyType, OutputBody <: BodyType, Error] = EndpointType[Input, Input, InputBody, OutputBody, Error]
 }

@@ -121,7 +121,7 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
           }
           .logErrorCauseSimpleAndContinue(Logger.LogLevel.Error, Logger.LogLevel.Debug.some)(using ErrorLogger.ThrowableInstances.getMessageErrorLogger)
           .unit
-          .telemetrize("HTTP Request Handler", Logger.LogLevel.Detailed, "method" -> exchange.getRequestMethod, "path" -> exchange.getRequestURI.getPath)
+          .telemetrize("HTTP server - request handler", Logger.LogLevel.Detailed, "method" -> exchange.getRequestMethod, "path" -> exchange.getRequestURI.getPath)
       }
 
     }
