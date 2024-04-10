@@ -24,7 +24,7 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
         else queryParams.map(encodeQueryParam(_, _)).mkString("?", "&", "")
 
       private inline def makeUrl(url: String, paths: List[String], queryParams: List[(String, String)]): RIO[Logger, URL] =
-        ZIO.attempt { new URL(s"$url${paths.map(URLEncoder.encode(_, "UTF-8")).mkString("/", "/", "")}${encodeQueryParams(queryParams)}") }
+        ZIO.attempt { new URL(s"$url${paths.map(p => s"/${URLEncoder.encode(p, "UTF-8")}").mkString}${encodeQueryParams(queryParams)}") }
 
       private inline def getConnection(url: URL): RIO[Scope, HttpURLConnection] =
         ZIO.attempt { url.openConnection() }.mapError(new RuntimeException(s"Error opening URL connection for: $url", _)).flatMap {
@@ -75,7 +75,7 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
           InputStream(body),
         )
 
-      private def getBody[ET <: EndpointType.Any](
+      private def readResponseBody[ET <: EndpointType.Any](
           outputBodySchema: BodySchema[OutputBody[ET]],
           errorSchema: ErrorSchema[Error[ET]],
       )(
@@ -93,9 +93,9 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
               case None =>
                 responseParams.responseCode match {
                   case HttpCode.`404` =>
-                    ZIO.dieMessage(s"Target HTTP server does not handle: ${requestParams.paths.mkString("/", "/", "")}\n${stringBody}")
+                    ZIO.dieMessage(s"Target HTTP server does not handle: ${requestParams.paths.mkString("/", "/", "")}\n$stringBody")
                   case HttpCode.`405` =>
-                    ZIO.dieMessage(s"Target HTTP server does not handle ${requestParams.method.method}: ${requestParams.paths.mkString("/", "/", "")}\n${stringBody}")
+                    ZIO.dieMessage(s"Target HTTP server does not handle ${requestParams.method.method}: ${requestParams.paths.mkString("/", "/", "")}\n$stringBody")
                   case _ =>
                     ZIO.die(DecodingFailure(DecodingFailure.Source.Body, s"Unexpected response code: ${responseParams.responseCode}"))
                 }
@@ -120,7 +120,7 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
             _ <- setHeaders(con, requestParams.headers).orDie
             _ <- setBody(con, inputBodySchema.out(body)).orDie
             (responseParams, stream) <- getResponseParamsAndStream(con).orDie
-            result <- getBody[ET](outputBodySchema, errorSchema)(requestParams, responseParams, stream)
+            result <- readResponseBody[ET](outputBodySchema, errorSchema)(requestParams, responseParams, stream)
           } yield result
         }
 

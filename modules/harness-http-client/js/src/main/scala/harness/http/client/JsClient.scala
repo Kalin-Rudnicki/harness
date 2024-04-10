@@ -45,7 +45,7 @@ final class JsClient extends HttpClient[JsClient.RequestT, JsClient.ResponseT] {
       JsClient.bodyOps,
     )
 
-  private inline def setReturn(xhr: XMLHttpRequest, register: RIO[Logger, HttpResponse.Result[JsClient.ResponseT]] => Unit): Task[Unit] =
+  private inline def setReturn[T](xhr: XMLHttpRequest, register: RIO[Logger, HttpResponse.Result[JsClient.ResponseT]] => Unit): Task[Unit] =
     ZIO.attempt {
       xhr.onload = { _ => register(getResponse(xhr)) }
     }
