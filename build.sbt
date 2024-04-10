@@ -112,11 +112,8 @@ lazy val `harness-modules` =
       // Web
       `harness-endpoint`.js,
       `harness-endpoint`.jvm,
-      `harness-http-client`.js,
-      `harness-http-client`.jvm,
       `harness-http-client-2`.js,
       `harness-http-client-2`.jvm,
-      `harness-http-server`,
       `harness-http-server-2`,
       `harness-web`.js,
       `harness-web`.jvm,
@@ -350,20 +347,6 @@ lazy val `harness-endpoint` =
       `harness-schema` % testAndCompile,
     )
 
-lazy val `harness-http-client` =
-  crossProject(JSPlatform, JVMPlatform)
-    .in(file("modules/harness-http-client"))
-    .settings(
-      name := "harness-http-client",
-      publishSettings,
-      miscSettings,
-      testSettings,
-      Test / fork := true,
-    )
-    .dependsOn(
-      `harness-web` % testAndCompile,
-    )
-
 lazy val `harness-http-client-2` =
   crossProject(JSPlatform, JVMPlatform)
     .in(file("modules/harness-http-client-2"))
@@ -376,19 +359,6 @@ lazy val `harness-http-client-2` =
     )
     .dependsOn(
       `harness-endpoint` % testAndCompile,
-    )
-
-lazy val `harness-http-server` =
-  project
-    .in(file("modules/harness-http-server"))
-    .settings(
-      name := "harness-http-server",
-      publishSettings,
-      miscSettings,
-      testSettings,
-    )
-    .dependsOn(
-      `harness-web`.jvm % testAndCompile,
     )
 
 // TODO (KR) : remove 1 and rename
@@ -439,7 +409,7 @@ lazy val `harness-web-ui` =
       testSettings,
     )
     .dependsOn(
-      `harness-http-client`.js % testAndCompile,
+      `harness-http-client-2`.js % testAndCompile,
     )
 
 // =====| Plugins |=====
@@ -591,7 +561,7 @@ lazy val `harness-archive-client` =
       testSettings,
     )
     .dependsOn(
-      `harness-http-client` % testAndCompile,
+      `harness-http-client-2` % testAndCompile,
       `harness-archive-model` % testAndCompile,
     )
 
@@ -639,7 +609,7 @@ lazy val `harness-archive-api` =
     .dependsOn(
       `harness-archive-model`.jvm % testAndCompile,
       `harness-archive-db-model` % testAndCompile,
-      `harness-http-server` % testAndCompile,
+      `harness-http-server-2` % testAndCompile,
       `harness-email` % testAndCompile,
     )
 
@@ -774,7 +744,7 @@ lazy val `harness-web-app-template--web-server` =
     )
     .dependsOn(
       `harness-web-app-template--domain-impl` % testAndCompile,
-      `harness-http-server` % testAndCompile,
+      `harness-http-server-2` % testAndCompile,
     )
 
 lazy val `harness-web-app-template--ui-web` =
