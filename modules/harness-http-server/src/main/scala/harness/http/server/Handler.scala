@@ -55,7 +55,7 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
       .foldCause(
         { cause =>
           val domainError = convertError(cause)
-          val apiError = errorHandler.errorConverter.mapError(domainError)
+          val apiError = errorHandler.convertDomainError.mapError(domainError)
           val (errorCode, errorBody) = endpoint.spec.errorCodec.encode(apiError)
           val optErrorHeader = Option.when(debugErrorHeader) {
             Base64.getEncoder.encodeToString(errorHandler.errorLogger.convert(domainError)._2.getBytes)

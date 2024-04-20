@@ -25,7 +25,7 @@ object TmpMain extends ExecutableApp {
     @errorExamples(InternalDefect)
     case object InternalDefect extends ApiError
 
-    implicit val errorSchema: ErrorSchema.ForJson[ApiError] = ErrorSchema.derive
+    implicit val errorSchema: ErrorSchema[ApiError] = ErrorSchema.derive
 
   }
 
@@ -45,11 +45,11 @@ object TmpMain extends ExecutableApp {
 
   }
 
-  implicit val errorHandler: ErrorHandler[DomainError, ApiError] =
-    ErrorHandler[DomainError, ApiError](
+  implicit val errorHandler: ErrorHandler.Id[DomainError, ApiError] =
+    ErrorHandler.id[DomainError, ApiError](
       convertDecodingFailure = e => DomainError.DecodingFailure(e.getMessage),
       convertUnexpectedError = DomainError.InternalDefect(_),
-      errorConverter = _.toApi,
+      convertDomainError = _.toApi,
       errorLogger = ErrorLogger.withToString[DomainError].atLevel.error,
       headersAndCookiesOnError = _ => identity,
     )

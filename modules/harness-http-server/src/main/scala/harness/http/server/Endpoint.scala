@@ -17,10 +17,10 @@ final case class Endpoint[-R, ET <: EndpointType.Any](
 
   private val errorHandler = implementation.errorHandler
 
-  def handle(
+  def handleScoped(
       request: HttpRequest,
       parsedPath: spec.inputWithCookiesCodec.PathT,
-  ): ZIO[HarnessEnv & R, implementation.DomainError, HttpResponse[Send[OutputBody[ET]]]] =
+  ): ZIO[HarnessEnv & Scope & R, implementation.DomainError, HttpResponse[Send[OutputBody[ET]]]] =
     (for {
       inputWithCookies <-
         (spec.inputWithCookiesCodec.decodeAll(
@@ -39,7 +39,13 @@ final case class Endpoint[-R, ET <: EndpointType.Any](
 
       result <- implementation.impl(inputWithCookies, body)
     } yield result)
-      .provideSomeEnvironment[HarnessEnv & R](_ ++ ZEnvironment(request))
+      .provideSomeEnvironment[HarnessEnv & Scope & R](_ ++ ZEnvironment(request))
+
+  def handle(
+      request: HttpRequest,
+      parsedPath: spec.inputWithCookiesCodec.PathT,
+  ): ZIO[HarnessEnv & R, implementation.DomainError, HttpResponse[Send[OutputBody[ET]]]] =
+    ZIO.scoped { handleScoped(request, parsedPath) }
 
   def handleRaw(
       request: HttpRequest,

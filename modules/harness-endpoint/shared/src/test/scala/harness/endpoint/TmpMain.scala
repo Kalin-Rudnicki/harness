@@ -1,7 +1,8 @@
 package harness.endpoint
 
 import harness.core.*
-import harness.endpoint.spec.{given, *}
+import harness.endpoint.error.ApiInternalDefect
+import harness.endpoint.spec.*
 import harness.endpoint.typeclass.*
 import harness.endpoint.types.*
 import java.util.UUID
@@ -9,13 +10,13 @@ import java.util.UUID
 object TmpMain extends scala.App {
 
   final case class Tmp1[F[_ <: EndpointType.Any]](
-      route1: F[EndpointType[Unit, Unit, BodyType.None, BodyType.None, Nothing]],
-      route2: F[EndpointType[Int, Int, BodyType.None, BodyType.None, Nothing]],
-      route3: F[EndpointType[(Int, String), (Int, String), BodyType.None, BodyType.None, Nothing]],
-      route4: F[EndpointType[(Int, String, Option[String]), (Int, String), BodyType.None, BodyType.None, Nothing]],
-      route5: F[EndpointType[(Int, String, Option[String]), (Int, String), BodyType.Encoded[UUID], BodyType.None, Nothing]],
-      route6: F[EndpointType[(Int, String, Option[String]), (Int, String), BodyType.Encoded[UUID], BodyType.Encoded[UUID], Nothing]],
-      route7: F[EndpointType[(Int, String, Option[String]), (Int, String), BodyType.Encoded[UUID], BodyType.Encoded[UUID], Nothing]],
+      route1: F[EndpointType[Unit, Unit, BodyType.None, BodyType.None, ApiInternalDefect]],
+      route2: F[EndpointType[Int, Int, BodyType.None, BodyType.None, ApiInternalDefect]],
+      route3: F[EndpointType[(Int, String), (Int, String), BodyType.None, BodyType.None, ApiInternalDefect]],
+      route4: F[EndpointType[(Int, String, Option[String]), (Int, String), BodyType.None, BodyType.None, ApiInternalDefect]],
+      route5: F[EndpointType[(Int, String, Option[String]), (Int, String), BodyType.Encoded[UUID], BodyType.None, ApiInternalDefect]],
+      route6: F[EndpointType[(Int, String, Option[String]), (Int, String), BodyType.Encoded[UUID], BodyType.Encoded[UUID], ApiInternalDefect]],
+      route7: F[EndpointType[(Int, String, Option[String]), (Int, String), BodyType.Encoded[UUID], BodyType.Encoded[UUID], ApiInternalDefect]],
   )
 
   final case class Tmp2[F[_ <: EndpointType.Any]](

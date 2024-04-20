@@ -35,4 +35,7 @@ object HttpResponse {
   def apply[B](body: B, code: HttpCode = HttpCode.`200`): HttpResponse[B] =
     HttpResponse(body, code, Map.empty, Nil)
 
+  def redirect(location: String, code: HttpCode = HttpCode.PermanentRedirect): HttpResponse[Unit] =
+    HttpResponse((), code).withHeader("Location", location)
+  
 }

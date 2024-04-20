@@ -28,7 +28,7 @@ object RouteUtils {
         case ApiError.InternalServerError          => HttpCode.`500`
       },
       errorCodec = ApiError.errorCodec,
-      errorConverter = _.toApi,
+      convertDomainError = _.toApi,
       errorLogger = ErrorLogger.withJsonPrettyShow[DomainError].withLevel {
         case DomainError.MissingSessionToken                => Logger.LogLevel.Warning
         case DomainError.InvalidSessionToken                => Logger.LogLevel.Warning

@@ -16,8 +16,7 @@ sealed trait ErrorSchema[A] {
   final val allCodes: Set[HttpCode] =
     this match {
       case ErrorSchema.ForProduct(_, code, _, _) => Set(code)
-      case ErrorSchema.ForSum(schema, children)  => children.map(_.code).toSet
-      case ErrorSchema.ForNothing                => Set.empty
+      case ErrorSchema.ForSum(_, children)       => children.map(_.code).toSet
     }
 
   // TODO (KR) : support pretty
@@ -29,7 +28,6 @@ sealed trait ErrorSchema[A] {
           children.find(_.tag.closestClass.isInstance(a)).fold(HttpCode.`500`)(_.code),
           a.toJson(using schema.codec.encoder),
         )
-      case ErrorSchema.ForNothing => throw new RuntimeException("ErrorSchema.ForNothing")
     }
 
   final def decode(code: HttpCode, error: String): Option[Either[String, A]] =
@@ -37,32 +35,27 @@ sealed trait ErrorSchema[A] {
       this match {
         case ErrorSchema.ForProduct(_, _, schema, _) => schema.decode(error)
         case ErrorSchema.ForSum(schema, _)           => schema.decode(error)
-        case ErrorSchema.ForNothing                  => throw new RuntimeException("ErrorSchema.ForNothing")
       }
     }
 
 }
-object ErrorSchema extends K0.Derivable[ErrorSchema.ForJson] {
-
-  case object ForNothing extends ErrorSchema[Nothing]
-
-  sealed trait ForJson[A] extends ErrorSchema[A]
+object ErrorSchema extends K0.Derivable[ErrorSchema] {
 
   final case class ForProduct[A] private[ErrorSchema] (
       tag: zio.Tag[A],
       code: HttpCode,
       schema: JsonSchema[A],
       examples: NonEmptyList[A],
-  ) extends ForJson[A]
+  ) extends ErrorSchema[A]
 
   final case class ForSum[A] private[ErrorSchema] (
       schema: JsonSchema[A],
       children: List[ForProduct[A]],
-  ) extends ForJson[A]
+  ) extends ErrorSchema[A]
 
   // =====|  |=====
 
-  override inline implicit def genProduct[A](implicit m: K0.ProductGeneric[A]): Derived[ErrorSchema.ForJson[A]] =
+  override inline implicit def genProduct[A](implicit m: K0.ProductGeneric[A]): Derived[ErrorSchema[A]] =
     Derived {
       ErrorSchema.ForProduct[A](
         zio.Tag[A],
@@ -72,11 +65,11 @@ object ErrorSchema extends K0.Derivable[ErrorSchema.ForJson] {
       )
     }
 
-  override inline implicit def genSum[A](implicit m: K0.SumGeneric[A]): Derived[ErrorSchema.ForJson[A]] =
+  override inline implicit def genSum[A](implicit m: K0.SumGeneric[A]): Derived[ErrorSchema[A]] =
     Derived {
       ErrorSchema.ForSum[A](
         JsonSchema.genSum[A].derived,
-        K0.SumInstances.of[A, ErrorSchema.ForJson].narrow[ErrorSchema.ForProduct].children.asInstanceOf[List[ForProduct[A]]],
+        K0.SumInstances.of[A, ErrorSchema].narrow[ErrorSchema.ForProduct].children.asInstanceOf[List[ForProduct[A]]],
       )
     }
 

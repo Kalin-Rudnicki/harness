@@ -588,6 +588,5 @@ object body {
 
 final case class errorBody[A](schema: ErrorSchema[A])
 object errorBody {
-  def json[A](implicit schema: ErrorSchema.ForJson[A]): errorBody[A] = errorBody(schema)
-  val none: errorBody[Nothing] = errorBody(ErrorSchema.ForNothing)
+  def json[A](implicit schema: ErrorSchema[A]): errorBody[A] = errorBody(schema)
 }
