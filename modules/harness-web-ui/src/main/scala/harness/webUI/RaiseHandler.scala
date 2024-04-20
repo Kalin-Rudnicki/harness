@@ -11,14 +11,14 @@ import scala.annotation.nowarn
 import zio.*
 
 abstract class RaiseHandler[-A, -S] private (
-    runtime: Runtime[HarnessEnv & HttpClient.ClientT],
+    runtime: Runtime[HarnessEnv & HttpClient],
 ) { self =>
 
   val handleRaise: Raise[A, S] => PageTask[Unit]
 
   // =====| Public API |=====
 
-  private def logCauseAndShowErrors(cause: Cause[UIError.Failure]): URIO[HarnessEnv & HttpClient.ClientT, Unit] =
+  private def logCauseAndShowErrors(cause: Cause[UIError.Failure]): URIO[HarnessEnv & HttpClient, Unit] =
     Logger.logErrorCauseSimple(cause, Logger.LogLevel.Error, Logger.LogLevel.Debug.some) *>
       ZIO
         .foreachDiscard(cause.collapsedCauseFailures.toList) { fail =>
@@ -87,7 +87,7 @@ abstract class RaiseHandler[-A, -S] private (
 }
 object RaiseHandler {
 
-  private def apply[A, S](runtime: Runtime[HarnessEnv & HttpClient.ClientT])(_handleRaise: Raise[A, S] => PageTask[Unit]): RaiseHandler[A, S] =
+  private def apply[A, S](runtime: Runtime[HarnessEnv & HttpClient])(_handleRaise: Raise[A, S] => PageTask[Unit]): RaiseHandler[A, S] =
     new RaiseHandler[A, S](runtime) {
       override val handleRaise: Raise[A, S] => PageTask[Unit] = _handleRaise
     }
@@ -98,7 +98,7 @@ object RaiseHandler {
       widget: PModifier[A, PageState[S], PageState[S], Any],
       handleA: A => PageTask[List[Raise.StandardOrUpdate[PageState[S]]]],
       titleF: Either[String, S => String],
-      runtime: Runtime[HarnessEnv & HttpClient.ClientT],
+      runtime: Runtime[HarnessEnv & HttpClient],
       urlToPage: Url => Page,
   ): RaiseHandler[A, PageState[S]] =
     new RaiseHandler[A, PageState[S]](runtime) { self =>

@@ -18,12 +18,12 @@ import zio.json.*
 
 trait PageApp[EnvFromServer <: HasStdClientConfig: Tag: JsonDecoder] extends ZIOApp {
 
-  override type Environment = HarnessEnv & HttpClient.ClientT & EnvFromServer
+  override type Environment = HarnessEnv & HttpClient & EnvFromServer
 
   @nowarn
-  override implicit def environmentTag: EnvironmentTag[HarnessEnv & HttpClient.ClientT & EnvFromServer] = EnvironmentTag[HarnessEnv & HttpClient.ClientT & EnvFromServer]
+  override implicit def environmentTag: EnvironmentTag[HarnessEnv & HttpClient & EnvFromServer] = EnvironmentTag[HarnessEnv & HttpClient & EnvFromServer]
 
-  override def bootstrap: TaskLayer[HarnessEnv & HttpClient.ClientT & EnvFromServer] = {
+  override def bootstrap: TaskLayer[HarnessEnv & HttpClient & EnvFromServer] = {
     val configLayer: TaskLayer[HConfig] =
       ZLayer.fromZIO {
         for {
@@ -93,7 +93,7 @@ trait PageApp[EnvFromServer <: HasStdClientConfig: Tag: JsonDecoder] extends ZIO
   val styleSheets: List[StyleSheet]
 
   @tailrec
-  private def urlToPageBuilder(runtime: Runtime[HarnessEnv & HttpClient.ClientT & EnvFromServer])(url: Url): Page =
+  private def urlToPageBuilder(runtime: Runtime[HarnessEnv & HttpClient & EnvFromServer])(url: Url): Page =
     routeMatcher(url) match {
       case RouteMatcher.Result.Success(page) => page
       case RouteMatcher.Result.Fail(error) =>
@@ -104,7 +104,7 @@ trait PageApp[EnvFromServer <: HasStdClientConfig: Tag: JsonDecoder] extends ZIO
       case RouteMatcher.Result.NotFound => `404Page`(url)
     }
 
-  override def run: URIO[HarnessEnv & HttpClient.ClientT & EnvFromServer & Scope, Any] =
+  override def run: URIO[HarnessEnv & HttpClient & EnvFromServer & Scope, Any] =
     (for {
       _ <- Logger.log.info("Starting page load")
       _ <- preload
@@ -146,8 +146,8 @@ trait PageApp[EnvFromServer <: HasStdClientConfig: Tag: JsonDecoder] extends ZIO
 object PageApp {
 
   private[webUI] def runZIO(
-      runtime: Runtime[HarnessEnv & HttpClient.ClientT],
-      effect: RIO[HarnessEnv & HttpClient.ClientT, Any],
+      runtime: Runtime[HarnessEnv & HttpClient],
+      effect: RIO[HarnessEnv & HttpClient, Any],
   ): Unit =
     Unsafe.unsafe { implicit unsafe =>
       runtime.unsafe.runToFuture {
