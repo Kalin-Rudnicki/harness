@@ -815,6 +815,6 @@ lazy val `harness-web-app-template--ui-web` =
       scalaJSUseMainModuleInitializer := true,
     )
     .dependsOn(
-      `harness-web-app-template--api-model`.js % testAndCompile,
+      `harness-web-app-template--api`.js % testAndCompile,
       `harness-web-ui` % testAndCompile,
     )

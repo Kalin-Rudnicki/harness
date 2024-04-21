@@ -46,19 +46,21 @@ object Main extends ExecutableApp {
 
   val serverLayer: RLayer[HarnessEnv & Scope, ServerEnv] =
     ZLayer.makeSome[HarnessEnv & Scope, ServerEnv](
+      // config read layer
       HConfig.readLayer[DbConfig]("db"),
-      JDBCConnectionPool.configLayer,
       HConfig.readLayer[EmailConfig]("email", "client"),
+      HConfig.readLayer[StdClientConfig]("ui"),
+      HConfig.readLayer[Server.Config]("http"),
+      HConfig.readLayer[String]("http", "session", "token").project(SessionTokenKey(_)),
+      HConfig.readLayer[PaymentProcessor.StripePaymentProcessor.Config]("payment", "stripe"),
+      // compose
+      JDBCConnectionPool.configLayer,
       EmailClient.liveLayer,
+      PaymentProcessor.StripePaymentProcessor.layer,
       HConfig.readLayer[Boolean]("email", "service", "live").flatMap { live =>
         if (live.get) HConfig.readLayer[LiveEmailService.Config]("email", "service") >>> LiveEmailService.liveLayer
         else LiveEmailService.logLayer
       },
-      HConfig.readLayer[PaymentProcessor.StripePaymentProcessor.Config]("payment", "stripe"),
-      PaymentProcessor.StripePaymentProcessor.layer,
-      HConfig.readLayer[StdClientConfig]("ui"),
-      HConfig.readLayer[Server.Config]("http"),
-      HConfig.readLayer[String]("http", "session", "token").project(SessionTokenKey(_)),
       ZLayer.fromZIO {
         for {
           http <- ZIO.service[Server.Config]

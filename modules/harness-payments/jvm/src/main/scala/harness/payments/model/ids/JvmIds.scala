@@ -10,6 +10,3 @@ object PaymentId extends StringId
 
 type PaymentSourceId = PaymentSourceId.Id
 object PaymentSourceId extends StringId
-
-type SetupIntentId = SetupIntentId.Id
-object SetupIntentId extends StringId

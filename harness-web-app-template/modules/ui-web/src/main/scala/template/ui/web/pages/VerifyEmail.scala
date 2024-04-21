@@ -21,7 +21,7 @@ object VerifyEmail {
     Page.builder
       .fetchState[Env] {
         for {
-          user <- Api.user.fromSessionTokenOrRedirectToLoginAllowUnverifiedEmail.toPageLoadTask
+          user <- Api.user.fromSessionToken.toPageLoadTask
         } yield Env(user, "")
       }
       .constTitle("Verify Email Address")

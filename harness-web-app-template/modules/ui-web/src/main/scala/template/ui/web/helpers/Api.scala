@@ -1,40 +1,32 @@
 package template.ui.web.helpers
 
-import harness.http.client.{HttpClient, HttpRequest}
+import harness.endpoint.spec.headerOrCookie
+import harness.endpoint.typeclass.*
+import harness.http.client.*
 import harness.payments.*
 import harness.payments.model.ids.*
 import harness.webUI.*
 import harness.zio.*
 import template.api.model.error.ApiError
 import template.api.model as ApiModel
+import template.api.spec as Spec
 import zio.*
 
 object Api {
 
-  type ReqIO[+A] = ZIO[HarnessEnv & HttpClient.ClientT, ApiError, A]
+  private val api: Spec.Api[EndpointSend] = EndpointSend.make("", "api" /: Spec.Api.spec(headerOrCookie.raw[ApiModel.user.UserToken]("empty")))
+
+  type ReqIO[+A] = ZIO[HarnessEnv & HttpClient, ApiError, A]
 
   object user {
 
-    def fromSessionToken: ReqIO[ApiModel.user.User] =
-      HttpRequest
-        .get("/api/user/from-session-token")
-        .withNoBody
-        .response
-        .withError[ApiError]
-        .jsonBody[ApiModel.user.User]
+    def fromSessionToken: ReqIO[ApiModel.user.User] = api.user.get()
 
     def fromSessionTokenOptional: ReqIO[Option[ApiModel.user.User]] =
-      HttpRequest
-        .get("/api/user/from-session-token-optional")
-        .withNoBody
-        .response
-        .withError[ApiError]
-        .jsonBody[Option[ApiModel.user.User]]
+      fromSessionToken.asSome.catchSome { case ApiError.MissingSessionToken => ZIO.none }
 
-    def fromSessionTokenOrRedirectToLoginAllowUnverifiedEmail: ReqIO[ApiModel.user.User] =
-      fromSessionTokenOptional.someOrFail(ApiError.MissingSessionToken)
     def fromSessionTokenOrRedirectToLogin: ReqIO[ApiModel.user.User] =
-      fromSessionTokenOrRedirectToLoginAllowUnverifiedEmail
+      fromSessionToken
         .tap { user => ZIO.fail(ApiError.EmailNotVerified).unless(user.emailIsVerified) }
 
     def redirectToHomeIfLoggedIn: PageLoadTask[Unit] =
@@ -43,65 +35,20 @@ object Api {
         case None    => ZIO.unit
       }
 
-    def signUp(d: ApiModel.user.SignUp): ReqIO[Unit] =
-      HttpRequest
-        .post("/api/user/sign-up")
-        .withBodyJsonEncoded(d)
-        .response
-        .withError[ApiError]
-        .unit2xx
-
-    def login(d: ApiModel.user.Login): ReqIO[Unit] =
-      HttpRequest
-        .post("/api/user/login")
-        .withBodyJsonEncoded(d)
-        .response
-        .withError[ApiError]
-        .unit2xx
-
-    def logOut: ReqIO[Unit] =
-      HttpRequest
-        .post("/api/user/log-out")
-        .withNoBody
-        .response
-        .withError[ApiError]
-        .unit2xx
-
-    def verifyEmail(code: ApiModel.user.EmailVerificationCode): ReqIO[Unit] =
-      HttpRequest
-        .post("/api/user/verify-email")
-        .withQueryParamEncoded("code", code)
-        .withNoBody
-        .response
-        .withError[ApiError]
-        .unit2xx
-
-    def resendEmailCode: ReqIO[Unit] =
-      HttpRequest
-        .post("/api/user/resend-email-code")
-        .withNoBody
-        .response
-        .withError[ApiError]
-        .unit2xx
+    def signUp(d: ApiModel.user.SignUp): ReqIO[ApiModel.user.User] = api.user.signUp(d)
+    def login(d: ApiModel.user.Login): ReqIO[ApiModel.user.User] = api.user.login(d)
+    def logOut: ReqIO[Unit] = api.user.logOut()
+    def verifyEmail(code: ApiModel.user.EmailVerificationCode): ReqIO[Unit] = api.user.verifyEmail(code)
+    def resendEmailCode: ReqIO[Unit] = api.user.resendEmailVerification()
 
   }
   object payment {
 
     def createIntent: ReqIO[ClientSecret] =
-      HttpRequest
-        .post("/api/payment/create-intent")
-        .withNoBody
-        .response
-        .withError[ApiError]
-        .jsonBody[ClientSecret]
+      api.payment.createIntent()
 
     def paymentMethods: ReqIO[Chunk[ApiModel.paymentMethod.PaymentMethod]] =
-      HttpRequest
-        .get("/api/payment/payment-methods")
-        .withNoBody
-        .response
-        .withError[ApiError]
-        .jsonBody[Chunk[ApiModel.paymentMethod.PaymentMethod]]
+      api.payment.paymentMethods()
 
   }
 

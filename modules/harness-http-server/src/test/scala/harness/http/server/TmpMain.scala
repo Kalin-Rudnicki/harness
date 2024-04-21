@@ -138,9 +138,9 @@ object TmpMain extends ExecutableApp {
       "client" -> Executable.withLayer { HttpClient.defaultLayer }.withEffect {
         for {
           _ <- Logger.log.info("=====| Client |=====")
-          res1 <- client.route1(UUID.randomUUID, ()).either
-          res2 <- client.route2((UUID.randomUUID, "my-auth"), ()).either
-          res3 <- client.route3(UUID.randomUUID, ()).either
+          res1 <- client.route1(UUID.randomUUID).either
+          res2 <- client.route2((UUID.randomUUID, "my-auth")).either
+          res3 <- client.route3(UUID.randomUUID).either
           _ <- Logger.log.info(res1)
           _ <- Logger.log.info(res2)
           _ <- Logger.log.info(res3)

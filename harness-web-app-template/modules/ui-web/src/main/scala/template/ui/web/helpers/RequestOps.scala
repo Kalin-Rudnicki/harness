@@ -11,7 +11,7 @@ def redirectToLogin: UIError.Redirect = UIError.Redirect(Url("page", "login")())
 def redirectToHome: UIError.Redirect = UIError.Redirect(Url("page", "home")())
 def redirectToVerifyEmail: UIError.Redirect = UIError.Redirect(Url("page", "verify-email")())
 
-implicit class RequestOps[A](self: ZIO[HarnessEnv & HttpClient.ClientT, ApiError, A]) {
+implicit class RequestOps[A](self: ZIO[HarnessEnv & HttpClient, ApiError, A]) {
 
   def toPageLoadTask: PageLoadTask[A] =
     self.mapError {

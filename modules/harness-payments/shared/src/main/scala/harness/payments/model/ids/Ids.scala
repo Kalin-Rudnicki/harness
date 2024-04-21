@@ -10,3 +10,6 @@ object ClientSecret extends StringId
 
 type PaymentMethodId = PaymentMethodId.Id
 object PaymentMethodId extends StringId
+
+type SetupIntentId = SetupIntentId.Id
+object SetupIntentId extends StringId
