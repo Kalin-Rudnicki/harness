@@ -1,11 +1,11 @@
 package template.api.model.user
 
-import zio.json.*
+import harness.schema.*
 
 final case class Login(
     username: String,
     password: String,
 )
 object Login {
-  implicit val jsonCodec: JsonCodec[Login] = DeriveJsonCodec.gen
+  implicit val schema: JsonSchema[Login] = JsonSchema.derive
 }

@@ -1,6 +1,6 @@
 package harness.payments.model.result
 
-import zio.json.*
+import harness.schema.*
 
 sealed trait TypeDetails
 object TypeDetails {
@@ -19,6 +19,6 @@ object TypeDetails {
       last4: String,
   ) extends TypeDetails
 
-  implicit val jsonCodec: JsonCodec[TypeDetails] = DeriveJsonCodec.gen
+  implicit val schema: JsonSchema[TypeDetails] = JsonSchema.derive
 
 }

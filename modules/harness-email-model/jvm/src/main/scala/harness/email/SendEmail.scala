@@ -2,6 +2,7 @@ package harness.email
 
 import cats.data.NonEmptyList
 import harness.core.Enum
+import harness.schema.*
 import harness.zio.*
 import harness.zio.json.*
 import javax.mail.Message.RecipientType as JavaRecipientType
@@ -23,9 +24,7 @@ object SendEmail {
     case CC extends RecipientType(JavaRecipientType.CC)
     case BCC extends RecipientType(JavaRecipientType.BCC)
   }
-  object RecipientType extends Enum.Companion[RecipientType] {
-    implicit val jsonCodec: JsonCodec[RecipientType] = JsonCodec.`enum`[RecipientType, String]
-  }
+  object RecipientType extends Enum.Companion[RecipientType]
 
   final case class Recipient(
       recipientType: RecipientType,
@@ -37,10 +36,10 @@ object SendEmail {
     def cc(address: EmailAddress): Recipient = Recipient(RecipientType.CC, address)
     def bcc(address: EmailAddress): Recipient = Recipient(RecipientType.BCC, address)
 
-    implicit val jsonCodec: JsonCodec[Recipient] = DeriveJsonCodec.gen
+    implicit val schema: JsonSchema[Recipient] = JsonSchema.derive
 
   }
 
-  implicit val jsonCodec: JsonCodec[SendEmail] = DeriveJsonCodec.gen
+  implicit val schema: JsonSchema[SendEmail] = JsonSchema.derive
 
 }

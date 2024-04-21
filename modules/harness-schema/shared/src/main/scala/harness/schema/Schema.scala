@@ -8,7 +8,7 @@ import harness.deriving.*
 import harness.zio.json.*
 import java.util.UUID
 import scala.reflect.ClassTag
-import zio.Tag
+import zio.{Chunk, Tag}
 import zio.json.*
 
 sealed trait Schema[A] { self =>
@@ -185,6 +185,8 @@ object JsonSchema extends K0.Derivable[JsonSchema] {
     JsonArr(Tag[Seq[A]], JsonCodec.seq[A](using elem.codec.encoder, elem.codec.decoder), elem)
   implicit def listSchema[A: Tag](implicit elem: JsonSchema[A]): JsonSchema[List[A]] =
     JsonArr(Tag[List[A]], JsonCodec.list[A](using elem.codec.encoder, elem.codec.decoder), elem)
+  implicit def chunkSchema[A: Tag](implicit elem: JsonSchema[A]): JsonSchema[Chunk[A]] =
+    JsonArr(Tag[Chunk[A]], JsonCodec.chunk[A](using elem.codec.encoder, elem.codec.decoder), elem)
   implicit def nelSchema[A: Tag](implicit elem: JsonSchema[A]): JsonSchema[NonEmptyList[A]] =
     JsonArr(Tag[NonEmptyList[A]], catsNelJsonCodec[A](using elem.codec), elem)
 

@@ -479,6 +479,7 @@ lazy val `harness-email-model` =
       ),
     )
     .dependsOn(
+      `harness-schema` % testAndCompile,
       `harness-zio` % testAndCompile,
     )
 
@@ -683,10 +684,11 @@ lazy val `harness-web-app-template--api-model` =
       testSettings,
     )
     .dependsOn(
-      `harness-web` % testAndCompile,
       `harness-email-model` % testAndCompile,
-      `harness-pk` % testAndCompile,
+      `harness-endpoint` % testAndCompile,
       `harness-payments` % testAndCompile,
+      `harness-pk` % testAndCompile,
+      `harness-web` % testAndCompile,
       `harness-zio-test` % Test,
     )
 
@@ -700,7 +702,6 @@ lazy val `harness-web-app-template--api` =
       testSettings,
     )
     .dependsOn(
-      `harness-endpoint` % testAndCompile,
       `harness-web-app-template--api-model` % testAndCompile,
     )
 

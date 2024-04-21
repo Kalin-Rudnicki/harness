@@ -1,7 +1,7 @@
 package template.api.model.user
 
 import harness.email.EmailAddress
-import zio.json.*
+import harness.schema.*
 
 final case class SignUp(
     firstName: String,
@@ -11,5 +11,5 @@ final case class SignUp(
     email: EmailAddress,
 )
 object SignUp {
-  implicit val jsonCodec: JsonCodec[SignUp] = DeriveJsonCodec.gen
+  implicit val schema: JsonSchema[SignUp] = JsonSchema.derive
 }

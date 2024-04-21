@@ -3,7 +3,6 @@ package harness.payments.service
 import com.stripe.Stripe
 import com.stripe.model.*
 import com.stripe.param.*
-import harness.email.*
 import harness.payments.error.PaymentError
 import harness.payments.model.ids.*
 import harness.payments.model as PM
