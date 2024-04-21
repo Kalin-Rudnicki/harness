@@ -20,7 +20,7 @@ object EmailAddress {
       case Left(error)  => throw new RuntimeException(error)
     }
 
-  implicit val stringEncoder: StringEncoder[EmailAddress] = StringEncoder.usingToString
+  implicit val stringEncoder: StringEncoder[EmailAddress] = _.unwrap
   implicit val stringDecoder: StringDecoder[EmailAddress] = StringDecoder.fromEitherF(EmailAddress.parse)
 
   implicit val jsonFieldEncoder: JsonFieldEncoder[EmailAddress] = JsonFieldEncoder.string.contramap(_.unwrap)

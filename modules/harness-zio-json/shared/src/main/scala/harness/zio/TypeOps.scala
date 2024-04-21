@@ -46,7 +46,7 @@ object TypeOps {
     new zio.Tag[A] {
       override val tag: zio.LightTypeTag = {
         val reg = "^(?:(.+)\\.)?([^.]+)$".r
-        val (prefix, name) = klass.getCanonicalName match {
+        val (prefix, name) = klass.getName match {
           case reg(p, n) => Option(p) -> n
           case _         => None -> klass.getSimpleName
         }

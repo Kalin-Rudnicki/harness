@@ -6,7 +6,6 @@ import cats.syntax.option.*
 import harness.core.*
 import harness.deriving.*
 import harness.zio.json.*
-import java.util.UUID
 import scala.reflect.ClassTag
 import zio.{Chunk, Tag}
 import zio.json.*
@@ -28,7 +27,7 @@ sealed trait Schema[A] { self =>
     case schema: RawSchema[A]  => schema.codec.decoder.decode(string)
   }
 
-  final val ref: SchemaRef = SchemaRef(tag, UUID.randomUUID)
+  final val ref: SchemaRef = SchemaRef.gen(tag)
 
 }
 object Schema {
@@ -131,7 +130,7 @@ object JsonSchema extends K0.Derivable[JsonSchema] {
   ) extends JsonObj[A]
 
   final case class SumOption[A](option: ProductJsonObj[A]) {
-    val ref: SchemaRef = SchemaRef(option.tag, UUID.randomUUID)
+    val ref: SchemaRef = SchemaRef.gen(option.tag)
   }
 
   final case class SumJsonObj[A](

@@ -51,7 +51,7 @@ object Main extends ExecutableApp {
       HConfig.readLayer[EmailConfig]("email", "client"),
       HConfig.readLayer[StdClientConfig]("ui"),
       HConfig.readLayer[Server.Config]("http"),
-      HConfig.readLayer[String]("http", "session", "token").project(SessionTokenKey(_)),
+      HConfig.readLayer[String]("http", "session", "key").project(SessionTokenKey(_)),
       HConfig.readLayer[PaymentProcessor.StripePaymentProcessor.Config]("payment", "stripe"),
       // compose
       JDBCConnectionPool.configLayer,

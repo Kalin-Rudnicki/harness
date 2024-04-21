@@ -53,7 +53,7 @@ implicit class StandardPatternCompanionOps(self: StandardPattern.type) {
            |    <title>Title</title>
            |    <link rel='shortcut icon' type='image/x-icon' href='/res/favicon.ico' />
            |    <script>
-           |      const harnessUiConfig = ${Json.Str(clientConfig.stdClientConfig.toJson).toJson}
+           |      const harnessUiConfig = ${Json.Str(clientConfig.toJson).toJson}
            |    </script>
            |    <script id="scripts" src="/res/js/main.js"></script>
            |</head>
