@@ -764,6 +764,22 @@ lazy val `harness-web-app-template--domain-impl` =
       `harness-sql-mock` % Test,
     )
 
+lazy val `harness-web-app-template--api-impl` =
+  project
+    .in(file("harness-web-app-template/modules/api-impl"))
+    .settings(
+      name := "harness-web-app-template--api-impl",
+      publish / skip := true,
+      miscSettings,
+      testSettings,
+    )
+    .dependsOn(
+      `harness-web-app-template--domain` % testAndCompile,
+      `harness-web-app-template--api`.jvm % testAndCompile,
+      `harness-sql` % testAndCompile,
+      `harness-http-server` % testAndCompile,
+    )
+
 lazy val `harness-web-app-template--web-server` =
   project
     .in(file("harness-web-app-template/modules/web-server"))
@@ -779,8 +795,8 @@ lazy val `harness-web-app-template--web-server` =
       },
     )
     .dependsOn(
+      `harness-web-app-template--api-impl` % testAndCompile,
       `harness-web-app-template--domain-impl` % testAndCompile,
-      `harness-http-server` % testAndCompile,
     )
 
 lazy val `harness-web-app-template--ui-web` =

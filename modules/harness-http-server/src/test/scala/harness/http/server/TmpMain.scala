@@ -90,18 +90,18 @@ object TmpMain extends ExecutableApp {
 
   val impls: Pattern1[Implementation.Projection[Service1]] =
     Pattern1[Implementation.Projection[Service1]](
-      route1 = Implementation[Pattern1.Route1] { (id: UUID) =>
+      route1 = Implementation[Pattern1.Route1].implement { (id: UUID) =>
         ZIO
           .serviceWithZIO[Service1](_.sayHi(id.toString))
           .as(HttpResponse(id.toString))
       },
-      route2 = Implementation[Pattern1.Route2] { (id: UUID, auth: String) =>
+      route2 = Implementation[Pattern1.Route2].implement { (id: UUID, auth: String) =>
         Logger.log.info(s"auth: $auth") *>
           ZIO
             .serviceWithZIO[Service1](_.sayHi(id.toString))
             .as(HttpResponse(id.toString))
       },
-      route3 = Implementation[Pattern1.Route3] { (id: UUID) =>
+      route3 = Implementation[Pattern1.Route3].implement { (id: UUID) =>
         ZIO.fail(DomainError.InternalDefect(new RuntimeException("Oh no!!!")): DomainError)
       },
     )
@@ -129,8 +129,8 @@ object TmpMain extends ExecutableApp {
         .withThrowableEffect {
           for {
             _ <- Logger.log.info("=====| Server |=====")
-            _ <- Server.start[Any, Service1, Pattern1](
-              Service1.layer,
+            _ <- Server.start[Any, Service1 & String, Pattern1, Service1](
+              Service1.layer ++ ZLayer.succeed(""),
               endpoint,
             )
           } yield ()

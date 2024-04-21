@@ -86,25 +86,26 @@ implicit class StandardPatternCompanionOps(self: StandardPattern.type) {
 
     StandardPattern[T, Implementation.Projection[R]](
       api = tImpl,
-      healthCheck = Implementation[StandardPattern.HealthCheck] { _ =>
-        ZIO.unit
+      healthCheck = Implementation[StandardPattern.HealthCheck].implement { _ =>
+        ZIO.unit.toHttpResponse
       },
-      index = Implementation[StandardPattern.Index] { _ =>
+      index = Implementation[StandardPattern.Index].implement { _ =>
         ZIO.succeed { HttpResponse.redirect("/page") }
       },
-      page = Implementation[StandardPattern.Page] { _ =>
+      page = Implementation[StandardPattern.Page].implement { _ =>
         ZIO.succeed(pageHtmlResponse)
       },
-      favicon = Implementation[StandardPattern.Favicon] { _ =>
-        getResFile("favicon.ico" :: Nil)
+      favicon = Implementation[StandardPattern.Favicon].implement { _ =>
+        getResFile("favicon.ico" :: Nil).toHttpResponse
       },
-      js = Implementation[StandardPattern.Js] { paths =>
-        getResFile("js" :: paths)
+      js = Implementation[StandardPattern.Js].implement { paths =>
+        getResFile("js" :: paths).toHttpResponse
       },
     )
   }
 
 }
 
-implicit def convertZioToHttpResponse[R, E, A]: Conversion[ZIO[R, E, A], ZIO[R, E, HttpResponse[A]]] =
-  _.map(HttpResponse(_))
+implicit class ZIOHttpResponseOps[R, E, A](self: ZIO[R, E, A]) {
+  def toHttpResponse: ZIO[R, E, HttpResponse[A]] = self.map(HttpResponse(_))
+}

@@ -50,9 +50,9 @@ object Server {
 
   }
 
-  def start[ServerEnv, ReqEnv: EnvironmentTag, T[_[_ <: EndpointType.Any]]](
+  def start[ServerEnv, ReqEnv: EnvironmentTag, T[_[_ <: EndpointType.Any]], ImplR >: ServerEnv & ReqEnv](
       reqLayer: RLayer[HarnessEnv & ServerEnv & Scope, ReqEnv],
-      endpointPattern: T[Endpoint.Projection[ServerEnv & ReqEnv]],
+      endpoints: T[Endpoint.Projection[ImplR]],
       // TODO (KR) : docs
   )(implicit
       flatten: Flatten[T],
@@ -65,8 +65,8 @@ object Server {
       server <- createHttpServer(config, inet)
       runtime <- ZIO.runtime[HarnessEnv & ServerEnv]
 
-      endpoints = flatten.flatten(endpointPattern)
-      handler = Handler(runtime, reqLayer, endpoints, config.debugErrorHeader)
+      endpointList = flatten.flatten(endpoints)
+      handler = Handler(runtime, reqLayer, endpointList, config.debugErrorHeader)
       _ <- ZIO.attempt(server.createContext("/", handler))
       _ <- ZIO.attempt(server.setExecutor(null))
       _ <- ZIO.attempt(server.start())

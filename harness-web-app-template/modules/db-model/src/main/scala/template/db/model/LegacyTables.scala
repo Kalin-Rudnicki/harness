@@ -1,6 +1,7 @@
 package template.db.model
 
 import harness.email.EmailAddress
+import harness.schema.*
 import harness.sql.*
 import template.api.model as Api
 

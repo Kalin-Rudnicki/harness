@@ -24,7 +24,7 @@ object Implementation {
 
   final class Builder[I, ET <: EndpointType.Any](zip: Zip.Out[InputWithCookies[ET], Receive[InputBody[ET]], I]) {
 
-    def apply[_R, _DomainError](
+    def implement[_R, _DomainError](
         f: I => ZIO[HarnessEnv & Implementation.Provided & _R, _DomainError, HttpResponse[Send[OutputBody[ET]]]],
     )(using _errorHandler: ErrorHandler.Aux[_DomainError, ?, Error[ET]]): Implementation[_R, ET] =
       new Implementation[_R, ET] {

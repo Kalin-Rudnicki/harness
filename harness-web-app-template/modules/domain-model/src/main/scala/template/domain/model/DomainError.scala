@@ -2,7 +2,7 @@ package template.domain.model
 
 import cats.data.NonEmptyList
 import harness.email.EmailAddress
-import harness.zio.ZIOJsonInstances.*
+import harness.zio.json.*
 import template.api.model.error.ApiError
 import template.api.model as Api
 import zio.json.*

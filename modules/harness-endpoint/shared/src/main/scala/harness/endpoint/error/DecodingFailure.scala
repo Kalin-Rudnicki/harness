@@ -3,7 +3,7 @@ package harness.endpoint.error
 import harness.core.*
 import harness.endpoint.spec.NonBodyInputCodec
 import harness.endpoint.spec.NonBodyInputCodec.{FailureReason, OtherSchema}
-import harness.schema.{given, *}
+import harness.schema.*
 import zio.json.*
 
 final case class DecodingFailure(

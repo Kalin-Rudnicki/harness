@@ -27,7 +27,8 @@ final case class HttpResponse[B](
   def addHeaders(k: String, vs: List[String]): HttpResponse[B] =
     modifyHeader(k) { _ ++ vs }
 
-  // TODO (KR) : add cookie
+  def withCookie(cookie: SetCookie): HttpResponse[B] =
+    self.copy(cookies = cookie :: self.cookies)
 
 }
 object HttpResponse {
@@ -37,5 +38,5 @@ object HttpResponse {
 
   def redirect(location: String, code: HttpCode = HttpCode.PermanentRedirect): HttpResponse[Unit] =
     HttpResponse((), code).withHeader("Location", location)
-  
+
 }

@@ -1,22 +1,26 @@
 package template.webServer
 
 import harness.email.*
+import harness.endpoint.StandardPattern
+import harness.endpoint.spec.headerOrCookie
 import harness.http.server.*
-import harness.http.server.ServerConfig
 import harness.payments.service.PaymentProcessor
 import harness.sql.*
 import harness.sql.autoSchema.*
 import harness.sql.query.Transaction
 import harness.web.*
 import harness.zio.*
+import template.api.impl as Impl
 import template.api.model as Api
+import template.api.service.*
+import template.api.spec as Spec
 import template.domain.email.*
 import template.domain.impl.email.*
+import template.domain.impl.session.*
 import template.domain.impl.storage.postgres.*
 import template.domain.impl.storage.postgres.StorageUtils.errorMapper
 import template.domain.model.DomainError
-import template.webServer.api.*
-import template.webServer.route.*
+import template.domain.session.*
 import zio.*
 import zio.json.*
 
@@ -25,8 +29,20 @@ object Main extends ExecutableApp {
   // TODO (KR) :
   // override val config: ExecutableApp.Config = ExecutableApp.Config.default.addArchiveDecoders
 
-  type ServerEnv = JDBCConnectionPool & EmailService & PaymentProcessor & StdClientConfig & PaymentProcessor.StripePaymentProcessor.Config & SessionConfig
-  type ReqEnv = UserApi & PaymentApi & Transaction[DomainError]
+  final case class SessionTokenKey(value: String)
+
+  type ServerEnv =
+    // Config
+    LiveSessionService.Config & Server.Config & PaymentProcessor.StripePaymentProcessor.Config & SessionTokenKey & StdClientConfig &
+      // Services
+      EmailService & PaymentProcessor &
+      // Other
+      JDBCConnectionPool
+  type ReqEnv =
+    // Apis
+    UserApi & PaymentApi &
+      // Other
+      SessionService & Transaction[DomainError]
 
   val serverLayer: RLayer[HarnessEnv & Scope, ServerEnv] =
     ZLayer.makeSome[HarnessEnv & Scope, ServerEnv](
@@ -41,7 +57,14 @@ object Main extends ExecutableApp {
       HConfig.readLayer[PaymentProcessor.StripePaymentProcessor.Config]("payment", "stripe"),
       PaymentProcessor.StripePaymentProcessor.layer,
       HConfig.readLayer[StdClientConfig]("ui"),
-      HConfig.readLayer[SessionConfig]("http", "session"),
+      HConfig.readLayer[Server.Config]("http"),
+      HConfig.readLayer[String]("http", "session", "token").project(SessionTokenKey(_)),
+      ZLayer.fromZIO {
+        for {
+          http <- ZIO.service[Server.Config]
+          token <- ZIO.service[SessionTokenKey]
+        } yield LiveSessionService.Config(http.ssl.nonEmpty, token.value)
+      },
     )
 
   val reqLayer: URLayer[ServerEnv & JDBCConnection & Scope, ReqEnv] =
@@ -51,24 +74,33 @@ object Main extends ExecutableApp {
       LiveUserStorage.liveLayer,
       LiveSessionStorage.liveLayer,
       LivePaymentMethodStorage.liveLayer,
+      // session
+      LiveSessionService.layer,
       // api
       UserApi.layer,
       PaymentApi.layer,
     )
 
-  val routes: URIO[StdClientConfig & PaymentProcessor.StripePaymentProcessor.Config & ServerConfig, Route[ServerEnv & ReqEnv]] =
+  val endpoints: URIO[
+    StdClientConfig & PaymentProcessor.StripePaymentProcessor.Config & Server.Config & SessionTokenKey,
+    StandardPattern[Spec.Api, Endpoint.Projection[Impl.Api.Env]],
+  ] =
     for {
-      uiConfig <- ZIO.service[StdClientConfig]
+      stdUIConfig <- ZIO.service[StdClientConfig]
+      serverConfig <- ZIO.service[Server.Config]
       stripeConfig <- ZIO.service[PaymentProcessor.StripePaymentProcessor.Config]
-      config = Api.config.UiConfig(
-        uiConfig,
+      sessionTokenKey <- ZIO.service[SessionTokenKey]
+
+      uiConfig = Api.config.UiConfig(
+        stdUIConfig,
         stripeConfig.publishableKey,
       )
-      r <- Route.stdRoot(config)(
-        UserRoutes.routes,
-        PaymentRoutes.routes,
+
+      endpoints = Endpoint.make(
+        StandardPattern.spec(Spec.Api.spec(headerOrCookie.raw[Api.user.UserToken](sessionTokenKey.value))),
+        StandardPattern.impl(serverConfig, uiConfig)(Impl.Api.impl),
       )
-    } yield r
+    } yield endpoints
 
   private val migrations: PlannedMigrations =
     PlannedMigrations(
@@ -83,12 +115,10 @@ object Main extends ExecutableApp {
     Executable.fromSubCommands(
       "server" ->
         Executable
-          .withLayer[ServerEnv & ServerConfig, Throwable] {
-            serverLayer ++ HConfig.readLayer[ServerConfig]("http")
-          }
+          .withLayer[ServerEnv, Throwable] { serverLayer }
           .withThrowableEffect {
             MigrationRunner.runMigrationsFromPool(migrations) *>
-              routes.flatMap { Server.start[ServerEnv, ReqEnv](JDBCConnection.poolLayer >>> reqLayer) }
+              endpoints.flatMap { Server.start[ServerEnv, ReqEnv, StandardPattern.Projection[Spec.Api], Impl.Api.Env](JDBCConnection.poolLayer >>> reqLayer, _) }
           },
     )
 

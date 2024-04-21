@@ -1,4 +1,4 @@
-package template.webServer.api
+package template.api.service
 
 import cats.syntax.option.*
 import harness.payments.model.ids.*
@@ -7,12 +7,13 @@ import harness.payments.service.PaymentProcessor
 import harness.zio.*
 import template.api.model as Api
 import template.domain.model.*
+import template.domain.session.*
 import template.domain.storage.*
 import zio.*
 
 final case class PaymentApi(
+    sessionService: SessionService,
     userStorage: UserStorage,
-    sessionStorage: SessionStorage,
     paymentMethodStorage: PaymentMethodStorage,
     paymentProcessor: PaymentProcessor,
 ) {
@@ -28,15 +29,15 @@ final case class PaymentApi(
 
   def createIntent(token: Api.user.UserToken): ZIO[HarnessEnv, DomainError, ClientSecret] =
     for {
-      user <- SessionUtils.userFromSessionToken(token, sessionStorage)
+      user <- sessionService.getUser(token)
       _ <- Logger.log.info("Attempting to create setup intent", "userId" -> user.id.toUUID)
       customerId <- getOrCreateStripeCustomer(user)
       setupIntent <- paymentProcessor.createSetupIntent(PM.create.SetupIntent(customerId, None)).mapError(DomainError.UnexpectedPaymentError(_))
     } yield setupIntent.clientSecret
 
-  def acceptSetupIntent(token: Api.user.UserToken, setupIntentId: SetupIntentId): ZIO[HarnessEnv, DomainError, Unit] =
+  def acceptIntent(token: Api.user.UserToken, setupIntentId: SetupIntentId): ZIO[HarnessEnv, DomainError, Unit] =
     for {
-      user <- SessionUtils.userFromSessionToken(token, sessionStorage)
+      user <- sessionService.getUser(token)
       _ <- Logger.log.info("Attempting to accept setup intent", "userId" -> user.id.toUUID)
       setupIntent <- paymentProcessor.getSetupIntent(setupIntentId).mapError(DomainError.UnexpectedPaymentError(_))
       paymentMethod <- paymentProcessor.getPaymentMethod(setupIntent.paymentMethodId).mapError(DomainError.UnexpectedPaymentError(_))
@@ -47,7 +48,7 @@ final case class PaymentApi(
 
   def paymentMethods(token: Api.user.UserToken): ZIO[HarnessEnv, DomainError, Chunk[PaymentMethod]] =
     for {
-      user <- SessionUtils.userFromSessionToken(token, sessionStorage)
+      user <- sessionService.getUser(token)
       _ <- Logger.log.info("Attempting to get payment methods", "userId" -> user.id.toUUID)
       paymentMethods <- paymentMethodStorage.getForUser(user.id)
     } yield paymentMethods
@@ -55,7 +56,7 @@ final case class PaymentApi(
 }
 object PaymentApi {
 
-  val layer: URLayer[UserStorage & SessionStorage & PaymentMethodStorage & PaymentProcessor, PaymentApi] =
+  val layer: URLayer[UserStorage & PaymentMethodStorage & PaymentProcessor & SessionService, PaymentApi] =
     ZLayer.fromFunction { PaymentApi.apply }
 
 }

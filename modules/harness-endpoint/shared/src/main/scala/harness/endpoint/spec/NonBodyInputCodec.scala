@@ -14,7 +14,7 @@ final case class NonBodyInputCodec[Path, All](
 ) { self =>
 
   type PathT = Path
-  
+
   def /:(constPath: String): NonBodyInputCodec[Path, All] =
     NonBodyInputCodec[Path, All](
       encode = { a =>

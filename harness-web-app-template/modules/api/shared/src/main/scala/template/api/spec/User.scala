@@ -12,7 +12,7 @@ final case class User[F[_ <: EndpointType.Any]](
     logOut: F[User.LogOut],
     signUp: F[User.SignUp],
     verifyEmail: F[User.VerifyEmail],
-    resendEmailCode: F[User.ResendEmailCode],
+    resendEmailVerification: F[User.ResendEmailVerification],
 )
 object User {
 
@@ -21,7 +21,7 @@ object User {
   type LogOut = EndpointType[A.user.UserToken, Unit, BodyType.None, BodyType.None, ApiError]
   type SignUp = EndpointType.Basic[Unit, BodyType.Encoded[A.user.SignUp], BodyType.Encoded[A.user.User], ApiError]
   type VerifyEmail = EndpointType[(A.user.EmailVerificationCode, A.user.UserToken), A.user.EmailVerificationCode, BodyType.None, BodyType.None, ApiError]
-  type ResendEmailCode = EndpointType[A.user.UserToken, Unit, BodyType.None, BodyType.None, ApiError]
+  type ResendEmailVerification = EndpointType[A.user.UserToken, Unit, BodyType.None, BodyType.None, ApiError]
 
   def spec(authToken: headerOrCookie[A.user.UserToken]): User[EndpointSpec] =
     "user" /:
@@ -36,7 +36,7 @@ object User {
           /<-- body.json[A.user.SignUp] /--> body.json[A.user.User] /!--> errorBody.json[ApiError],
         verifyEmail = EndpointSpec.post("Verify Email") / "email" / "verify"
           /? query[A.user.EmailVerificationCode]("code") /# authToken /!--> errorBody.json[ApiError],
-        resendEmailCode = EndpointSpec.post("Resend Email Verification") / "email" / "resend-verification"
+        resendEmailVerification = EndpointSpec.post("Resend Email Verification") / "email" / "resend-verification"
           /# authToken /!--> errorBody.json[ApiError],
       )
 

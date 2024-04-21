@@ -18,6 +18,8 @@ final case class StandardPattern[T[_[_ <: EndpointType.Any]], F[_ <: EndpointTyp
 )
 object StandardPattern {
 
+  type Projection[T[_[_ <: EndpointType.Any]]] = [F[_ <: EndpointType.Any]] =>> StandardPattern[T, F]
+
   @jsonDiscriminator("type")
   sealed trait ApiError
   object ApiError {

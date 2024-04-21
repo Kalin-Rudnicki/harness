@@ -3,6 +3,7 @@ package template.db.model
 import harness.email.EmailAddress
 import harness.payments.model.ids as StripeIds
 import harness.payments.model as PM
+import harness.schema.*
 import harness.sql.*
 import template.api.model as Api
 import template.domain.model as Domain

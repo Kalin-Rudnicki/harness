@@ -32,7 +32,7 @@ abstract class Mock[Z](implicit rTag: Tag[Z]) { myMock =>
 
     final def namePart: String =
       myCapability.getClass.getSimpleName.stripSuffix("$")
-      
+
     final def name: String =
       s"${myMock.name}<$namePart>"
 

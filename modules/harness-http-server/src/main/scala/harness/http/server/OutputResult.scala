@@ -14,7 +14,7 @@ object OutputResult {
     val bytes = string.getBytes
     OutputResult(bytes.length, _.write(bytes))
   }
-  
+
   def fromOutputStream(outputStream: OutputStream): RIO[Scope, OutputResult] =
     outputStream match {
       case OutputStream.Empty =>
