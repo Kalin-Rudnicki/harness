@@ -1,7 +1,7 @@
 package harness.zio.error
 
 import harness.core.*
-import harness.zio.ZIOJsonInstances.throwableJsonCodec
+import harness.zio.json.throwableJsonCodec
 import zio.json.*
 import zio.json.ast.Json
 

@@ -3,6 +3,7 @@ package harness.zio
 import cats.data.NonEmptyList
 import cats.syntax.option.*
 import harness.core.*
+import harness.zio.json.*
 import java.io.PrintStream
 import java.time.OffsetDateTime
 import scala.collection.mutable

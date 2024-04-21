@@ -3,7 +3,7 @@ package harness.email
 import cats.data.NonEmptyList
 import harness.core.Enum
 import harness.zio.*
-import harness.zio.ZIOJsonInstances.*
+import harness.zio.json.*
 import javax.mail.Message.RecipientType as JavaRecipientType
 import zio.json.*
 

@@ -1,4 +1,4 @@
-package harness.zio
+package harness.zio.json
 
 import harness.core.*
 import zio.json.*

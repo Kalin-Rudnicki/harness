@@ -1,21 +1,26 @@
 package harness.pk
 
 import harness.core.*
+import harness.schema.*
+import harness.zio.TypeOps
 import java.util.UUID
 import zio.*
-import zio.json.*
 
 trait StringId { self =>
 
   final case class Id(value: String) {
-    override def toString: String = value
+    override def toString: String = s"${Id.tag.typeName.prefixNoneNoGenerics}($value)"
   }
   object Id {
 
     implicit val stringEncoder: StringEncoder[Id] = StringEncoder.string.imap[Id](_.value)
     implicit val stringDecoder: StringDecoder[Id] = StringDecoder.string.map(Id(_))
-    implicit val jsonCodec: JsonCodec[Id] = JsonCodec.string.transform(Id(_), _.value)
     implicit val iMap: IMap[String, Id] = IMap.make[String](Id(_))(_.value)
+
+    implicit val tag: Tag[Id] = TypeOps.tagFromClass(self.getClass)
+
+    implicit val rawSchema: RawSchema[Id] = RawSchema.encodedStringSchema
+    implicit val jsonSchema: JsonSchema[Id] = JsonSchema.encodedStringSchema
 
   }
 

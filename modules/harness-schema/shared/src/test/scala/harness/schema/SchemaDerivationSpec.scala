@@ -17,17 +17,17 @@ object SchemaDerivationSpec extends DefaultHarnessSpec {
         schema match {
           case JsonSchema.JsonNum(tag, _) =>
             IndentedString.inline(
-              s"type: ${TypeOps.typeName(true, TypeOps.PackagePrefix.All)(using tag)}",
+              s"type: ${tag.typeName.prefixAll}",
               s"json-type: number",
             )
           case JsonSchema.JsonBool(tag, _) =>
             IndentedString.inline(
-              s"type: ${TypeOps.typeName(true, TypeOps.PackagePrefix.All)(using tag)}",
+              s"type: ${tag.typeName.prefixAll}",
               s"json-type: boolean",
             )
           case JsonSchema.JsonStr(tag, _, enumValues) =>
             IndentedString.inline(
-              s"type: ${TypeOps.typeName(true, TypeOps.PackagePrefix.All)(using tag)}",
+              s"type: ${tag.typeName.prefixAll}",
               s"json-type: string",
               enumValues.map { values =>
                 IndentedString.inline(
@@ -49,14 +49,14 @@ object SchemaDerivationSpec extends DefaultHarnessSpec {
             )
           case JsonSchema.JsonArr(tag, _, elem) =>
             IndentedString.inline(
-              s"type: ${TypeOps.typeName(true, TypeOps.PackagePrefix.All)(using tag)}",
+              s"type: ${tag.typeName.prefixAll}",
               s"json-type: array",
               "elem:",
               IndentedString.indented(show(elem)),
             )
           case JsonSchema.ProductJsonObj(tag, _, _, elems) =>
             IndentedString.inline(
-              s"type: ${TypeOps.typeName(true, TypeOps.PackagePrefix.All)(using tag)}",
+              s"type: ${tag.typeName.prefixAll}",
               s"json-type: object",
               s"elems:",
               IndentedString.indented(
@@ -70,7 +70,7 @@ object SchemaDerivationSpec extends DefaultHarnessSpec {
             )
           case JsonSchema.SumJsonObj(tag, _, discriminator, options) =>
             IndentedString.inline(
-              s"type: ${TypeOps.typeName(true, TypeOps.PackagePrefix.All)(using tag)}",
+              s"type: ${tag.typeName.prefixAll}",
               s"json-type: object",
               discriminator.map(d => s"discriminator: $d"),
               s"options:",
@@ -88,7 +88,7 @@ object SchemaDerivationSpec extends DefaultHarnessSpec {
         schema match {
           case RawSchema.Str(tag, _, enumValues) =>
             IndentedString.inline(
-              s"type: ${TypeOps.typeName(true, TypeOps.PackagePrefix.All)(using tag)}",
+              s"type: ${tag.typeName.prefixAll}",
               "raw-type: string",
               enumValues.map { values =>
                 IndentedString.inline(
@@ -103,7 +103,7 @@ object SchemaDerivationSpec extends DefaultHarnessSpec {
     }
 
   extension (self: SchemaRef) {
-    def show: String = s"${TypeOps.typeName(true, TypeOps.PackagePrefix.All)(using self.tag)} (${self.id})"
+    def show: String = s"${self.tag.typeName.prefixAll} (${self.id})"
   }
 
   private def showTrimmed(schema: TrimmedSchema): IndentedString =

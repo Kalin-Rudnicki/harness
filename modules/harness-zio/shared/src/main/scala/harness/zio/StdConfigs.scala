@@ -1,6 +1,7 @@
 package harness.zio
 
 import harness.core.*
+import harness.zio.json.*
 import zio.json.*
 
 object StdConfigs {

@@ -1,4 +1,4 @@
-package harness.zio
+package harness.core
 
 import cats.data.NonEmptyList
 import cats.syntax.either.*

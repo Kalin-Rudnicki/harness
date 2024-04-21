@@ -93,6 +93,8 @@ lazy val `harness-modules` =
       `harness-schema`.jvm,
       `harness-zio`.js,
       `harness-zio`.jvm,
+      `harness-zio-json`.js,
+      `harness-zio-json`.jvm,
 
       // Testing
       `harness-test`.js,
@@ -194,7 +196,7 @@ lazy val `harness-pk` =
       ),
     )
     .dependsOn(
-      `harness-core` % testAndCompile,
+      `harness-schema` % testAndCompile,
     )
 
 lazy val `harness-schema` =
@@ -210,7 +212,7 @@ lazy val `harness-schema` =
       Test / fork := true,
     )
     .dependsOn(
-      `harness-zio` % testAndCompile,
+      `harness-zio-json` % testAndCompile,
       `harness-deriving` % testAndCompile,
     )
 
@@ -224,7 +226,6 @@ lazy val `harness-zio` =
       testSettings,
       libraryDependencies ++= Seq(
         "dev.zio" %%% "zio" % Versions.zio,
-        "dev.zio" %%% "zio-json" % Versions.zioJson,
       ),
     )
     .jvmSettings(
@@ -232,6 +233,26 @@ lazy val `harness-zio` =
     )
     .dependsOn(
       `harness-cli` % testAndCompile,
+      `harness-zio-json` % testAndCompile,
+    )
+
+lazy val `harness-zio-json` =
+  crossProject(JSPlatform, JVMPlatform)
+    .in(file("modules/harness-zio-json"))
+    .settings(
+      name := "harness-zio-json",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      libraryDependencies ++= Seq(
+        "dev.zio" %%% "zio-json" % Versions.zioJson,
+      ),
+    )
+    .jvmSettings(
+      Test / fork := true,
+    )
+    .dependsOn(
+      `harness-core` % testAndCompile,
     )
 
 // =====| Testing |=====
@@ -667,6 +688,20 @@ lazy val `harness-web-app-template--api-model` =
       `harness-pk` % testAndCompile,
       `harness-payments` % testAndCompile,
       `harness-zio-test` % Test,
+    )
+
+lazy val `harness-web-app-template--api` =
+  crossProject(JSPlatform, JVMPlatform)
+    .in(file("harness-web-app-template/modules/api"))
+    .settings(
+      name := "harness-web-app-template--api",
+      publish / skip := true,
+      miscSettings,
+      testSettings,
+    )
+    .dependsOn(
+      `harness-endpoint` % testAndCompile,
+      `harness-web-app-template--api-model` % testAndCompile,
     )
 
 lazy val `harness-web-app-template--domain-model` =

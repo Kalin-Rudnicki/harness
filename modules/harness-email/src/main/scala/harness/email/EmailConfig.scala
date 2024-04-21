@@ -2,6 +2,7 @@ package harness.email
 
 import harness.core.Enum
 import harness.zio.*
+import harness.zio.json.*
 import zio.json.*
 
 final case class EmailConfig(

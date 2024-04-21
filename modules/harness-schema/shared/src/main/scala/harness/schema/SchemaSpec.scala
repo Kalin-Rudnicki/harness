@@ -21,7 +21,7 @@ final case class SchemaSpec(
 object SchemaSpec {
 
   implicit val ordering: Ordering[SchemaSpec] =
-    Ordering.by[SchemaSpec, String](_.baseType).orElseBy(s => TypeOps.typeName(true, TypeOps.PackagePrefix.All)(using s.ref.tag))
+    Ordering.by[SchemaSpec, String](_.baseType).orElseBy(_.ref.tag.typeName.prefixAll)
 
   sealed trait Details
 

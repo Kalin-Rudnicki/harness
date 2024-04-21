@@ -3,7 +3,7 @@ package harness.sql.autoSchema
 import cats.data.NonEmptyList
 import harness.core.Version
 import harness.sql.*
-import harness.zio.ZIOJsonInstances.*
+import harness.zio.json.*
 
 final case class Migration[F[_]](
     id: F[MigrationId],

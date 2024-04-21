@@ -1,11 +1,11 @@
 package harness.web
 
 import harness.core.*
-import harness.zio.EncodedThrowable
+import harness.zio.json.EncodedThrowable
 import zio.*
 import zio.json.*
 
-// TODO (KR) : Remove 
+// TODO (KR) : Remove
 trait ErrorCodec[E] {
   val encode: E => String
   val decode: String => Either[String, E]

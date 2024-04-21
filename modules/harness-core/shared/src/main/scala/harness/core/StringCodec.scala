@@ -12,3 +12,9 @@ final case class StringCodec[A](
     StringCodec(encoder.imap(from), decoder.flatMap(to(_).leftMap(NonEmptyList.one)))
 
 }
+object StringCodec {
+
+  implicit def fromParts[A](implicit encoder: StringEncoder[A], decoder: StringDecoder[A]): StringCodec[A] =
+    StringCodec[A](encoder, decoder)
+
+}

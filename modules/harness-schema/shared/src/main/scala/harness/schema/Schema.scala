@@ -5,8 +5,7 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import harness.core.*
 import harness.deriving.*
-import harness.zio.*
-import harness.zio.ZIOJsonInstances.catsNelJsonCodec
+import harness.zio.json.*
 import java.util.UUID
 import scala.reflect.ClassTag
 import zio.Tag

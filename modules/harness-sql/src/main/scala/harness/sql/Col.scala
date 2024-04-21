@@ -6,6 +6,7 @@ import cats.syntax.option.*
 import harness.core.*
 import harness.sql.typeclass.*
 import harness.zio.*
+import harness.zio.json.*
 import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.{TimeZone, UUID}

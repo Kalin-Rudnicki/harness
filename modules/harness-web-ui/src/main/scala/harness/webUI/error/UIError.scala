@@ -4,7 +4,7 @@ import cats.data.NonEmptyList
 import cats.syntax.option.*
 import harness.webUI.*
 import harness.zio.*
-import harness.zio.ZIOJsonInstances.throwableJsonCodec
+import harness.zio.json.throwableJsonCodec
 import zio.json.*
 
 sealed trait UIError
