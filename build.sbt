@@ -83,42 +83,53 @@ lazy val `harness-modules` =
     .aggregate(
       // General
       `harness-console`,
-      `harness-core`.js,
       `harness-core`.jvm,
-      `harness-deriving`.js,
+      `harness-core`.native,
+      `harness-core`.js,
       `harness-deriving`.jvm,
-      `harness-pk`.js,
+      `harness-deriving`.native,
+      `harness-deriving`.js,
       `harness-pk`.jvm,
-      `harness-schema`.js,
+      `harness-pk`.native,
+      `harness-pk`.js,
       `harness-schema`.jvm,
-      `harness-zio`.js,
+      `harness-schema`.native,
+      `harness-schema`.js,
       `harness-zio`.jvm,
-      `harness-zio-json`.js,
+      `harness-zio`.native,
+      `harness-zio`.js,
       `harness-zio-json`.jvm,
+      `harness-zio-json`.native,
+      `harness-zio-json`.js,
 
       // Testing
-      `harness-test`.js,
       `harness-test`.jvm,
-      `harness-zio-mock`.js,
+      `harness-test`.native,
+      `harness-test`.js,
       `harness-zio-mock`.jvm,
-      `harness-zio-test`.js,
+      `harness-zio-mock`.native,
+      `harness-zio-mock`.js,
       `harness-zio-test`.jvm,
+      `harness-zio-test`.native,
+      `harness-zio-test`.js,
 
       // Parsing
-      `harness-cli`.js,
       `harness-cli`.jvm,
-      `harness-csv`.js,
+      `harness-cli`.native,
+      `harness-cli`.js,
       `harness-csv`.jvm,
+      `harness-csv`.native,
+      `harness-csv`.js,
       `harness-xml`,
 
       // Web
-      `harness-endpoint`.js,
       `harness-endpoint`.jvm,
-      `harness-http-client`.js,
+      `harness-endpoint`.js,
       `harness-http-client`.jvm,
+      `harness-http-client`.js,
       `harness-http-server`,
-      `harness-web`.js,
       `harness-web`.jvm,
+      `harness-web`.js,
       `harness-web-ui`,
 
       // Plugins
@@ -126,11 +137,11 @@ lazy val `harness-modules` =
 
       // Other
       `harness-email`,
-      `harness-email-model`.js,
       `harness-email-model`.jvm,
+      `harness-email-model`.js,
       `harness-kafka`,
-      `harness-payments`.js,
       `harness-payments`.jvm,
+      `harness-payments`.js,
       `harness-sql`,
       `harness-sql-mock`,
     )
@@ -153,7 +164,7 @@ lazy val `harness-console` =
     )
 
 lazy val `harness-core` =
-  crossProject(JSPlatform, JVMPlatform)
+  crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-core"))
     .settings(
       name := "harness-core",
@@ -168,7 +179,7 @@ lazy val `harness-core` =
     .dependsOn(`harness-test` % Test)
 
 lazy val `harness-deriving` =
-  crossProject(JSPlatform, JVMPlatform)
+  crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-deriving"))
     .settings(
       name := "harness-deriving",
@@ -183,7 +194,7 @@ lazy val `harness-deriving` =
     )
 
 lazy val `harness-pk` =
-  crossProject(JSPlatform, JVMPlatform)
+  crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-pk"))
     .settings(
       name := "harness-pk",
@@ -200,7 +211,7 @@ lazy val `harness-pk` =
     )
 
 lazy val `harness-schema` =
-  crossProject(JSPlatform, JVMPlatform)
+  crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-schema"))
     .settings(
       name := "harness-schema",
@@ -217,7 +228,7 @@ lazy val `harness-schema` =
     )
 
 lazy val `harness-zio` =
-  crossProject(JSPlatform, JVMPlatform)
+  crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-zio"))
     .settings(
       name := "harness-zio",
@@ -237,7 +248,7 @@ lazy val `harness-zio` =
     )
 
 lazy val `harness-zio-json` =
-  crossProject(JSPlatform, JVMPlatform)
+  crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-zio-json"))
     .settings(
       name := "harness-zio-json",
@@ -258,7 +269,7 @@ lazy val `harness-zio-json` =
 // =====| Testing |=====
 
 lazy val `harness-test` =
-  crossProject(JSPlatform, JVMPlatform)
+  crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-test"))
     .settings(
       name := "harness-test",
@@ -272,7 +283,7 @@ lazy val `harness-test` =
     )
 
 lazy val `harness-zio-mock` =
-  crossProject(JSPlatform, JVMPlatform)
+  crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-zio-mock"))
     .settings(
       name := "harness-zio-mock",
@@ -292,7 +303,7 @@ lazy val `harness-zio-mock` =
     )
 
 lazy val `harness-zio-test` =
-  crossProject(JSPlatform, JVMPlatform)
+  crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-zio-test"))
     .settings(
       name := "harness-zio-test",
@@ -308,7 +319,7 @@ lazy val `harness-zio-test` =
 // =====| Parsing |=====
 
 lazy val `harness-csv` =
-  crossProject(JSPlatform, JVMPlatform)
+  crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-csv"))
     .settings(
       name := "harness-csv",
@@ -339,7 +350,7 @@ lazy val `harness-xml` =
     )
 
 lazy val `harness-cli` =
-  crossProject(JSPlatform, JVMPlatform)
+  crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-cli"))
     .settings(
       name := "harness-cli",
@@ -382,7 +393,6 @@ lazy val `harness-http-client` =
       `harness-endpoint` % testAndCompile,
     )
 
-// TODO (KR) : remove 1 and rename
 lazy val `harness-http-server` =
   project
     .in(file("modules/harness-http-server"))
@@ -666,6 +676,7 @@ lazy val `harness-web-app-template` =
     .aggregate(
       `harness-web-app-template--api-model`.jvm,
       `harness-web-app-template--api-model`.js,
+      `harness-web-app-template--api-impl`,
       `harness-web-app-template--domain-model`,
       `harness-web-app-template--domain`,
       `harness-web-app-template--db-model`,
