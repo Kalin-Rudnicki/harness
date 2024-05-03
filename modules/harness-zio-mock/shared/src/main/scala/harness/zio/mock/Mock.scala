@@ -1,5 +1,6 @@
 package harness.zio.mock
 
+import harness.zio.mock.error.MockError
 import java.util.UUID
 import zio.*
 
@@ -101,6 +102,31 @@ abstract class Mock[Z](implicit rTag: Tag[Z]) { myMock =>
 
       def failure(f: => E): URIO[Proxy & Z, Unit] =
         zioI(_ => ZIO.fail(f))
+
+      def expect(test: PartialFunction[I, Boolean])(implicit ev: Unit <:< A): URIO[Proxy & Z, Unit] =
+        zioI { i => ZIO.die(MockError.FailedExpectedSeed(myCapability, i)).unless(test.lift(i).getOrElse(false)).as(ev(())) }
+
+      object async {
+
+        def zioI(f: I => ZIO[R, E, A]): URIO[Proxy & Z, Unit] =
+          ZIO.serviceWithZIO[Proxy](_.appendAsyncSeed(myCapability, f))
+
+        def zio(f: => ZIO[R, E, A]): URIO[Proxy & Z, Unit] =
+          zioI(_ => f)
+
+        def successI(f: I => A): URIO[Proxy & Z, Unit] =
+          zioI(i => ZIO.succeed(f(i)))
+
+        def success(f: => A): URIO[Proxy & Z, Unit] =
+          zioI(_ => ZIO.succeed(f))
+
+        def failureI(f: I => E): URIO[Proxy & Z, Unit] =
+          zioI(i => ZIO.fail(f(i)))
+
+        def failure(f: => E): URIO[Proxy & Z, Unit] =
+          zioI(_ => ZIO.fail(f))
+
+      }
 
       object prepend {
 

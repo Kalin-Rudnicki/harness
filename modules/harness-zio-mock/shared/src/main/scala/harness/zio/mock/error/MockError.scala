@@ -1,7 +1,9 @@
 package harness.zio.mock.error
 
 import cats.data.NonEmptyList
+import cats.syntax.option.*
 import harness.zio.mock.*
+import harness.zio.mock.Proxy.Seed
 import harness.zio.mock.Types.*
 
 sealed trait MockError extends Throwable {
@@ -9,15 +11,23 @@ sealed trait MockError extends Throwable {
 
   // TODO (KR) : colorize?
   override final def getMessage: String = {
+    def showSeeds(seeds: List[Proxy.Seed], attn: Option[ErasedCapability]): String =
+      seeds.map {
+        case Seed.Sync(expectation) =>
+          s"\n    - ${if (attn.contains(expectation.capability)) attnStar else ""}${expectation.capability.name}"
+        case Seed.Async(expectations) =>
+          s"\n    - [Async]:${expectations.values.map(e => s"\n      - ${if (attn.contains(e.capability)) attnStar else ""}${e.capability.name}").mkString}"
+      }.mkString
+
     val baseMessage: String =
       this match {
         case MockError.UnexpectedCall(givenCapability, expectations) =>
           val seededCallsStr = expectations match {
             case Nil => "\n    (expected no more calls)"
-            case _   => expectations.map(e => s"\n    - ${if (e == givenCapability) attnStar else ""}${e.name}").mkString
+            case _   => showSeeds(expectations, givenCapability.some)
           }
 
-          expectations.indexOf(givenCapability) match {
+          expectations.indexWhere(_.hasCapability(givenCapability)) match {
             case -1 =>
               s"""Unexpected call to capability ${givenCapability.name}
                  |  currently seeded calls:$seededCallsStr
@@ -34,7 +44,7 @@ sealed trait MockError extends Throwable {
                  |  currently seeded calls:$seededCallsStr
                  |$hintHeader
                  |  It looks like you seeded a call to ${givenCapability.name} later on.
-                 |  Calls that are expected before that call: ${unexpected.map(e => s"\n    - ${e.name}").mkString}
+                 |  Calls that are expected before that call:${showSeeds(unexpected, None)}
                  |  Likely causes & solutions:
                  |    1) You do in deed expect these other calls to happen first.
                  |       solution: fix your code such that these other calls happen first.
@@ -44,7 +54,7 @@ sealed trait MockError extends Throwable {
                  |       solution: your code that is seeding calls is incorrect, remove the code that seeds these other expectations.""".stripMargin
           }
         case MockError.UnsatisfiedCalls(expectations) =>
-          s"""Unsatisfied seeded calls:${expectations.toList.map(e => s"\n  - ${e.name}").mkString}
+          s"""Unsatisfied seeded calls:${showSeeds(expectations.toList, None)}
              |$hintHeader
              |  Tests can not exit with seeded calls that did not end up being called.
              |  Likely causes & solutions:
@@ -58,6 +68,19 @@ sealed trait MockError extends Throwable {
              |$hintHeader
              |  You can not implement the same capability multiple times.
              |  You essentially did $mockImplStr ++ $mockImplStr""".stripMargin
+        case MockError.FailedExpectedSeed(capability, input) =>
+          val showInput = (input.asInstanceOf[Matchable] match {
+            case tup: Tuple => tup.toList
+            case _          => input :: Nil
+          }).map(e => s"\n    - $e").mkString
+          s"""Capability called with invalid input: ${capability.name}
+             |  actual input:$showInput
+             |$hintHeader
+             |  Either you have an error in your code, or your seeded expectation is asserting the wrong thing.""".stripMargin
+        case MockError.DuplicateAsyncSeed(capability) =>
+          s"""Duplicate async capability seeded: ${capability.name}
+             |$hintHeader
+             |  It's not supported to seed multiple async expectations for the same capability.""".stripMargin
       }
 
     s"\n$baseMessage".replaceAll("\n", "\n  ")
@@ -73,14 +96,23 @@ object MockError {
 
   final case class UnexpectedCall(
       givenCapability: ErasedCapability,
-      expectations: List[ErasedCapability],
+      expectations: List[Proxy.Seed],
   ) extends MockError
 
   final case class UnsatisfiedCalls(
-      expectations: NonEmptyList[ErasedCapability],
+      expectations: NonEmptyList[Proxy.Seed],
   ) extends MockError
 
   final case class CapabilityIsAlreadyImplemented(
+      capability: ErasedCapability,
+  ) extends MockError
+
+  final case class FailedExpectedSeed(
+      capability: ErasedCapability,
+      input: Any,
+  ) extends MockError
+
+  final case class DuplicateAsyncSeed(
       capability: ErasedCapability,
   ) extends MockError
 

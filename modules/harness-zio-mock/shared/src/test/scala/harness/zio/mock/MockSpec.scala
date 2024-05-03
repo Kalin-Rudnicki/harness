@@ -1,6 +1,5 @@
 package harness.zio.mock
 
-import cats.data.NonEmptyList
 import harness.zio.*
 import harness.zio.mock.error.MockError
 import harness.zio.test.*
@@ -13,18 +12,22 @@ object MockSpec extends DefaultHarnessSpec {
   private trait ExService {
     def funct1(i: Int): IO[String, Int]
     def funct2(i1: Int, i2: Double): IO[String, Double]
+    def funct3(s: String): IO[String, Int]
   }
   private object ExService {
     def funct1(i: Int): ZIO[ExService, String, Int] =
       ZIO.serviceWithZIO[ExService](_.funct1(i))
     def funct2(i1: Int, i2: Double): ZIO[ExService, String, Double] =
       ZIO.serviceWithZIO[ExService](_.funct2(i1, i2))
+    def funct3(s: String): ZIO[ExService, String, Int] =
+      ZIO.serviceWithZIO[ExService](_.funct3(s))
   }
 
   private object ExServiceMock extends Mock[ExService] {
 
     object Funct1 extends Effect[Int, String, Int]
     object Funct2 extends Effect[(Int, Double), String, Double]
+    object Funct3 extends Effect[String, String, Int]
 
     override protected def buildInternal(proxy: Proxy): ExService =
       new ExService {
@@ -32,6 +35,8 @@ object MockSpec extends DefaultHarnessSpec {
           proxy(Funct1, i)
         override def funct2(i1: Int, i2: Double): IO[String, Double] =
           proxy(Funct2, i1, i2)
+        override def funct3(s: String): IO[String, Int] =
+          proxy(Funct3, s)
       }
 
   }
@@ -135,7 +140,10 @@ object MockSpec extends DefaultHarnessSpec {
           _ <- ExServiceMock.Funct1.seed.success(1)
           _ <- ExServiceMock.Funct2.seed.success(1)
         } yield assertCompletes
-      } @@ TestAspect.failing(_ == TestFailure.die(MockError.UnsatisfiedCalls(NonEmptyList.of(ExServiceMock.Funct1, ExServiceMock.Funct2)))),
+      } @@ TestAspect.failing {
+        case TestFailure.Runtime(Cause.Die(_: MockError.UnsatisfiedCalls, _), _) => true
+        case _                                                                   => false
+      },
       makeTest("fails if there are no seeds") {
         ExServiceMock.empty
       } {
@@ -150,7 +158,7 @@ object MockSpec extends DefaultHarnessSpec {
           _ <- ExServiceMock.Funct2.seed.success(0)
           res <- ExService.funct1(0).exit
           _ <- ExService.funct2(0, 0) // empty seed
-        } yield assert(res)(dies(equalTo(MockError.UnexpectedCall(ExServiceMock.Funct1, List(ExServiceMock.Funct2)))))
+        } yield assert(res)(dies(isSubtype[MockError.UnexpectedCall](anything)))
       },
     )
 
@@ -172,6 +180,46 @@ object MockSpec extends DefaultHarnessSpec {
       },
     )
 
+  private val positiveAsyncSpec: TestSpec =
+    suite("positive")(
+      makeSeedTest("allows out of order calls - 1") {
+        for {
+          _ <- ExServiceMock.Funct1.seed.success(1)
+          _ <- ExServiceMock.Funct2.seed.async.success(2)
+          _ <- ExServiceMock.Funct3.seed.async.success(3)
+          _ <- ExServiceMock.Funct1.seed.success(4)
+
+          res1 <- ExService.funct1(0)
+          res2 <- ExService.funct2(0, 0)
+          res3 <- ExService.funct3("")
+          res4 <- ExService.funct1(0)
+        } yield assertTrue(
+          res1 == 1,
+          res2 == 2,
+          res3 == 3,
+          res4 == 4,
+        )
+      },
+      makeSeedTest("allows out of order calls - 2") {
+        for {
+          _ <- ExServiceMock.Funct1.seed.success(1)
+          _ <- ExServiceMock.Funct2.seed.async.success(2)
+          _ <- ExServiceMock.Funct3.seed.async.success(3)
+          _ <- ExServiceMock.Funct1.seed.success(4)
+
+          res1 <- ExService.funct1(0)
+          res3 <- ExService.funct3("")
+          res2 <- ExService.funct2(0, 0)
+          res4 <- ExService.funct1(0)
+        } yield assertTrue(
+          res1 == 1,
+          res2 == 2,
+          res3 == 3,
+          res4 == 4,
+        )
+      },
+    ).provideSomeLayer[HarnessEnv](Proxy.layer >+> ExServiceMock.empty.toLayer)
+
   override def spec: TestSpec =
     suite("ExServiceSpec")(
       suite("impl")(
@@ -183,6 +231,9 @@ object MockSpec extends DefaultHarnessSpec {
       ),
       suite("impl + seed")(
         positiveImplAndSeedSpec,
+      ),
+      suite("async seed")(
+        positiveAsyncSpec,
       ),
     )
 
