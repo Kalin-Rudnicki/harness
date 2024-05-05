@@ -1,6 +1,7 @@
 package harness.deriving
 
 import cats.syntax.option.*
+import cats.syntax.traverse.*
 import scala.compiletime.*
 import scala.deriving.Mirror
 import scala.reflect.ClassTag
@@ -71,6 +72,26 @@ abstract class K0T[UB] {
 
         def withLabels[R](labels: Labelling[F], z: R)(f: [t <: UB] => (R, String, T[t]) => R): R =
           labels.elemLabels.zip(instances).foldLeft(z) { case (acc, (l, i)) => f(acc, l, i) }
+
+      }
+
+      object mapInstantiate {
+
+        def apply(f: [t <: UB] => T[t] => t): F =
+          instantiate(instances.map { i => f(i).asInstanceOf[m.MirroredMonoType] })
+
+        def withLabels(labels: Labelling[F])(f: [t <: UB] => (String, T[t]) => t): F =
+          instantiate(labels.elemLabels.zip(instances).map { case (l, i) => f(l, i).asInstanceOf[m.MirroredMonoType] })
+
+      }
+
+      object mapInstantiateEither {
+
+        def apply[L](f: [t <: UB] => T[t] => Either[L, t]): Either[L, F] =
+          instances.traverse { i => f(i).asInstanceOf[Either[L, m.MirroredMonoType]] }.map(instantiate)
+
+        def withLabels[L](labels: Labelling[F])(f: [t <: UB] => (String, T[t]) => Either[L, t]): Either[L, F] =
+          labels.elemLabels.zip(instances).traverse { case (l, i) => f(l, i).asInstanceOf[Either[L, m.MirroredMonoType]] }.map(instantiate)
 
       }
 
