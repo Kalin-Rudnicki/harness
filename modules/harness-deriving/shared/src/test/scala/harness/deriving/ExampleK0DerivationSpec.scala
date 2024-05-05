@@ -25,10 +25,10 @@ object ExampleK0DerivationSpec extends DefaultHarnessSpec {
 
     override inline implicit def genProduct[A](implicit m: ProductOf[A]): Derived[Show[A]] = {
       val labels = Labelling.of[A]
-      val inst = K0.ProductInstances.of[A, Show]
+      val instances = K0.ProductInstances.of[A, Show]
 
       Derived { a =>
-        inst
+        instances
           .withInstance(a)
           .map
           .withLabels(labels) {
@@ -39,14 +39,18 @@ object ExampleK0DerivationSpec extends DefaultHarnessSpec {
 
     override inline implicit def genSum[A](implicit m: SumOf[A]): Derived[Show[A]] = {
       val labels = Labelling.of[A]
-      val inst = K0.SumInstances.of[A, Show]
+      val instances = K0.SumInstances.of[A, Show]
 
       Derived { a =>
-        val wi = inst.withInstance(a)
-        IndentedString.inline(
-          s"${labels.elemLabels(wi.ord)}:",
-          IndentedString.indented(wi.inst.show(a.asInstanceOf)),
-        )
+        instances.withInstance(a).use.withLabels(labels) {
+          [t <: A] =>
+            (l: String, i: Show[t], t: t) =>
+              IndentedString.inline(
+                s"$l:",
+                IndentedString.indented(i.show(t)),
+            )
+        }
+
       }
     }
 

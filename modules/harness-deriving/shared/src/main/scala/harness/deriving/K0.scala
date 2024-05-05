@@ -1,5 +1,6 @@
 package harness.deriving
 
+import cats.syntax.option.*
 import scala.compiletime.*
 import scala.deriving.Mirror
 import scala.reflect.ClassTag
@@ -98,8 +99,24 @@ abstract class K0T[UB] {
 
     final case class withInstance(a: F) {
       val ord: Int = m.ordinal(a)
-      val inst: T[F] = children(ord).asInstanceOf
+
+      object use {
+
+        def apply[B](f: [t <: F] => (i: T[t], t: t) => B): B =
+          f[F](children(ord).asInstanceOf[T[F]], a)
+
+        def withLabels[B](labels: Labelling[F])(f: [t <: F] => (l: String, i: T[t], t: t) => B): B =
+          f(labels.elemLabels(ord), children(ord).asInstanceOf, a.asInstanceOf)
+
+      }
+
     }
+
+    def instanceFromLabels(labels: Labelling[F], label: String): Option[T[F]] =
+      labels.elemLabels.indexOf(label) match {
+        case -1 => None
+        case i  => children(i).asInstanceOf[T[F]].some
+      }
 
   }
   object SumInstances {

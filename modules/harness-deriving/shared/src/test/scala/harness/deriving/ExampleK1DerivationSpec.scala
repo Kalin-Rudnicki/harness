@@ -29,12 +29,12 @@ object ExampleK1DerivationSpec extends DefaultHarnessSpec {
       }
 
     override inline implicit def genProduct[F[_]](implicit m: K1.ProductGeneric[F]): Derived[Functor[F]] = {
-      val inst = K1.ProductInstances.of[F, Functor]
+      val instances = K1.ProductInstances.of[F, Functor]
 
       Derived {
         new Functor[F] {
           override def map[A, B](a: F[A])(f: A => B): F[B] =
-            inst.withInstance(a).mapInstantiate {
+            instances.withInstance(a).mapInstantiate {
               [t[_]] => (i: Functor[t], t: t[A]) => i.map(t)(f)
             }
         }
@@ -42,12 +42,12 @@ object ExampleK1DerivationSpec extends DefaultHarnessSpec {
     }
 
     override inline implicit def genSum[F[_]](implicit m: K1.SumGeneric[F]): Derived[Functor[F]] = {
-      val inst = K1.SumInstances.of[F, Functor]
+      val instances = K1.SumInstances.of[F, Functor]
 
       Derived {
         new Functor[F] {
           override def map[A, B](a: F[A])(f: A => B): F[B] =
-            inst.withInstance(a).inst.map(a)(f)
+            instances.withInstance(a).use { [t[C] <: F[C]] => (i: Functor[t], t: t[A]) => i.map(t)(f) }
         }
       }
     }

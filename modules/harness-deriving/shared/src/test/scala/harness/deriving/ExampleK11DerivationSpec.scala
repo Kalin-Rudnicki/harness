@@ -37,7 +37,7 @@ object ExampleK11DerivationSpec extends DefaultHarnessSpec {
       Derived {
         new FunctorK[F] {
           override def mapK[A[_], B[_]](a: F[A])(f: A ~> B): F[B] =
-            inst.withInstance(a).inst.mapK(a)(f)
+            inst.withInstance(a).use { [t[C[_]] <: F[C]] => (i: FunctorK[t], t: t[A]) => i.mapK(t)(f) }
         }
       }
     }
