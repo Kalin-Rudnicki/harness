@@ -4,19 +4,67 @@ import cats.data.NonEmptyList
 import cats.syntax.option.*
 import harness.core.*
 import harness.zio.error.SysError
+import scala.annotation.tailrec
 import scala.sys.process.*
 import zio.*
+import zio.json.*
 
 object Sys {
 
   final case class HarnessProcessLogger(runtime: Runtime[Logger], outLevel: Logger.LogLevel, errLevel: Logger.LogLevel) extends ProcessLogger {
-    override def out(s: => String): Unit =
-      Unsafe.unsafely { runtime.unsafe.run(Logger.log(outLevel, s)).getOrThrow() }
 
-    override def err(s: => String): Unit =
-      Unsafe.unsafely { runtime.unsafe.run(Logger.log(errLevel, s)).getOrThrow() }
+    private def run(defaultLevel: Logger.LogLevel, message: String): Unit =
+      Unsafe.unsafely { runtime.unsafe.run(Logger.execute(HarnessProcessLogger.MessageDecoder.decode(defaultLevel, message, HarnessProcessLogger.MessageDecoder.all))).getOrThrow() }
+
+    override def out(s: => String): Unit = run(outLevel, s)
+
+    override def err(s: => String): Unit = run(errLevel, s)
 
     override def buffer[T](f: => T): T = f
+
+  }
+  object HarnessProcessLogger {
+
+    trait MessageDecoder {
+      def decode(defaultLevel: Logger.LogLevel, message: String): Option[Logger.Event]
+    }
+    object MessageDecoder {
+
+      def make(f: PartialFunction[(Logger.LogLevel, String), Logger.Event]): MessageDecoder =
+        (l, m) => f.lift((l, m))
+
+      private def decodeJson[A: JsonDecoder]: Unapply[String, A] = _.fromJson[A].toOption
+
+      private val harnessLoggerJson: Unapply[String, Logger.ExecutedEvent] = decodeJson
+
+      private val decodeLogLevel: Unapply[String, Logger.LogLevel] = Logger.LogLevel.stringDecoder.decode(_).toOption
+
+      private val levelPrefixRegex = "^(\\[[A-Za-z]+])[ \t]*(.*)$".r
+
+      private def makeEvent(level: Logger.LogLevel, context: Map[String, String], message: String): Logger.Event =
+        Logger.Event.AtLogLevel(level, () => Logger.Event.Output(context, message))
+
+      val all: List[MessageDecoder] =
+        List(
+          MessageDecoder.make { case (defaultLevel, harnessLoggerJson(event)) => makeEvent(event.logLevel.getOrElse(defaultLevel), event.context, event.message) },
+          MessageDecoder.make { case (defaultLevel, levelPrefixRegex(_, harnessLoggerJson(event))) => makeEvent(event.logLevel.getOrElse(defaultLevel), event.context, event.message) },
+          MessageDecoder.make { case (_, levelPrefixRegex(decodeLogLevel(level), message)) => makeEvent(level, Map.empty, message) },
+          // TODO (KR) : add decoders for SLF4J json
+        )
+
+      @tailrec
+      def decode(defaultLevel: Logger.LogLevel, message: String, decoders: List[MessageDecoder]): Logger.Event =
+        decoders match {
+          case head :: tail =>
+            head.decode(defaultLevel, message) match {
+              case Some(event) => event
+              case None        => decode(defaultLevel, message, tail)
+            }
+          case Nil => makeEvent(defaultLevel, Map.empty, message)
+        }
+
+    }
+
   }
 
   final case class Command(cmdAndArgs: NonEmptyList[String]) {

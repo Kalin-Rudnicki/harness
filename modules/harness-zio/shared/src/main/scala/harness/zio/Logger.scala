@@ -5,7 +5,7 @@ import cats.syntax.option.*
 import harness.core.*
 import harness.zio.json.*
 import java.io.PrintStream
-import java.time.OffsetDateTime
+import java.time.Instant
 import scala.collection.mutable
 import zio.*
 import zio.json.*
@@ -24,7 +24,7 @@ final case class Logger(
         target: Logger.Target,
         logLevel: Option[Logger.LogLevel],
         event: Logger.Event,
-        now: OffsetDateTime,
+        now: Instant,
     ): UIO[Any] =
       event match {
         case Logger.Event.Compound(events) =>
@@ -38,14 +38,14 @@ final case class Logger(
           }
       }
 
-    def execOnSource(source: Logger.Source, now: OffsetDateTime): URIO[Scope, Any] =
+    def execOnSource(source: Logger.Source, now: Instant): URIO[Scope, Any] =
       source.target.flatMap(handle(source.minLogTolerance.getOrElse(defaultMinLogTolerance), _, None, event, now))
 
     (hasSourceWithLogToleranceOverride, event) match {
       case (false, Logger.Event.AtLogLevel(logLevel, _)) if logLevel.logPriority < defaultMinLogTolerance.tolerancePriority => ZIO.unit
       case _ =>
         ZIO.scoped {
-          Clock.currentDateTime.flatMap { now =>
+          Clock.instant.flatMap { now =>
             ZIO.foreachParDiscard(sources)(execOnSource(_, now))
           }
         }
@@ -130,7 +130,7 @@ object Logger { self =>
       logLevel: Option[LogLevel],
       message: String,
       context: Map[String, String],
-      dateTime: OffsetDateTime,
+      at: Instant,
   ) {
 
     // TODO (KR) : Option to show `dateTime` in log message
@@ -144,23 +144,9 @@ object Logger { self =>
       s"[${logLevel.fold(LogLevel.emptyDisplayName)(_.colorizedDisplayName(colorMode))}]: $contextMsg$msg"
     }
 
-    def toEncoded: ExecutedEvent.Encoded = ExecutedEvent.Encoded(logLevel, message, context, dateTime)
-
   }
   object ExecutedEvent {
-
-    final case class Encoded(
-        logLevel: Option[LogLevel],
-        message: String,
-        context: Map[String, String],
-        dateTime: OffsetDateTime,
-    )
-    object Encoded {
-
-      implicit val jsonCodec: JsonCodec[Encoded] = DeriveJsonCodec.gen
-
-    }
-
+    implicit val jsonCodec: JsonCodec[ExecutedEvent] = DeriveJsonCodec.gen
   }
 
   trait Target {
@@ -201,7 +187,7 @@ object Logger { self =>
         minLogTolerance: Option[LogLevel],
     ): Source =
       Source.const(
-        Target.fromPrintStream(scala.Console.out, _.toEncoded.toJson),
+        Target.fromPrintStream(scala.Console.out, _.toJson),
         minLogTolerance,
       )
 

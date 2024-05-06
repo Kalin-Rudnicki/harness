@@ -166,6 +166,7 @@ object Executable extends ExecutableBuilders.Builder1 {
         LongName.unsafe("config-path"),
         Defaultable.Some(ShortName.unsafe('C')),
         helpHint = List(
+          "env:VAR_NAME",
           "jar:path/to/jar/res",
           "file:path/to/file",
           """json:{ "js": { "path": "some-json" } }""",
