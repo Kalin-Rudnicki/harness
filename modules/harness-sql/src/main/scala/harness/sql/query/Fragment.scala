@@ -2,6 +2,7 @@ package harness.sql.query
 
 import cats.syntax.option.*
 import harness.sql.*
+import harness.sql.typeclass.RowDecoder
 
 final case class Fragment(
     sql: String,
@@ -17,6 +18,9 @@ final case class Fragment(
   def :+(str: String): Fragment = self.mapSql(sql => s"$sql$str")
 
   def ##(qim: QueryInputMapper): Fragment = Fragment(sql, qim)
+
+  def toQuery(queryName: String): Query = Query(queryName, self)
+  def toQueryO[O](queryName: String)(using dec: RowDecoder[O]): QueryO[O] = QueryO(queryName, self, dec)
 
 }
 object Fragment {

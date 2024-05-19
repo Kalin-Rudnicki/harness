@@ -106,6 +106,8 @@ lazy val `harness-modules` =
       `harness-test`.jvm,
       `harness-test`.native,
       `harness-test`.js,
+      `harness-test-container`,
+      `harness-test-container-postgres`,
       `harness-zio-mock`.jvm,
       `harness-zio-mock`.native,
       `harness-zio-mock`.js,
@@ -280,6 +282,31 @@ lazy val `harness-test` =
         "dev.zio" %%% "zio-test" % Versions.zio,
         "dev.zio" %%% "zio-test-sbt" % Versions.zio,
       ),
+    )
+
+lazy val `harness-test-container` =
+  project
+    .in(file("modules/harness-test-container"))
+    .settings(
+      name := "harness-test-container",
+      publishSettings,
+      miscSettings,
+    )
+    .dependsOn(
+      `harness-zio-test`.jvm,
+    )
+
+lazy val `harness-test-container-postgres` =
+  project
+    .in(file("modules/harness-test-container-postgres"))
+    .settings(
+      name := "harness-test-container-postgres",
+      publishSettings,
+      miscSettings,
+    )
+    .dependsOn(
+      `harness-test-container`,
+      `harness-sql`,
     )
 
 lazy val `harness-zio-mock` =

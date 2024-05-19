@@ -6,9 +6,9 @@ import harness.zio.error.ConfigError
 import zio.*
 import zio.json.*
 
-final class DbConfig private (
-    val psqlJdbcUrl: String,
-    private val raw: DbConfig.Raw,
+final case class DbConfig private (
+    psqlJdbcUrl: String,
+    raw: DbConfig.Raw,
 ) {
   def target: DbConfig.Target = raw.target
   def credentials: DbConfig.Credentials = raw.credentials
@@ -18,19 +18,7 @@ object DbConfig {
 
   implicit val jsonCodec: JsonCodec[DbConfig] =
     DbConfig.Raw.jsonCodec.transformOrFail(
-      { raw =>
-        val database = raw.target.database
-
-        ((raw.target.host, raw.target.port) match {
-          case (Some(host), Some(port)) => s"//$host:$port/$database".asRight
-          case (Some(host), None)       => s"//$host/$database".asRight
-          case (None, None)             => database.asRight
-          case (None, Some(_))          => "You must supply a host when supplying a port".asLeft
-        }).map { psqlJdbcUrlSuffix =>
-          val psqlJdbcUrl = s"jdbc:postgresql:$psqlJdbcUrlSuffix"
-          DbConfig(psqlJdbcUrl, raw)
-        }
-      },
+      _.toConfig,
       _.raw,
     )
 
@@ -60,12 +48,31 @@ object DbConfig {
     implicit val jsonCodec: JsonCodec[Target] = DeriveJsonCodec.gen
   }
 
-  private final case class Raw(
+  final case class Raw(
       target: Target,
       credentials: Credentials,
       pool: PoolConfig,
-  )
-  private object Raw {
+  ) { raw =>
+
+    def toConfig: Either[String, DbConfig] = {
+      val database = raw.target.database
+
+      ((raw.target.host, raw.target.port) match {
+        case (Some(host), Some(port)) => s"//$host:$port/$database".asRight
+        case (Some(host), None)       => s"//$host/$database".asRight
+        case (None, None)             => database.asRight
+        case (None, Some(_))          => "You must supply a host when supplying a port".asLeft
+      }).map { psqlJdbcUrlSuffix =>
+        val psqlJdbcUrl = s"jdbc:postgresql:$psqlJdbcUrlSuffix"
+        DbConfig(psqlJdbcUrl, raw)
+      }
+    }
+
+    def toConfigUnsafe: DbConfig =
+      raw.toConfig.fold(err => throw new RuntimeException(s"Error creating db config: $err"), identity)
+
+  }
+  object Raw {
     implicit val jsonCodec: JsonCodec[Raw] = DeriveJsonCodec.gen
   }
 

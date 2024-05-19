@@ -1,5 +1,6 @@
 package harness.sql
 
+import harness.sql.autoSchema.{MigrationRunner, PlannedMigrations}
 import harness.sql.error.ConnectionError
 import harness.zio.*
 import zio.*
@@ -28,5 +29,11 @@ object JDBCConnectionPool {
         )
       }
     }
+
+  def configLayerWithMigrations(migrations: PlannedMigrations): RLayer[HarnessEnv & DbConfig & Scope, JDBCConnectionPool] =
+    ZLayer.makeSome[HarnessEnv & DbConfig & Scope, JDBCConnectionPool](
+      configLayer,
+      ZLayer.fromZIO { MigrationRunner.runMigrationsFromPool(migrations) },
+    )
 
 }
