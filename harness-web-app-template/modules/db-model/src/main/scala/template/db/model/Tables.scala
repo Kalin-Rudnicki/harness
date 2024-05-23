@@ -57,7 +57,7 @@ object User extends Table.Companion.WithId[Api.user.UserId, User] {
         lowerUsername = Col.string("lower_username"),
         encryptedPassword = Col.string("encrypted_password"),
         email = Col.encoded[EmailAddress]("email"),
-        verificationEmailCodes = Col.json[Set[Api.user.EmailVerificationCode]]("verification_email_codes").optional,
+        verificationEmailCodes = Col.encodedJson[Set[Api.user.EmailVerificationCode]]("verification_email_codes").optional,
         stripeCustomerId = Col.string("stripe_customer_id").imapAuto[StripeIds.CustomerId].optional,
       )
     }
@@ -130,7 +130,7 @@ object PaymentMethod extends Table.Companion.WithId[Api.paymentMethod.PaymentMet
         userId = User.Id.fkCol,
         stripeId = Col.string("stripe_id").imapAuto[StripeIds.PaymentMethodId],
         typeString = Col.string("type_string"),
-        typeDetails = Col.jsonb[PM.result.TypeDetails]("type_details").optional,
+        typeDetails = Col.encodedJson[PM.result.TypeDetails]("type_details").optional,
       )
     }
 

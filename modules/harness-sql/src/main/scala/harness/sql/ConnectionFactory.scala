@@ -2,8 +2,9 @@ package harness.sql
 
 import harness.sql.error.ConnectionError
 import harness.zio.*
-import java.sql.{Connection, DriverManager}
 import zio.*
+
+import java.sql.{Connection, DriverManager}
 
 final class ConnectionFactory private (
     private[sql] val getJDBCConnection: ZIO[Scope, ConnectionError, JDBCConnection],

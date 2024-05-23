@@ -9,7 +9,7 @@ import harness.zio.test.*
 import zio.*
 import zio.test.*
 
-object PostgresTestContainerSpec extends DefaultHarnessSpec {
+object PostgresTestContainerISpec extends DefaultHarnessSpec {
 
   override def logLevel: Logger.LogLevel = Logger.LogLevel.Debug
 
@@ -17,7 +17,7 @@ object PostgresTestContainerSpec extends DefaultHarnessSpec {
     suite("PostgresTestContainerSpec")(
       test("can run a query") {
         for {
-          res <- fr"SELECT 123".toQueryO[Int]("select-const")(using RowDecoder.fromColDecoder(ColDecoder.int))().single
+          res <- fr"SELECT 123".toQueryO[Int]("select-const").apply().single
         } yield assertTrue(res == 123)
       },
     )

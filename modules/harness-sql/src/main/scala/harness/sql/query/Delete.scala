@@ -7,7 +7,7 @@ object Delete {
 
   def from[T[_[_]] <: Table](name: String)(implicit ti: TableSchema[T]): Q1[T[AppliedCol]] =
     Q1(
-      ti.functorK.mapK(ti.colInfo)(AppliedCol.withVarName(name)),
+      ti.functorK.mapK(ti.columns)(AppliedCol.withVarName(name)),
       fr"DELETE FROM ${ti.referenceName} $name",
     )
 
@@ -35,7 +35,7 @@ object Delete {
       val ret = f(t)
       QueryR(
         fr"$fragment RETURNING $ret",
-        ret.rowDecoder,
+        ret.decoder,
       )
     }
 
@@ -43,7 +43,7 @@ object Delete {
 
   final class QueryR[O] private[Delete] (
       private[query] val fragment: Fragment,
-      private[query] val decoder: RowDecoder[O],
+      private[query] val decoder: QueryDecoderMany[O],
   )
 
 }

@@ -8,8 +8,8 @@ import harness.sql.*
 import harness.sql.error.*
 import harness.sql.query.{Fragment, Query, QueryO, Transaction}
 import harness.zio.*
-import math.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
+import scala.math.Ordering.Implicits.infixOrderingOps
 import zio.*
 
 object MigrationRunner {
@@ -144,7 +144,7 @@ object MigrationRunner {
   private def executeEffect(effect: MigrationEffect): ZIO[HarnessEnv & JDBCConnection, MigrationError, Unit] =
     effect match {
       case MigrationEffect.Code(name, code) => Logger.log.detailed(s"Running migration step code '$name'") *> code.mapError(MigrationError.UnableToExecuteCodeStep(_))
-      case MigrationEffect.Sql(sql)         => Query("Migration Step", Fragment.fromString(sql)).apply().unit.mapError(MigrationError.QueryError(_))
+      case MigrationEffect.Sql(sql)         => Query("Migration Step", Fragment.sql(sql)).apply().unit.mapError(MigrationError.QueryError(_))
     }
 
   private def runMigrationPlan(migrationPlan: MigrationPlan, persist: Boolean): ZIO[HarnessEnv & JDBCConnection, MigrationError, Unit] =

@@ -1,13 +1,10 @@
 package harness.sql
 
-import shapeless3.deriving.*
+import harness.deriving.K11.~>
 
 final case class AppliedCol[T](tableVarName: String, col: Col[T]) {
-
-  def ref: ColRef = ColRef(tableVarName, col.colName, col.getType)
-
-  override def toString: String = s"$tableVarName.$col"
-
+  def ref: ColRef = ColRef(tableVarName, col.colName)
+  def show: String = s"$tableVarName.${col.colName}"
 }
 object AppliedCol {
 

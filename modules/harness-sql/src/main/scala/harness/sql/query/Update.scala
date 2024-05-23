@@ -7,7 +7,7 @@ object Update {
 
   def apply[T[_[_]] <: Table](name: String)(implicit ti: TableSchema[T]): Q1[T[AppliedCol]] =
     Q1(
-      ti.functorK.mapK(ti.colInfo)(AppliedCol.withVarName(name)),
+      ti.functorK.mapK(ti.columns)(AppliedCol.withVarName(name)),
       fr"${ti.referenceName} $name",
     )
 
@@ -52,7 +52,7 @@ object Update {
       val ret = f(t)
       QueryR(
         fr"$fragment RETURNING $ret",
-        ret.rowDecoder,
+        ret.decoder,
       )
     }
 
@@ -60,7 +60,7 @@ object Update {
 
   final class QueryR[O] private[Update] (
       private[query] val fragment: Fragment,
-      private[query] val decoder: RowDecoder[O],
+      private[query] val decoder: QueryDecoderMany[O],
   )
 
 }

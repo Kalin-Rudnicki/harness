@@ -2,7 +2,7 @@ package harness.sql.query
 
 import cats.syntax.option.*
 import harness.sql.*
-import harness.sql.typeclass.RowDecoder
+import harness.sql.typeclass.QueryDecoderMany
 
 final case class Fragment(
     sql: String,
@@ -17,57 +17,63 @@ final case class Fragment(
   def +:(str: String): Fragment = self.mapSql(sql => s"$str$sql")
   def :+(str: String): Fragment = self.mapSql(sql => s"$sql$str")
 
-  def ##(qim: QueryInputMapper): Fragment = Fragment(sql, qim)
-
   def toQuery(queryName: String): Query = Query(queryName, self)
-  def toQueryO[O](queryName: String)(using dec: RowDecoder[O]): QueryO[O] = QueryO(queryName, self, dec)
+  def toQueryO[O](queryName: String)(using decoder: QueryDecoderMany[O]): QueryO[O] = QueryO(queryName, self, decoder)
 
 }
 object Fragment {
 
   type Arg = String | Fragment | ColRef | QueryBool | QuerySet | AppliedCol[?] | AppliedCol.Opt[?] | Returning[?]
 
-  def empty: Fragment = Fragment("", QueryInputMapper.empty)
+  val empty: Fragment = Fragment("", QueryInputMapper.Empty)
 
-  def fromString(sql: String): Fragment =
-    Fragment(sql, QueryInputMapper.empty)
+  def sql(sql: String): Fragment =
+    Fragment(sql, QueryInputMapper.Empty)
 
-  def joinAll(frags: Iterable[Fragment], joinString: String = ""): Fragment =
+  def joinAll(frags: Iterable[Fragment], start: String, sep: String, end: String): Fragment =
     Fragment(
-      frags.toList.map(_.sql).mkString(joinString),
-      frags.map(_.qim).foldLeft(QueryInputMapper.empty) { _ + _ },
+      frags.map(_.sql).mkString(start, sep, end),
+      frags.map(_.qim).foldLeft(QueryInputMapper.Empty: QueryInputMapper) { _ + _ },
     )
+  def joinAll(frags: Iterable[Fragment], sep: String): Fragment =
+    joinAll(frags, "", sep, "")
+  def joinAll(frags: Iterable[Fragment]): Fragment =
+    joinAll(frags, "", "", "")
 
 }
 
 extension (sc: StringContext) {
   def fr(args: Fragment.Arg*): Fragment = {
-    def toTuple(arg: Fragment.Arg): (String, Option[QueryInputMapper]) =
+    def toTuple(arg: Fragment.Arg): (String, QueryInputMapper) =
       arg match {
-        case str: String                      => (str, None)
-        case fragment: Fragment               => (fragment.sql, fragment.qim.some)
-        case queryBool: QueryBool             => (queryBool.fragment.sql, queryBool.fragment.qim.some)
-        case querySet: QuerySet               => (querySet.fragment.sql, querySet.fragment.qim.some)
-        case colRef: ColRef                   => (colRef.toStringNoType, None)
-        case appliedCol: AppliedCol[?]        => (appliedCol.ref.toStringNoType, None)
-        case appliedColOpt: AppliedCol.Opt[?] => (appliedColOpt.wrapped.ref.toStringNoType, None)
-        case returning: Returning[?]          => (returning.selects.mkString(", "), returning.qim.some)
+        case str: String                      => (str, QueryInputMapper.Empty)
+        case fragment: Fragment               => (fragment.sql, fragment.qim)
+        case queryBool: QueryBool             => (queryBool.fragment.sql, queryBool.fragment.qim)
+        case querySet: QuerySet               => (querySet.fragment.sql, querySet.fragment.qim)
+        case colRef: ColRef                   => (colRef.show, QueryInputMapper.Empty)
+        case appliedCol: AppliedCol[?]        => (appliedCol.ref.show, QueryInputMapper.Empty)
+        case appliedColOpt: AppliedCol.Opt[?] => (appliedColOpt.wrapped.ref.show, QueryInputMapper.Empty)
+        case returning: Returning[?]          => (returning.fragment.sql, returning.fragment.qim)
       }
 
     def join(string: String, arg: Fragment.Arg): Fragment = {
       val (sqlStr, qim) = toTuple(arg)
-      Fragment(s"$string$sqlStr", qim.getOrElse(QueryInputMapper.empty))
+      Fragment(s"$string$sqlStr", qim)
     }
 
     (sc.parts.toList, args.toList) match {
       case (List(str), Nil) =>
-        Fragment.fromString(str)
+        Fragment.sql(str)
       case (List(str1, str2), List(arg)) =>
         val (sqlStr, qim) = toTuple(arg)
-        Fragment(s"$str1$sqlStr$str2", qim.getOrElse(QueryInputMapper.empty))
+        Fragment(s"$str1$sqlStr$str2", qim)
+      case (List(str1, str2, str3), List(arg1, arg2)) =>
+        val (sqlStr1, qim1) = toTuple(arg1)
+        val (sqlStr2, qim2) = toTuple(arg2)
+        Fragment(s"$str1$sqlStr1$str2$sqlStr2$str3", qim1 + qim2)
       case (partsList, argsList) =>
         val plr = partsList.reverse
-        Fragment.joinAll((Fragment.fromString(plr.head) :: plr.tail.zip(argsList.reverse).map(join)).reverse)
+        Fragment.joinAll((Fragment.sql(plr.head) :: plr.tail.zip(argsList.reverse).map(join)).reverse)
     }
   }
 }

@@ -19,7 +19,7 @@ abstract class K11T[UB] {
 
   type Id[t <: UB] = [f[_ <: UB]] =>> f[t]
   type Identity[t <: UB] = t
-  type Const[c] = [_[_ <: UB]] =>> c
+  type Const[c] = [_ <: UB] =>> c
   type ~>[A[_ <: UB], B[_ <: UB]] = [t <: UB] => A[t] => B[t]
   type Zip[A[_ <: UB], B[_ <: UB]] = [t <: UB] =>> (A[t], B[t])
 
@@ -37,6 +37,18 @@ abstract class K11T[UB] {
       case ? *: ?     => F[G[[X[_ <: UB]] =>> Head[T, X]]] *: FieldInstances[[X[_ <: UB]] =>> Tail[T, X], F, G]
       case EmptyTuple => EmptyTuple
     }
+
+  extension [O[_[_ <: UB]]](self: ProductGeneric[O]) {
+
+    inline def toRepr[A[_ <: UB]](a: O[A]): self.MirroredElemTypes[A] =
+      Tuple.fromProduct(summonInline[O[A] <:< Product].apply(a)).asInstanceOf[self.MirroredElemTypes[A]]
+
+    inline def fromRepr[A[_ <: UB]](a: self.MirroredElemTypes[A]): O[A] = {
+      val p = self.asInstanceOf[Mirror.ProductOf[self.MirroredElemTypes[A]]]
+      p.fromTuple(a.asInstanceOf[p.MirroredElemTypes]).asInstanceOf[O[A]]
+    }
+
+  }
 
   inline def summonFieldInstances[T <: [_[_ <: UB]] =>> Tuple, F[_], G[_[_[_ <: UB]]]]: List[F[G[[_[_ <: UB]] =>> Any]]] =
     summonAll[FieldInstances[T, F, G]].toIArray.toList.asInstanceOf[List[F[G[[_[_ <: UB]] =>> Any]]]]

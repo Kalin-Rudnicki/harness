@@ -1,11 +1,12 @@
 package harness.sql
 
 import harness.core.*
+import harness.deriving.*
 import harness.pk.TableKey
 import java.util.UUID
 import zio.*
 
-abstract class Table
+abstract class Table extends Product
 object Table {
 
   abstract class WithId[F[_], TKId <: TableKey#Id] extends Table {
@@ -15,8 +16,9 @@ object Table {
 
   trait Companion[T[_[_]] <: Table] {
 
-    final type Identity = T[shapeless3.deriving.Id]
+    final type Identity = T[K11.Identity]
     final type Cols = T[Col]
+    final type Booleans = T[K11.Const[Boolean]]
 
     implicit lazy val tableSchema: TableSchema[T]
 

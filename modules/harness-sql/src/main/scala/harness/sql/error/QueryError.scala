@@ -41,7 +41,7 @@ object QueryError {
   object Cause {
 
     final case class InvalidResultSetSize(expected: String, actual: Int) extends Cause
-    final case class RowDecodeFailure(errors: NonEmptyList[String], values: IArray[Object]) extends Cause
+    final case class RowDecodeFailure(errors: NonEmptyList[String], values: Chunk[Object]) extends Cause
     final case class InvalidResultSetWidth(expected: Int, actual: Int) extends Cause
     final case class UnableToExecuteQuery(cause: Throwable) extends Cause
 
@@ -56,7 +56,7 @@ object QueryError {
 
   }
 
-  private[sql] def attempt[A](queryName: String, sql: String)(thunk: => A)(mapError: Throwable => QueryError.Cause): IO[QueryError, A] =
+  private[sql] inline def attempt[A](queryName: String, sql: String)(thunk: => A)(mapError: Throwable => QueryError.Cause): IO[QueryError, A] =
     ZIO.attempt(thunk).mapError(err => QueryError(queryName, sql, mapError(err)))
 
 }

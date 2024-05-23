@@ -17,7 +17,7 @@ object Migration extends Table.Companion.WithId[MigrationId, Migration] {
       new Migration.Cols(
         id = Migration.Id.pkCol,
         version = Col.encoded[Version]("version"),
-        steps = Col.json[NonEmptyList[MigrationStep.Encoded]]("steps"),
+        steps = Col.encodedJson[NonEmptyList[MigrationStep.Encoded]]("steps"),
       )
     }
 

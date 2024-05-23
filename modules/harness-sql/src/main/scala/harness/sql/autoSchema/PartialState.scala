@@ -19,7 +19,7 @@ object PartialState {
       (
         TableRef(SchemaRef(table.tableSchema), table.tableName),
         PartialState.Table(
-          table.colList.map { col => (col.colName, PartialState.Column(col.colType, KeyType(col.keyType), col.nullable)) }.toMap,
+          table.colChunk.map { col => (col.colName, PartialState.Column(col.colType, KeyType(col.keyType), col.nullable)) }.toMap,
         ),
       )
 

@@ -5,15 +5,16 @@ import harness.sql.error.QueryError
 import harness.zio.*
 import zio.*
 
-final class IntQueryResult private[query](queryName: String, fragment: Fragment, effect: ZIO[JDBCConnection & Logger, QueryError, Int]) {
+final class BatchQueryResult private[query] (queryName: String, @scala.annotation.unused fragment: Fragment, effect: ZIO[JDBCConnection & Logger, QueryError, Chunk[Int]]) {
 
-  def execute: ZIO[JDBCConnection & Logger & Telemetry, QueryError, Int] =
+  def execute: ZIO[JDBCConnection & Logger & Telemetry, QueryError, Chunk[Int]] =
     effect.telemetrize("Executed SQL query", "query-name" -> queryName)
 
   inline def unit: ZIO[JDBCConnection & Logger & Telemetry, QueryError, Unit] = execute.unit
 
+  /*
   inline private def withSizeCheck(
-      inline check: Int => Boolean,
+      inline check: Chunk[Int] => Boolean,
       inline expectedStr: => String,
   ): ZIO[JDBCConnection & Logger & Telemetry, QueryError, Unit] =
     execute.flatMap { actual =>
@@ -27,5 +28,6 @@ final class IntQueryResult private[query](queryName: String, fragment: Fragment,
   def single: ZIO[JDBCConnection & Logger & Telemetry, QueryError, Unit] = expectSize(1)
 
   def option: ZIO[JDBCConnection & Logger & Telemetry, QueryError, Unit] = withSizeCheck(a => a == 0 || a == 1, "0..1")
+   */
 
 }

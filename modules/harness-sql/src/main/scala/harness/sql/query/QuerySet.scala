@@ -2,6 +2,7 @@ package harness.sql.query
 
 import cats.syntax.option.*
 import harness.sql.*
+import harness.sql.typeclass.*
 
 final case class QuerySet private[sql] (
     private[sql] val fragment: Fragment,
@@ -19,39 +20,41 @@ trait QuerySetOps[A, B] {
 }
 object QuerySetOps {
 
-  implicit def col_id[A]: QuerySetOps[AppliedCol[A], QueryInput[A]] =
-    (a, b) =>
-      QuerySet(
-        Fragment(
-          s"${a.ref.colName} = ${a.col.?}",
-          QueryInputMapper.single(in => a.col.colCodec.encoder.encodeColumn(in(b.idx).asInstanceOf)),
-        ),
-      )
-  implicit def oCol_id[A]: QuerySetOps[AppliedCol[Option[A]], QueryInput[A]] =
-    (a, b) =>
-      QuerySet(
-        Fragment(
-          s"${a.ref.colName} = ${a.col.?}",
-          QueryInputMapper.single(in => a.col.colCodec.encoder.encodeColumn(in(b.idx).some.asInstanceOf)),
-        ),
-      )
+  implicit def col_id[A]: QuerySetOps[AppliedCol[A], QueryInputVar[A]] = { (appliedCol, inputVar) =>
+    val inputVarFragment = Fragment(
+      "?",
+      QueryInputMapper.single[A](_(inputVar.idx).asInstanceOf[A], appliedCol.col.codec.encoder),
+    )
 
-  implicit def col_const[A]: QuerySetOps[AppliedCol[A], Constant[A]] =
-    (a, b) =>
-      QuerySet(
-        Fragment(
-          s"${a.ref.colName} = ${a.col.?}",
-          QueryInputMapper.single(_ => a.col.colCodec.encoder.encodeColumn(b.value)),
-        ),
-      )
-  implicit def oCol_const[A]: QuerySetOps[AppliedCol[Option[A]], Constant[A]] =
-    (a, b) =>
-      QuerySet(
-        Fragment(
-          s"${a.ref.colName} = ${a.col.?}",
-          QueryInputMapper.single(_ => a.col.colCodec.encoder.encodeColumn(b.value.some)),
-        ),
-      )
+    QuerySet(fr"$appliedCol = $inputVarFragment")
+  }
+
+  implicit def oCol_id[A]: QuerySetOps[AppliedCol[Option[A]], QueryInputVar[A]] = { (appliedCol, inputVar) =>
+    val inputVarFragment = Fragment(
+      "?",
+      QueryInputMapper.single[Option[A]](_(inputVar.idx).asInstanceOf[A].some, appliedCol.col.codec.encoder),
+    )
+
+    QuerySet(fr"$appliedCol = $inputVarFragment")
+  }
+
+  implicit def col_const[A]: QuerySetOps[AppliedCol[A], Constant[A]] = { (appliedCol, const) =>
+    val constFragment = Fragment(
+      "?",
+      QueryInputMapper.materialize(const, appliedCol.col.codec.encoder),
+    )
+
+    QuerySet(fr"$appliedCol = $constFragment")
+  }
+
+  implicit def oCol_const[A]: QuerySetOps[AppliedCol[Option[A]], Constant[A]] = { (appliedCol, const) =>
+    val constFragment = Fragment(
+      "?",
+      QueryInputMapper.materialize(const.map(_.some), appliedCol.col.codec.encoder),
+    )
+
+    QuerySet(fr"$appliedCol = $constFragment")
+  }
 
 }
 

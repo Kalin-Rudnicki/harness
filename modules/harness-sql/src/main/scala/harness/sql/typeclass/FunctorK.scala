@@ -1,23 +1,27 @@
 package harness.sql.typeclass
 
-import shapeless3.deriving.*
+import harness.deriving.*
+import harness.deriving.K11.~>
 
-trait FunctorK[H[_[_]]] {
-  def mapK[A[_], B[_]](af: H[A])(f: A ~> B): H[B]
+trait FunctorK[T[_[_]]] {
+  def mapK[A[_], B[_]](t: T[A])(f: A ~> B): T[B]
 }
 object FunctorK {
 
-  inline def apply[H[_[_]]](using fh: FunctorK[H]): FunctorK[H] = fh
+  inline def apply[T[_[_]]](using fh: FunctorK[T]): FunctorK[T] = fh
 
-  given [T]: FunctorK[K11.Id[T]] with {
-    def mapK[A[_], B[_]](at: A[T])(f: A ~> B): B[T] = f(at)
+  implicit def id[T]: FunctorK[K11.Id[T]] =
+    new FunctorK[K11.Id[T]] {
+      override def mapK[A[_], B[_]](t: K11.Id[T][A])(f: A ~> B): K11.Id[T][B] = f(t)
+    }
+
+  inline def derive[T[_[_]]](implicit inst: K11.ProductGeneric[T]): FunctorK[T] = {
+    val insts = K11.ProductInstances.of[T, FunctorK]
+
+    new FunctorK[T] {
+      override def mapK[A[_], B[_]](t: T[A])(f: A ~> B): T[B] =
+        insts.withInstance(t).mapInstantiate { [t[_[_]]] => (i: FunctorK[t], t: t[A]) => i.mapK[A, B](t)(f) }
+    }
   }
-
-  given functorKGen[H[_[_]]](using inst: => K11.Instances[FunctorK, H]): FunctorK[H] with {
-    def mapK[A[_], B[_]](ha: H[A])(f: A ~> B): H[B] =
-      inst.map(ha)([t[_[_]]] => (ft: FunctorK[t], ta: t[A]) => ft.mapK(ta)(f))
-  }
-
-  inline def derived[F[_[_]]](using gen: K11.Generic[F]): FunctorK[F] = functorKGen
 
 }

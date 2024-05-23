@@ -1,27 +1,44 @@
 package harness.sql.query
 
-final case class QueryInputMapper(
-    private[sql] val width: IArray[Object] => Int,
-    private[sql] val prepare: (IArray[Object], Array[Object], Int) => Unit,
-) { self =>
+import harness.sql.typeclass.QueryEncoderMany
+import zio.Chunk
 
-  def +(other: QueryInputMapper): QueryInputMapper =
-    QueryInputMapper(
-      in => self.width(in) + other.width(in),
-      { (in, out, off) =>
-        self.prepare(in, out, off)
-        other.prepare(in, out, off + self.width(in))
-      },
-    )
+trait QueryInputMapper { self =>
+
+  private[sql] def prepare(unmappedInputs: Chunk[Any]): Chunk[EncodedInputValue]
+
+  final def +(other: QueryInputMapper): QueryInputMapper =
+    (self, other) match {
+      case (QueryInputMapper.Empty, other)                                             => other
+      case (self, QueryInputMapper.Empty)                                              => self
+      case (QueryInputMapper.Const(encodedSelf), QueryInputMapper.Const(encodedOther)) => QueryInputMapper.Const(encodedSelf ++ encodedOther)
+      case (self, other) =>
+        new QueryInputMapper {
+          override private[sql] def prepare(unmappedInputs: Chunk[Any]) =
+            self.prepare(unmappedInputs) ++ other.prepare(unmappedInputs)
+        }
+    }
 
 }
 object QueryInputMapper {
-  val empty: QueryInputMapper = QueryInputMapper(_ => 0, (_, _, _) => ())
-  val id: QueryInputMapper = QueryInputMapper(_.length, (in, out, off) => in.copyToArray(out, off, in.length))
 
-  def single[A](getObj: IArray[Object] => Object)(objSize: A => Int): QueryInputMapper =
-    QueryInputMapper(in => objSize(getObj(in).asInstanceOf[A]), (in, out, off) => out(off) = getObj(in))
-  def single(getObj: IArray[Object] => Object): QueryInputMapper =
-    QueryInputMapper(_ => 1, (in, out, off) => out(off) = getObj(in))
+  final case class Const(encodedValues: Chunk[EncodedInputValue]) extends QueryInputMapper {
+    override private[sql] def prepare(unmappedInputs: Chunk[Any]): Chunk[EncodedInputValue] = encodedValues
+  }
+
+  case object Empty extends QueryInputMapper {
+    override private[sql] def prepare(unmappedInputs: Chunk[Any]): Chunk[EncodedInputValue] = Chunk.empty
+  }
+
+  def materialize[T](constant: Constant[T], encoder: QueryEncoderMany[T]): QueryInputMapper =
+    QueryInputMapper.Const { encoder.encodeMany(constant.value).zipWith(encoder.klasses)(EncodedInputValue(_, _)) }
+
+  def single[T](get: Chunk[Any] => T, encoder: QueryEncoderMany[T]): QueryInputMapper =
+    new QueryInputMapper {
+      override private[sql] def prepare(unmappedInputs: Chunk[Any]): Chunk[EncodedInputValue] = {
+        val input = get(unmappedInputs)
+        encoder.encodeMany(input).zipWith(encoder.klasses)(EncodedInputValue(_, _))
+      }
+    }
 
 }

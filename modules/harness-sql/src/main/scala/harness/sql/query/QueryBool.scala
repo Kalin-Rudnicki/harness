@@ -2,6 +2,7 @@ package harness.sql.query
 
 import cats.syntax.option.*
 import harness.sql.*
+import harness.sql.typeclass.*
 import scala.util.NotGiven
 
 final case class QueryBool private[sql] (
@@ -38,14 +39,18 @@ trait QueryBoolOps[A, B] private {
 }
 object QueryBoolOps {
 
-  final case class CodeElement[EvT, ObjT, CompareT] private (getObj: (EvT, IArray[Object]) => ObjT)
+  final case class CodeElement[EvT, ObjT, CompareT] private (encode: (EvT, QueryEncoderMany[ObjT]) => QueryInputMapper)
   object CodeElement {
 
-    implicit def queryInput[T](implicit notOpt: NotGiven[OptionEv[T]]): CodeElement[QueryInput[T], T, T] = CodeElement { (obj, in) => in(obj.idx).asInstanceOf[T] }
-    implicit def optQueryInput[T](implicit notOpt: NotGiven[OptionEv[T]]): CodeElement[QueryInput[Option[T]], Option[T], T] = CodeElement { (obj, in) => in(obj.idx).asInstanceOf[Option[T]] }
+    implicit def queryInput[T](implicit notOpt: NotGiven[OptionEv[T]]): CodeElement[QueryInputVar[T], T, T] =
+      CodeElement { (input, encoder) => QueryInputMapper.single(_(input.idx).asInstanceOf[T], encoder) }
+    implicit def queryInputOpt[T](implicit notOpt: NotGiven[OptionEv[T]]): CodeElement[QueryInputVar[Option[T]], Option[T], T] =
+      CodeElement { (input, encoder) => QueryInputMapper.single(_(input.idx).asInstanceOf[Option[T]], encoder) }
 
-    implicit def const[T](implicit notOpt: NotGiven[OptionEv[T]]): CodeElement[Constant[T], T, T] = CodeElement { (obj, _) => obj.value }
-    implicit def optConst[T](implicit notOpt: NotGiven[OptionEv[T]]): CodeElement[Constant[Option[T]], Option[T], T] = CodeElement { (obj, _) => obj.value }
+    implicit def const[T](implicit notOpt: NotGiven[OptionEv[T]]): CodeElement[Constant[T], T, T] =
+      CodeElement { (const, encoder) => QueryInputMapper.materialize(const, encoder) }
+    implicit def constOpt[T](implicit notOpt: NotGiven[OptionEv[T]]): CodeElement[Constant[Option[T]], Option[T], T] =
+      CodeElement { (const, encoder) => QueryInputMapper.materialize(const, encoder) }
 
   }
 
@@ -73,7 +78,7 @@ object QueryBoolOps {
       bEv: QueryElement[B, BObjT, CompareT],
   ): QueryBoolOps[A, B] = { (a, b, o) =>
     QueryBool(
-      fr"${aEv.getCol(a).ref} $o ${bEv.getCol(b).ref}",
+      fr"${aEv.getCol(a)} $o ${bEv.getCol(b)}",
       true,
       false,
     )
@@ -84,22 +89,14 @@ object QueryBoolOps {
       bEv: CodeElement[B, BObjT, CompareT],
       convert: MapInput[BObjT, AObjT],
   ): QueryBoolOps[A, B] = { (a, b, o) =>
-    QueryBool(
-      fr"${aEv.getCol(a).ref} $o ${aEv.getCol(a).col.`(?)`}" ##
-        QueryInputMapper.single(in => aEv.getCol(a).col.colCodec.encoder.encodeColumn(convert.f(bEv.getObj(b, in)))),
-      true,
-      false,
+    val aCol = aEv.getCol(a)
+    val bFragment = Fragment(
+      "?",
+      bEv.encode(b, aCol.col.codec.encoder.cmap(convert.f)),
     )
-  }
 
-  implicit def codeElement_queryElement[AObjT, BObjT, CompareT, A, B](implicit
-      aEv: CodeElement[A, AObjT, CompareT],
-      bEv: QueryElement[B, BObjT, CompareT],
-      convert: MapInput[AObjT, BObjT],
-  ): QueryBoolOps[A, B] = { (a, b, o) =>
     QueryBool(
-      fr"${bEv.getCol(b).ref.toStringNoType} $o ${bEv.getCol(b).col.`(?)`}" ##
-        QueryInputMapper.single(in => bEv.getCol(b).col.colCodec.encoder.encodeColumn(convert.f(aEv.getObj(a, in)))),
+      fr"$aCol $o $bFragment",
       true,
       false,
     )

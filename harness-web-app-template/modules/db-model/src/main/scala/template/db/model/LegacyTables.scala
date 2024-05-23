@@ -61,7 +61,7 @@ object LegacyTables {
             lowerUsername = Col.string("lower_username"),
             encryptedPassword = Col.string("encrypted_password"),
             email = Col.encoded[EmailAddress]("email"),
-            verificationEmailCodes = Col.json[Set[Api.user.EmailVerificationCode]]("verification_email_codes").optional,
+            verificationEmailCodes = Col.encodedJson[Set[Api.user.EmailVerificationCode]]("verification_email_codes").optional,
           )
         }
 

@@ -484,6 +484,50 @@ lazy val `harness-js-plugin` =
       testSettings,
     )
 
+// =====| Integration Tests |=====
+
+lazy val `it-modules` =
+  project
+    .in(file("it-modules"))
+    .settings(
+      publish / skip := true,
+      organization := MyOrg,
+      sonatypeCredentialHost := "s01.oss.sonatype.org",
+      sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
+    )
+    .aggregate(
+      `harness-sql-it`,
+      `harness-test-containers-postgres-it`,
+    )
+
+lazy val `harness-sql-it` =
+  project
+    .in(file("it-modules/harness-sql"))
+    .settings(
+      name := "it--harness-sql",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      publish / skip := true,
+    )
+    .dependsOn(
+      `harness-test-container-postgres`,
+    )
+
+lazy val `harness-test-containers-postgres-it` =
+  project
+    .in(file("it-modules/harness-test-containers-postgres"))
+    .settings(
+      name := "it--harness-test-containers-postgres",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      publish / skip := true,
+    )
+    .dependsOn(
+      `harness-test-container-postgres`,
+    )
+
 // =====| Other |=====
 
 lazy val `harness-email` =
@@ -567,7 +611,6 @@ lazy val `harness-sql` =
       miscSettings,
       testSettings,
       libraryDependencies ++= Seq(
-        "org.typelevel" %% "shapeless3-deriving" % Versions.shapeless3Deriving,
         "org.postgresql" % "postgresql" % Versions.postgresql,
       ),
       Test / fork := true,
@@ -575,6 +618,7 @@ lazy val `harness-sql` =
     .dependsOn(
       `harness-zio`.jvm % testAndCompile,
       `harness-pk`.jvm % testAndCompile,
+      `harness-deriving`.jvm % testAndCompile,
     )
 
 lazy val `harness-sql-mock` =

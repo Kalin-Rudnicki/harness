@@ -18,8 +18,6 @@ object Versions {
 
   val scalaXml = "2.0.0"
 
-  val shapeless3Deriving = "3.3.0"
-
   val slyce = "2.1.4"
 
   val stripe = "24.11.0"
