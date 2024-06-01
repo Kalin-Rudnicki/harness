@@ -23,13 +23,14 @@ abstract class ContainerBuilder[RIn, ROut](final val containerType: String) { se
       container.labels.flatMap(l => List("-l", l.toString)).some,
       List(s"${container.imageName}:${container.imageVersion}").some,
     )
-    val runEffect: RIO[Logger, Unit] =
+    val runEffect: RIO[Sys & Logger, Unit] =
       Logger.log.detailed(s"Starting container '${container.name}'") *>
-        Sys.execute0.runComplex(outLevel = Logger.LogLevel.Detailed)(runCommand)
-    val closeEffect: RIO[Logger, Unit] =
+        runCommand.execute0(outLevel = Logger.LogLevel.Detailed)
+
+    val closeEffect: RIO[Sys & Logger, Unit] =
       Logger.log.detailed(s"Stopping container '${container.name}'") *>
-        Sys.execute0.runComplex(outLevel = Logger.LogLevel.Trace)(Sys.Command("docker", "stop", container.name)) *>
-        Sys.execute0.runComplex(outLevel = Logger.LogLevel.Trace)(Sys.Command("docker", "rm", container.name))
+        Sys.Command("docker", "stop", container.name).execute0(outLevel = Logger.LogLevel.Trace) *>
+        Sys.Command("docker", "rm", container.name).execute0(outLevel = Logger.LogLevel.Trace)
 
     runEffect.withFinalizer { _ => closeEffect.orDie }
   }

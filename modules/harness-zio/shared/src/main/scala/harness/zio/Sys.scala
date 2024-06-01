@@ -1,16 +1,138 @@
 package harness.zio
 
-import cats.data.NonEmptyList
 import cats.syntax.option.*
 import harness.core.*
 import harness.zio.error.SysError
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.sys.process.*
 import zio.*
 import zio.json.*
 
+trait Sys {
+
+  def execute(cmd: Sys.Command, logLevels: Option[Sys.LogLevels]): ZIO[Logger, SysError, Int]
+  def executeString0(cmd: Sys.Command, logLevels: Option[Sys.LogLevels]): ZIO[Logger, SysError, String]
+
+  final def execute0(cmd: Sys.Command, logLevels: Option[Sys.LogLevels]): ZIO[Logger, SysError, Unit] =
+    execute(cmd, logLevels).flatMap {
+      case 0    => ZIO.unit
+      case code => ZIO.fail(SysError.NonZeroExitCode(cmd, code))
+    }
+
+}
 object Sys {
 
+  final case class LogLevels(outLevel: Logger.LogLevel, errLevel: Logger.LogLevel)
+
+  final case class Command(
+      cmd: String,
+      args: List[String],
+      env: Map[String, String],
+  ) { self =>
+
+    lazy val cmdAndArgs: List[String] = cmd :: args
+
+    def toProcess: ProcessBuilder = Process(cmdAndArgs, None, env.toList*)
+
+    def :+(tail: List[String]): Command = Command(cmd, args ::: tail, env)
+
+    def addEnv(env: Map[String, String]): Command = Command(cmd, args, self.env ++ env)
+    def addEnv(env: (String, String)*): Command = Command(cmd, args, self.env ++ env.toMap)
+
+    // --- Execute ---
+
+    abstract class ExecuteBuilder[A](run: (Sys, Option[Sys.LogLevels]) => ZIO[Logger, SysError, A]) {
+      def apply(logLevels: Option[Sys.LogLevels]): ZIO[Sys & Logger, SysError, A] = ZIO.serviceWithZIO[Sys] { run(_, logLevels) }
+      def apply(outLevel: Logger.LogLevel = Logger.LogLevel.Info, errLevel: Logger.LogLevel = Logger.LogLevel.Error): ZIO[Sys & Logger, SysError, A] = apply(LogLevels(outLevel, errLevel).some)
+      def simple: ZIO[Sys & Logger, SysError, A] = apply(None)
+    }
+
+    object execute extends ExecuteBuilder[Int](_.execute(self, _))
+    object execute0 extends ExecuteBuilder[Unit](_.execute0(self, _))
+    object executeString0 extends ExecuteBuilder[String](_.executeString0(self, _))
+
+  }
+  object Command {
+
+    type Arg = String | Seq[String] | Option[Seq[String]]
+    object Arg {
+
+      @nowarn
+      def toSeq(arg: Arg): Seq[String] = arg match
+        case str: String            => str :: Nil
+        case None                   => Nil
+        case Some(seq: Seq[String]) => seq
+        case seq: Seq[String]       => seq
+
+    }
+
+    def apply(cmd: String, args: Arg*): Command =
+      new Command(
+        cmd,
+        args.toList.flatMap(Arg.toSeq),
+        Map.empty,
+      )
+
+  }
+
+  // =====| Live |=====
+
+  def liveLayer(addCommandLogContext: Boolean): ULayer[Sys] = ZLayer.succeed { Sys.Live(addCommandLogContext) }
+
+  final case class Live(addCommandLogContext: Boolean) extends Sys {
+
+    private inline def makeLogger(logLevels: LogLevels): URIO[Logger, HarnessProcessLogger] =
+      ZIO.runtime[Logger].map(HarnessProcessLogger(_, logLevels.outLevel, logLevels.errLevel))
+
+    private inline def attempt[O](cmd: Command)(thunk: => O): IO[SysError.GenericError, O] =
+      ZIO.attempt { thunk }.mapError(SysError.GenericError(cmd, _))
+
+    private def doRun[O](cmd: Sys.Command, logLevels: Option[LogLevels])(
+        withLogger: (ProcessBuilder, HarnessProcessLogger) => O,
+        withoutLogger: ProcessBuilder => O,
+    ): ZIO[Logger, SysError, O] = {
+      val base =
+        logLevels match {
+          case Some(logLevels) =>
+            for {
+              logger <- makeLogger(logLevels)
+              o <- attempt(cmd) { withLogger(cmd.toProcess, logger) }
+            } yield o
+          case None =>
+            attempt(cmd) { withoutLogger(cmd.toProcess) }
+        }
+
+      if (addCommandLogContext) Logger.addContext("cmd" -> cmd.cmd) { base }
+      else base
+    }
+
+    override def execute(cmd: Command, logLevels: Option[LogLevels]): ZIO[Logger, SysError, Int] =
+      doRun(cmd, logLevels)(_.!<(_), _.!<)
+
+    override def executeString0(cmd: Command, logLevels: Option[LogLevels]): ZIO[Logger, SysError, String] =
+      doRun(cmd, logLevels)(_.!!<(_), _.!!<)
+
+  }
+
+  // =====| Unimplemented |=====
+
+  val unimplementedLayer: ULayer[Sys] = ZLayer.succeed { Sys.Unimplemented }
+
+  case object Unimplemented extends Sys {
+
+    override def execute(cmd: Command, logLevels: Option[LogLevels]): ZIO[Logger, SysError, Int] =
+      ZIO.fail(SysError.GenericError(cmd, new UnsupportedOperationException("Unimplemented - Sys.execute")))
+
+    override def executeString0(cmd: Command, logLevels: Option[LogLevels]): ZIO[Logger, SysError, String] =
+      ZIO.fail(SysError.GenericError(cmd, new UnsupportedOperationException("Unimplemented - Sys.executeString0")))
+
+  }
+
+  // =====| Process Logger |=====
+
+  // TODO (KR) : support multi-line collapsing into a single log event, ex:
+  // [INFO ]: ABC
+  //        : DEF
   final case class HarnessProcessLogger(runtime: Runtime[Logger], outLevel: Logger.LogLevel, errLevel: Logger.LogLevel) extends ProcessLogger {
 
     private def run(defaultLevel: Logger.LogLevel, message: String): Unit =
@@ -37,9 +159,9 @@ object Sys {
 
       private val harnessLoggerJson: Unapply[String, Logger.ExecutedEvent] = decodeJson
 
-      private val decodeLogLevel: Unapply[String, Logger.LogLevel] = Logger.LogLevel.stringDecoder.decode(_).toOption
+      private val decodeLogLevel: Unapply[String, Logger.LogLevel] = s => Logger.LogLevel.stringDecoder.decode(s.trim).toOption
 
-      private val levelPrefixRegex = "^(\\[[A-Za-z]+])[ \t]*(.*)$".r
+      private val levelPrefixRegex = "^(\\[[A-Za-z]+]):?[ \t]*(.*)$".r
 
       private def makeEvent(level: Logger.LogLevel, context: Map[String, String], message: String): Logger.Event =
         Logger.Event.AtLogLevel(level, () => Logger.Event.Output(context, message))
@@ -66,72 +188,5 @@ object Sys {
     }
 
   }
-
-  final case class Command(cmdAndArgs: NonEmptyList[String]) {
-
-    def sudo: Command = Command("sudo" :: cmdAndArgs)
-    def sudoIf(cond: Boolean): Command = if (cond) this.sudo else this
-    def :+(tail: List[String]): Command = Command(cmdAndArgs ++ tail)
-
-    def show: String = cmdAndArgs.toList.map(_.unesc).mkString(" ")
-
-  }
-  object Command {
-    def apply(cmd: String, args: String*): Command =
-      new Command(NonEmptyList(cmd, args.toList))
-    def apply(cmd: String, arg0: Option[List[String]], argN: Option[List[String]]*): Command =
-      new Command(NonEmptyList(cmd, (arg0 :: argN.toList).flatMap(_.toList.flatten)))
-  }
-
-  abstract class CmdBuilder[O](private[Sys] val run: (ProcessBuilder, Option[HarnessProcessLogger], Command) => IO[SysError, O]) { self =>
-
-    private final def makeRun(envVars: List[(String, String)], logger: Option[HarnessProcessLogger], cmd: Command): IO[SysError, O] =
-      self.run(Process(cmd.cmdAndArgs.toList, None, envVars*), logger, cmd)
-
-    private final def makeLogger(outLevel: Logger.LogLevel, errLevel: Logger.LogLevel): URIO[Logger, HarnessProcessLogger] =
-      ZIO.runtime[Logger].map(HarnessProcessLogger(_, outLevel, errLevel))
-
-    final def runComplex(
-        envVars: Map[String, String] = Map.empty,
-        outLevel: Logger.LogLevel = Logger.LogLevel.Info,
-        errLevel: Logger.LogLevel = Logger.LogLevel.Error,
-    )(cmd: Command): ZIO[Logger, SysError, O] =
-      for {
-        logger <- makeLogger(outLevel, errLevel)
-        res <- makeRun(envVars.toList, logger.some, cmd)
-      } yield res
-
-    final def runSimple(cmd: Command): IO[SysError, O] = makeRun(Nil, None, cmd)
-    final def runSimple(cmdAndArgs: NonEmptyList[String]): IO[SysError, O] = runSimple(Command(cmdAndArgs))
-    final def runSimple(cmd: String, args: String*): IO[SysError, O] = runSimple(Command(NonEmptyList(cmd, args.toList)))
-
-  }
-
-  private def doRun[O](process: ProcessBuilder, logger: Option[HarnessProcessLogger], command: Command)(
-      withLogger: (ProcessBuilder, HarnessProcessLogger) => O,
-      withoutLogger: ProcessBuilder => O,
-  ): IO[SysError, O] =
-    ZIO
-      .attempt {
-        logger match {
-          case Some(logger) => withLogger(process, logger)
-          case None         => withoutLogger(process)
-        }
-      }
-      .mapError(SysError.GenericError(command, _))
-
-  object execute extends CmdBuilder[Int](doRun(_, _, _)(_.!<(_), _.!<))
-
-  object execute0
-      extends CmdBuilder[Unit]((process, logger, cmdAndArgs) =>
-        Sys.execute
-          .run(process, logger, cmdAndArgs)
-          .flatMap {
-            case 0    => ZIO.unit
-            case code => ZIO.fail(SysError.NonZeroExitCode(cmdAndArgs, code))
-          },
-      )
-
-  object executeString0 extends CmdBuilder[String](doRun(_, _, _)(_.!!<(_), _.!!<))
 
 }

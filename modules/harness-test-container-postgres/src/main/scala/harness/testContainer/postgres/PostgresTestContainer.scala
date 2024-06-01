@@ -17,10 +17,10 @@ object PostgresTestContainer extends ContainerBuilder[PortFinder, DbConfig]("pos
     ZIO.succeed {
       metadata
         .makeContainer("database", "postgres", "latest") {
-          Sys.executeString0
-            .runComplex(Map("PGPASSWORD" -> internal.password), errLevel = Logger.LogLevel.Trace)(
-              Sys.Command("psql", "-c", "SELECT 1 AS query_result;", "-h", internal.host, "-p", internal.port.toString, "-d", internal.database, "-U", internal.username),
-            )
+          Sys
+            .Command("psql", "-c", "SELECT 1 AS query_result;", "-h", internal.host, "-p", internal.port.toString, "-d", internal.database, "-U", internal.username)
+            .addEnv("PGPASSWORD" -> internal.password)
+            .executeString0(errLevel = Logger.LogLevel.Trace)
             .map { _.contains("query_result") }
         }
         .p(internal.port, 5432)

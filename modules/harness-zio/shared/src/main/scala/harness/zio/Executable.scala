@@ -218,18 +218,20 @@ object Executable extends ExecutableBuilders.Builder1 {
       implicit val loggerConfigJsonDecoder: JsonDecoder[LoggerConfig] = LoggerConfig.jsonDecoder(executableAppConfig.loggerDecoders*)
       implicit val telemetryConfigJsonDecoder: JsonDecoder[TelemetryConfig] = TelemetryConfig.jsonDecoder(executableAppConfig.telemetryDecoders*)
 
-      val loggerAndTelemetryLayer: ZLayer[HConfig & Scope, ExecutableError.FailedToReadConfig, Logger & Telemetry] =
+      val loggerAndTelemetryLayer: ZLayer[HConfig & Scope, ExecutableError.FailedToReadConfig, Logger & Telemetry & Sys] =
         config.stdOutLogTolerance match {
           case Some(stdOutLogTolerance) =>
-            ZLayer.make[Logger & Telemetry](
+            ZLayer.make[Logger & Telemetry & Sys](
               ZLayer.succeed(Logger.default(defaultMinLogTolerance = stdOutLogTolerance)),
               ZLayer.succeed(Telemetry.log),
+              Sys.liveLayer(false),
             )
           case None =>
-            ZLayer.makeSome[HConfig & Scope, Logger & Telemetry](
+            ZLayer.makeSome[HConfig & Scope, Logger & Telemetry & Sys](
               HConfig.readLayer[LoggerConfig]("logging").mapError(ExecutableError.FailedToReadConfig(_)),
               Logger.configLayer,
               HConfig.readLayer[TelemetryConfig]("telemetry").mapError(ExecutableError.FailedToReadConfig(_)),
+              Sys.liveLayer(false),
               Telemetry.configLayer,
             )
         }

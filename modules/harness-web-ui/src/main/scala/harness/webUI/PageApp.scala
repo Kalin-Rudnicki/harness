@@ -47,7 +47,8 @@ trait PageApp[EnvFromServer <: HasStdClientConfig: Tag: JsonDecoder] extends ZIO
     configLayer >+> HConfig.readLayer[EnvFromServer]() >+> ZLayer.service[EnvFromServer].project(_.stdClientConfig) >+> {
       loggerLayer ++
         ZLayer.succeed(Telemetry.log) ++
-        FileSystem.liveLayer ++
+        FileSystem.unimplementedLayer ++
+        Sys.unimplementedLayer ++
         HttpClient.defaultLayer
     }
   }
