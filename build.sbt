@@ -871,9 +871,9 @@ lazy val `harness-web-app-template--web-server` =
       miscSettings,
       testSettings,
       assemblyJarName := {
-        val appVersion = scala.sys.env.get("WEB_SERVER_VERSION")
-        val versionSuffix = appVersion.fold("")(v => s"--$v")
-        s"../artifacts/${name.value}$versionSuffix.jar"
+        val versionEnvVar = "APP_VERSION"
+        val appVersion = scala.sys.env.getOrElse(versionEnvVar, throw new RuntimeException(s"Assembly requires '$versionEnvVar' env var"))
+        s"../artifacts/${name.value}--$appVersion.jar"
       },
     )
     .dependsOn(

@@ -26,7 +26,7 @@ object QuerySetOps {
       QueryInputMapper.single[A](_(inputVar.idx).asInstanceOf[A], appliedCol.col.codec.encoder),
     )
 
-    QuerySet(fr"$appliedCol = $inputVarFragment")
+    QuerySet(fr"${appliedCol.col.colName} = $inputVarFragment")
   }
 
   implicit def oCol_id[A]: QuerySetOps[AppliedCol[Option[A]], QueryInputVar[A]] = { (appliedCol, inputVar) =>
@@ -35,7 +35,7 @@ object QuerySetOps {
       QueryInputMapper.single[Option[A]](_(inputVar.idx).asInstanceOf[A].some, appliedCol.col.codec.encoder),
     )
 
-    QuerySet(fr"$appliedCol = $inputVarFragment")
+    QuerySet(fr"${appliedCol.col.colName} = $inputVarFragment")
   }
 
   implicit def col_const[A]: QuerySetOps[AppliedCol[A], Constant[A]] = { (appliedCol, const) =>
@@ -44,7 +44,7 @@ object QuerySetOps {
       QueryInputMapper.materialize(const, appliedCol.col.codec.encoder),
     )
 
-    QuerySet(fr"$appliedCol = $constFragment")
+    QuerySet(fr"${appliedCol.col.colName} = $constFragment")
   }
 
   implicit def oCol_const[A]: QuerySetOps[AppliedCol[Option[A]], Constant[A]] = { (appliedCol, const) =>
@@ -53,7 +53,7 @@ object QuerySetOps {
       QueryInputMapper.materialize(const.map(_.some), appliedCol.col.codec.encoder),
     )
 
-    QuerySet(fr"$appliedCol = $constFragment")
+    QuerySet(fr"${appliedCol.col.colName} = $constFragment")
   }
 
 }

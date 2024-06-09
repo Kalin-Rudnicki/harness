@@ -20,7 +20,7 @@ WORKDIR /app
 COPY harness-web-app-template/res res
 COPY harness-web-app-template/modules/web-server/target/artifacts/harness-web-app-template--web-server--$BUILD__DOCKER_TAG.jar web-server.jar
 
-CMD [\"java\", \"-jar\", \"web-server.jar\", \"-C=env:HARNESS_CFG\", \"--\", \"server\"]
+CMD [\"java\", \"-jar\", \"web-server.jar\", \"-C=env:APP_CONFIG\", \"--\", \"server\"]
 """
 
 BUILD__DOCKERFILE_TEMPFILE=$(mktemp --tmpdir=.)
