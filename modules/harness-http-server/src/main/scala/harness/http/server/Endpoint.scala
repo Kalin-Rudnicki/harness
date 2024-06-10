@@ -2,12 +2,11 @@ package harness.http.server
 
 import harness.endpoint.error.DecodingFailure
 import harness.endpoint.spec.*
-import harness.endpoint.spec.NonBodyInputCodec.Result
 import harness.endpoint.transfer.*
 import harness.endpoint.typeclass.*
 import harness.endpoint.types.*
 import harness.endpoint.types.Types.*
-import harness.zio.*
+import harness.zio.{Path as _, *}
 import zio.*
 
 final case class Endpoint[-R, ET <: EndpointType.Any](
@@ -17,46 +16,40 @@ final case class Endpoint[-R, ET <: EndpointType.Any](
 
   private val errorHandler = implementation.errorHandler
 
+  private def decode(request: HttpRequest): IO[DecodingFailure, (Query[ET], Auth[ET], Header[ET], Receive[InputBody[ET]])] =
+    for {
+      q <- ZIO.fromEither { spec.queryCodec.decode(request.queries) }
+      a <- ZIO.fromEither { spec.authHeaderCodec.decode(request.headers, request.cookies) }
+      h <- ZIO.fromEither { spec.headerCodec.decode(request.headers, request.cookies) }
+      b <- spec.inputBodyCodec.in(request.contentLengths, request.rawInputStream)
+    } yield (q, a, h, b)
+
   def handleScoped(
       request: HttpRequest,
-      parsedPath: spec.inputWithCookiesCodec.PathT,
+      parsedPath: Path[ET],
   ): ZIO[HarnessEnv & Scope & R, implementation.DomainError, HttpResponse[Send[OutputBody[ET]]]] =
-    (for {
-      inputWithCookies <-
-        (spec.inputWithCookiesCodec.decodeAll(
-          parsedPath,
-          request.queries,
-          request.headers,
-          request.cookies,
-        ) match {
-          case Result.Success(inputWithCookies) => ZIO.succeed(inputWithCookies)
-          case fail: Result.Fail                => ZIO.fail(DecodingFailure.fromFailure(fail))
-        }).mapError(errorHandler.convertDecodingFailure)
-      body <-
-        spec.inputBodyCodec
-          .in(request.contentLengths, request.rawInputStream)
-          .mapError(errorHandler.convertDecodingFailure)
-
-      result <- implementation.impl(inputWithCookies, body)
-    } yield result)
-      .provideSomeEnvironment[HarnessEnv & Scope & R](_ ++ ZEnvironment(request))
+    Logger.log.debug(s"Headers:${request.headers.keySet.toSeq.sorted.map(h => s"\n  - $h").mkString}") *>
+      decode(request)
+        .mapError(errorHandler.convertDecodingFailure)
+        .flatMap { implementation.impl(parsedPath, _, _, _, _) }
+        .provideSomeEnvironment[HarnessEnv & Scope & R](_ ++ ZEnvironment(request))
 
   def handle(
       request: HttpRequest,
-      parsedPath: spec.inputWithCookiesCodec.PathT,
+      parsedPath: Path[ET],
   ): ZIO[HarnessEnv & R, implementation.DomainError, HttpResponse[Send[OutputBody[ET]]]] =
     ZIO.scoped { handleScoped(request, parsedPath) }
 
   def handleRaw(
       request: HttpRequest,
-      parsedPath: spec.inputWithCookiesCodec.PathT,
+      parsedPath: Path[ET],
   ): ZIO[HarnessEnv & R, implementation.DomainError, HttpResponse[OutputStream]] =
     handle(request, parsedPath).map { result => result.copy(body = spec.outputBodyCodec.out(result.body)) }
 
   def parseAndHandle(
       request: HttpRequest,
   ): ZIO[HarnessEnv & R, implementation.DomainError, Option[HttpResponse[Send[OutputBody[ET]]]]] =
-    spec.inputWithCookiesCodec.decodePath(request.path) match {
+    spec.pathCodec.decodePath(request.path) match {
       case Some(parsedPath) => handle(request, parsedPath).asSome
       case None             => ZIO.none
     }

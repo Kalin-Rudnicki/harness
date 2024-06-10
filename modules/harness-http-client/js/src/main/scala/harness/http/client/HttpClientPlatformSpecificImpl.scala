@@ -42,7 +42,7 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
         ZIO.foreachDiscard(headers.toList) { (k, vs) => ZIO.foreachDiscard(vs) { v => ZIO.attempt { xhr.setRequestHeader(k, v) } } }
 
       private inline def readResponseBody[ET <: EndpointType.Any](
-          outputBodySchema: BodySchema[OutputBody[ET]],
+          outputBodySchema: BodyCodec[OutputBody[ET]],
           errorSchema: ErrorSchema[Error[ET]],
       )(
           requestParams: HttpRequestParams,
@@ -53,21 +53,21 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
           response <-
             if (responseCode.is2xx)
               outputBodySchema match {
-                case BodySchema.Encoded(schema) =>
+                case BodyCodec.Encoded(schema) =>
                   ZIO.attempt { xhr.responseText }.orDie.flatMap {
                     schema.decode(_) match {
                       case Right(value) => ZIO.succeed(value)
-                      case Left(error)  => ZIO.die(DecodingFailure(DecodingFailure.Source.Body, error))
+                      case Left(error)  => ZIO.die(DecodingFailure(SchemaSource.Body :: Nil, DecodingFailure.Cause.DecodeFail(error)))
                     }
                   }
-                case BodySchema.None   => ZIO.unit
-                case BodySchema.Stream => ZIO.dieMessage("Can not handle Stream response")
+                case BodyCodec.None   => ZIO.unit
+                case BodyCodec.Stream => ZIO.dieMessage("Can not handle Stream response")
               }
             else
               ZIO.attempt { xhr.responseText }.orDie.flatMap { stringBody =>
                 errorSchema.decode(responseCode, stringBody) match {
                   case Some(Right(error)) => ZIO.fail(error)
-                  case Some(Left(error))  => ZIO.die(DecodingFailure(DecodingFailure.Source.Body, error))
+                  case Some(Left(error))  => ZIO.die(DecodingFailure(SchemaSource.Body :: Nil, DecodingFailure.Cause.DecodeFail(error)))
                   case None =>
                     responseCode match {
                       case HttpCode.`404` =>
@@ -75,7 +75,7 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
                       case HttpCode.`405` =>
                         ZIO.dieMessage(s"Target HTTP server does not handle ${requestParams.method.method}: ${requestParams.paths.mkString("/", "/", "")}\n$stringBody")
                       case _ =>
-                        ZIO.die(DecodingFailure(DecodingFailure.Source.Body, s"Unexpected response code: $responseCode"))
+                        ZIO.die(DecodingFailure(SchemaSource.Body :: Nil, DecodingFailure.Cause.DecodeFail(s"Unexpected response code: $responseCode")))
                     }
                 }
               }
@@ -90,8 +90,8 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
         }
 
       override def send_internal[ET <: EndpointType.Any](
-          inputBodySchema: BodySchema[InputBody[ET]],
-          outputBodySchema: BodySchema[OutputBody[ET]],
+          inputBodySchema: BodyCodec[InputBody[ET]],
+          outputBodySchema: BodyCodec[OutputBody[ET]],
           errorSchema: ErrorSchema[Error[ET]],
       )(
           request: HttpRequestParams,

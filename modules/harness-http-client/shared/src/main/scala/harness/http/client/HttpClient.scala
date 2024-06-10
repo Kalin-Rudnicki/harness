@@ -9,8 +9,8 @@ import zio.*
 trait HttpClient { self =>
 
   protected def send_internal[ET <: EndpointType.Any](
-      inputBodySchema: BodySchema[InputBody[ET]],
-      outputBodySchema: BodySchema[OutputBody[ET]],
+      inputBodySchema: BodyCodec[InputBody[ET]],
+      outputBodySchema: BodyCodec[OutputBody[ET]],
       errorSchema: ErrorSchema[Error[ET]],
   )(
       request: HttpRequestParams,
@@ -18,8 +18,8 @@ trait HttpClient { self =>
   ): ZIO[Logger & Telemetry & Scope, Error[ET], Receive[OutputBody[ET]]]
 
   final def send[ET <: EndpointType.Any](
-      inputBodySchema: BodySchema[InputBody[ET]],
-      outputBodySchema: BodySchema[OutputBody[ET]],
+      inputBodySchema: BodyCodec[InputBody[ET]],
+      outputBodySchema: BodyCodec[OutputBody[ET]],
       errorSchema: ErrorSchema[Error[ET]],
   )(
       request: HttpRequestParams,

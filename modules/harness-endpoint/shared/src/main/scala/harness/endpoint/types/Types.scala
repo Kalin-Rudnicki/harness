@@ -4,24 +4,32 @@ import harness.endpoint.transfer.*
 
 object Types {
 
-  type InputWithCookies[ET <: EndpointType.Any] = ET match {
-    case EndpointType[t, ?, ?, ?, ?] => t
+  type Path[ET <: EndpointType.Any] = ET match {
+    case EndpointType[t, ?, ?, ?, ?, ?, ?] => t
   }
 
-  type InputWithoutCookies[ET <: EndpointType.Any] = ET match {
-    case EndpointType[?, t, ?, ?, ?] => t
+  type Query[ET <: EndpointType.Any] = ET match {
+    case EndpointType[?, t, ?, ?, ?, ?, ?] => t
+  }
+
+  type Auth[ET <: EndpointType.Any] = ET match {
+    case EndpointType[?, ?, t, ?, ?, ?, ?] => t
+  }
+
+  type Header[ET <: EndpointType.Any] = ET match {
+    case EndpointType[?, ?, ?, t, ?, ?, ?] => t
   }
 
   type InputBody[ET <: EndpointType.Any] <: BodyType = ET match {
-    case EndpointType[?, ?, t, ?, ?] => t
+    case EndpointType[?, ?, ?, ?, t, ?, ?] => t
   }
 
   type OutputBody[ET <: EndpointType.Any] <: BodyType = ET match {
-    case EndpointType[?, ?, ?, t, ?] => t
+    case EndpointType[?, ?, ?, ?, ?, t, ?] => t
   }
 
   type Error[ET <: EndpointType.Any] = ET match {
-    case EndpointType[?, ?, ?, ?, t] => t
+    case EndpointType[?, ?, ?, ?, ?, ?, t] => t
   }
 
   type Receive[B <: BodyType] = B match {

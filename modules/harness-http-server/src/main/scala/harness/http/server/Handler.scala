@@ -3,9 +3,10 @@ package harness.http.server
 import cats.syntax.option.*
 import com.sun.net.httpserver.{HttpExchange, HttpHandler}
 import harness.endpoint.types.*
+import harness.endpoint.types.Types.*
 import harness.web.{HttpCode, HttpMethod}
 import harness.web.Constants.harnessInternalErrorHeader
-import harness.zio.*
+import harness.zio.{Path as _, *}
 import java.util.Base64
 import scala.annotation.tailrec
 import zio.*
@@ -28,7 +29,7 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
       request: HttpRequest,
       endpoint: Endpoint[ServerEnv & ReqEnv, ET],
   )(
-      parsedPath: endpoint.spec.inputWithCookiesCodec.PathT,
+      parsedPath: Path[ET],
   ): URIO[HarnessEnv & ServerEnv & Scope, HttpResponse[OutputResult]] = {
     val errorHandler = endpoint.implementation.errorHandler
 
@@ -76,7 +77,7 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
   ): URIO[HarnessEnv & ServerEnv & Scope, HttpResponse[OutputResult]] =
     endpoints match {
       case eHead :: eTail =>
-        eHead.spec.inputWithCookiesCodec.decodePath(request.path) match {
+        eHead.spec.pathCodec.decodePath(request.path) match {
           case Some(parsedPath) =>
             for {
               _ <- startMarker.markEnd("HTTP Request Path Parsed", Logger.LogLevel.Debug, true, "method" -> request.method.method, "path" -> request.pathString)
@@ -86,7 +87,7 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
             loop(startMarker, request, eTail)
         }
       case Nil =>
-        (self.endpoints.flatMap(e => e.spec.inputWithCookiesCodec.decodePath(request.path).map(_ => e.spec.method)) match {
+        (self.endpoints.flatMap(e => e.spec.pathCodec.decodePath(request.path).map(_ => e.spec.method)) match {
           case Nil =>
             ZIO.succeed(HttpResponse(OutputResult.fromString("Not Found"), HttpCode.`404`))
           case methods =>

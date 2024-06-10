@@ -519,6 +519,7 @@ lazy val `harness-cli-ut`: CrossProject =
 
 // =====| Web |=====
 
+// TODO (KR) : remove/replace
 lazy val `harness-endpoint`: CrossProject =
   crossProject(JSPlatform, JVMPlatform)
     .in(file("modules/harness-endpoint"))
@@ -534,7 +535,7 @@ lazy val `harness-endpoint`: CrossProject =
       `harness-schema` % testAndCompile,
     )
 
-lazy val `harness-http-client`: CrossProject =
+lazy val `harness-http-client` =
   crossProject(JSPlatform, JVMPlatform)
     .in(file("modules/harness-http-client"))
     .settings(

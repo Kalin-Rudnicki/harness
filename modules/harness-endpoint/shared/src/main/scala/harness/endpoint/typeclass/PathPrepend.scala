@@ -1,7 +1,7 @@
 package harness.endpoint.typeclass
 
 import harness.endpoint.*
-import harness.endpoint.spec.EndpointSpec
+import harness.endpoint.spec.{EndpointSpec, PathCodec}
 import harness.endpoint.types.EndpointType
 
 trait PathPrepend[T[_[_ <: EndpointType.Any]]] {
@@ -12,18 +12,7 @@ object PathPrepend {
   implicit def id[ET <: EndpointType.Any]: PathPrepend[K11ET.Id[ET]] =
     new PathPrepend[K11ET.Id[ET]] {
       override def prepend(path: String, t: K11ET.Id[ET][EndpointSpec]): K11ET.Id[ET][EndpointSpec] =
-        EndpointSpec[ET](
-          method = t.method,
-          name = t.name,
-          classification = t.classification,
-          description = t.description,
-          group = t.group,
-          inputWithCookiesCodec = path /: t.inputWithCookiesCodec,
-          inputWithoutCookiesCodec = path /: t.inputWithoutCookiesCodec,
-          inputBodyCodec = t.inputBodyCodec,
-          outputBodyCodec = t.outputBodyCodec,
-          errorCodec = t.errorCodec,
-        )
+        t.copy(pathCodec = PathCodec.Const(path) / t.pathCodec)
     }
 
   inline implicit def genProduct[T[_[_ <: EndpointType.Any]]](implicit m: K11ET.ProductGeneric[T]): PathPrepend[T] = {

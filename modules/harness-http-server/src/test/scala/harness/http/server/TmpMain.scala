@@ -75,9 +75,9 @@ object TmpMain extends ExecutableApp {
   )
   object Pattern1 {
 
-    type Route1 = EndpointType.Basic[UUID, BodyType.None, BodyType.Encoded[String], ApiError]
-    type Route2 = EndpointType.Basic[(UUID, String), BodyType.None, BodyType.Encoded[String], ApiError]
-    type Route3 = EndpointType.Basic[UUID, BodyType.None, BodyType.Encoded[String], ApiError]
+    type Route1 = EndpointType.Builder#Path[UUID]#OutputBodyEncoded[String]#Error[ApiError]#Build
+    type Route2 = EndpointType.Builder#Query[UUID]#Header[String]#OutputBodyEncoded[String]#Error[ApiError]#Build
+    type Route3 = EndpointType.Builder#Path[UUID]#OutputBodyEncoded[String]#Error[ApiError]#Build
 
   }
 
@@ -139,7 +139,7 @@ object TmpMain extends ExecutableApp {
         for {
           _ <- Logger.log.info("=====| Client |=====")
           res1 <- client.route1(UUID.randomUUID).either
-          res2 <- client.route2((UUID.randomUUID, "my-auth")).either
+          res2 <- client.route2(UUID.randomUUID, "my-auth").either
           res3 <- client.route3(UUID.randomUUID).either
           _ <- Logger.log.info(res1)
           _ <- Logger.log.info(res2)

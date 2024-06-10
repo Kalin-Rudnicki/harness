@@ -76,7 +76,7 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
         )
 
       private def readResponseBody[ET <: EndpointType.Any](
-          outputBodySchema: BodySchema[OutputBody[ET]],
+          outputBodySchema: BodyCodec[OutputBody[ET]],
           errorSchema: ErrorSchema[Error[ET]],
       )(
           requestParams: HttpRequestParams,
@@ -89,7 +89,7 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
           body.readString.orDie.flatMap { stringBody =>
             errorSchema.decode(responseParams.responseCode, stringBody) match {
               case Some(Right(error)) => ZIO.fail(error)
-              case Some(Left(error))  => ZIO.die(DecodingFailure(DecodingFailure.Source.Body, error))
+              case Some(Left(error))  => ZIO.die(DecodingFailure(SchemaSource.Body :: Nil, DecodingFailure.Cause.DecodeFail(error)))
               case None =>
                 responseParams.responseCode match {
                   case HttpCode.`404` =>
@@ -97,14 +97,14 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
                   case HttpCode.`405` =>
                     ZIO.dieMessage(s"Target HTTP server does not handle ${requestParams.method.method}: ${requestParams.paths.mkString("/", "/", "")}\n$stringBody")
                   case _ =>
-                    ZIO.die(DecodingFailure(DecodingFailure.Source.Body, s"Unexpected response code: ${responseParams.responseCode}"))
+                    ZIO.die(DecodingFailure(SchemaSource.Body :: Nil, DecodingFailure.Cause.DecodeFail(s"Unexpected response code: ${responseParams.responseCode}")))
                 }
             }
           }
 
-      override def send_internal[ET <: EndpointType.Any](
-          inputBodySchema: BodySchema[InputBody[ET]],
-          outputBodySchema: BodySchema[OutputBody[ET]],
+      override protected def send_internal[ET <: EndpointType.Any](
+          inputBodySchema: BodyCodec[InputBody[ET]],
+          outputBodySchema: BodyCodec[OutputBody[ET]],
           errorSchema: ErrorSchema[Error[ET]],
       )(
           requestParams: HttpRequestParams,

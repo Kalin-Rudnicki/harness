@@ -20,7 +20,7 @@ object Api {
 
   object user {
 
-    def fromSessionToken: ReqIO[ApiModel.user.User] = api.user.get()
+    def fromSessionToken: ReqIO[ApiModel.user.User] = api.user.get.withoutAuth()
 
     def fromSessionTokenOptional: ReqIO[Option[ApiModel.user.User]] =
       fromSessionToken.asSome.catchSome { case ApiError.MissingSessionToken => ZIO.none }
@@ -37,18 +37,18 @@ object Api {
 
     def signUp(d: ApiModel.user.SignUp): ReqIO[ApiModel.user.User] = api.user.signUp(d)
     def login(d: ApiModel.user.Login): ReqIO[ApiModel.user.User] = api.user.login(d)
-    def logOut: ReqIO[Unit] = api.user.logOut()
-    def verifyEmail(code: ApiModel.user.EmailVerificationCode): ReqIO[Unit] = api.user.verifyEmail(code)
-    def resendEmailCode: ReqIO[Unit] = api.user.resendEmailVerification()
+    def logOut: ReqIO[Unit] = api.user.logOut.withoutAuth()
+    def verifyEmail(code: ApiModel.user.EmailVerificationCode): ReqIO[Unit] = api.user.verifyEmail.withoutAuth(code)
+    def resendEmailCode: ReqIO[Unit] = api.user.resendEmailVerification.withoutAuth()
 
   }
   object payment {
 
     def createIntent: ReqIO[ClientSecret] =
-      api.payment.createIntent()
+      api.payment.createIntent.withoutAuth()
 
     def paymentMethods: ReqIO[Chunk[ApiModel.paymentMethod.PaymentMethod]] =
-      api.payment.paymentMethods()
+      api.payment.paymentMethods.withoutAuth()
 
   }
 

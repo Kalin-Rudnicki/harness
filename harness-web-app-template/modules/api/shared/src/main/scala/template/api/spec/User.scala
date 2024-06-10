@@ -16,28 +16,28 @@ final case class User[F[_ <: EndpointType.Any]](
 )
 object User {
 
-  type Get = EndpointType[A.user.UserToken, Unit, BodyType.None, BodyType.Encoded[A.user.User], ApiError]
-  type Login = EndpointType.Basic[Unit, BodyType.Encoded[A.user.Login], BodyType.Encoded[A.user.User], ApiError]
-  type LogOut = EndpointType[A.user.UserToken, Unit, BodyType.None, BodyType.None, ApiError]
-  type SignUp = EndpointType.Basic[Unit, BodyType.Encoded[A.user.SignUp], BodyType.Encoded[A.user.User], ApiError]
-  type VerifyEmail = EndpointType[(A.user.EmailVerificationCode, A.user.UserToken), A.user.EmailVerificationCode, BodyType.None, BodyType.None, ApiError]
-  type ResendEmailVerification = EndpointType[A.user.UserToken, Unit, BodyType.None, BodyType.None, ApiError]
+  type Get = EndpointType.Builder#Auth[A.user.UserToken]#OutputBodyEncoded[A.user.User]#Error[ApiError]#Build
+  type Login = EndpointType.Builder#InputBodyEncoded[A.user.Login]#OutputBodyEncoded[A.user.User]#Error[ApiError]#Build
+  type LogOut = EndpointType.Builder#Auth[A.user.UserToken]#Error[ApiError]#Build
+  type SignUp = EndpointType.Builder#InputBodyEncoded[A.user.SignUp]#OutputBodyEncoded[A.user.User]#Error[ApiError]#Build
+  type VerifyEmail = EndpointType.Builder#Query[A.user.EmailVerificationCode]#Auth[A.user.UserToken]#Error[ApiError]#Build
+  type ResendEmailVerification = EndpointType.Builder#Auth[A.user.UserToken]#Error[ApiError]#Build
 
   def spec(authToken: headerOrCookie[A.user.UserToken]): User[EndpointSpec] =
     "user" /:
       User[EndpointSpec](
         get = EndpointSpec.get("Get User Info")
-          /# authToken /--> body.json[A.user.User] /!--> errorBody.json[ApiError],
+          /!# authToken /--> body.json[A.user.User] /!--> errorBody.json[ApiError],
         login = EndpointSpec.post("Login") / "login"
           /<-- body.json[A.user.Login] /--> body.json[A.user.User] /!--> errorBody.json[ApiError],
         logOut = EndpointSpec.post("Log Out") / "log-out"
-          /# authToken /!--> errorBody.json[ApiError],
+          /!# authToken /!--> errorBody.json[ApiError],
         signUp = EndpointSpec.post("Sign Up") / "sign-up"
           /<-- body.json[A.user.SignUp] /--> body.json[A.user.User] /!--> errorBody.json[ApiError],
         verifyEmail = EndpointSpec.post("Verify Email") / "email" / "verify"
-          /? query[A.user.EmailVerificationCode]("code") /# authToken /!--> errorBody.json[ApiError],
+          /? query[A.user.EmailVerificationCode]("code") /!# authToken /!--> errorBody.json[ApiError],
         resendEmailVerification = EndpointSpec.post("Resend Email Verification") / "email" / "resend-verification"
-          /# authToken /!--> errorBody.json[ApiError],
+          /!# authToken /!--> errorBody.json[ApiError],
       )
 
 }

@@ -15,19 +15,19 @@ final case class Payment[F[_ <: EndpointType.Any]](
 )
 object Payment {
 
-  type CreateIntent = EndpointType[A.user.UserToken, Unit, BodyType.None, BodyType.Encoded[PM.ids.ClientSecret], ApiError]
-  type AcceptIntent = EndpointType[(PM.ids.SetupIntentId, A.user.UserToken), PM.ids.SetupIntentId, BodyType.None, BodyType.None, ApiError]
-  type PaymentMethods = EndpointType[A.user.UserToken, Unit, BodyType.None, BodyType.Encoded[Chunk[A.paymentMethod.PaymentMethod]], ApiError]
+  type CreateIntent = EndpointType.Builder#Auth[A.user.UserToken]#OutputBodyEncoded[PM.ids.ClientSecret]#Error[ApiError]#Build
+  type AcceptIntent = EndpointType.Builder#Query[PM.ids.SetupIntentId]#Auth[A.user.UserToken]#Error[ApiError]#Build
+  type PaymentMethods = EndpointType.Builder#Auth[A.user.UserToken]#OutputBodyEncoded[Chunk[A.paymentMethod.PaymentMethod]]#Error[ApiError]#Build
 
   def spec(authToken: headerOrCookie[A.user.UserToken]): Payment[EndpointSpec] =
     "payment" /:
       Payment[EndpointSpec](
         createIntent = EndpointSpec.post("Create Setup Intent") / "intent" / "create"
-          /# authToken /--> body.json[PM.ids.ClientSecret] /!--> errorBody.json[ApiError],
+          /!# authToken /--> body.json[PM.ids.ClientSecret] /!--> errorBody.json[ApiError],
         acceptIntent = EndpointSpec.get("Accept Setup Intent") / "intent" / "accept"
-          /? query[PM.ids.SetupIntentId]("setup_intent") /# authToken /!--> errorBody.json[ApiError],
+          /? query[PM.ids.SetupIntentId]("setup_intent") /!# authToken /!--> errorBody.json[ApiError],
         paymentMethods = EndpointSpec.get("Get All Payment Methods") / "method" / "all"
-          /# authToken /--> body.json[Chunk[A.paymentMethod.PaymentMethod]] /!--> errorBody.json[ApiError],
+          /!# authToken /--> body.json[Chunk[A.paymentMethod.PaymentMethod]] /!--> errorBody.json[ApiError],
       )
 
 }

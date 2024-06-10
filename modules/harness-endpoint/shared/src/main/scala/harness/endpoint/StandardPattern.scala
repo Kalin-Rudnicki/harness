@@ -1,6 +1,5 @@
 package harness.endpoint
 
-import harness.endpoint.error.ApiInternalDefect
 import harness.endpoint.spec.*
 import harness.endpoint.typeclass.*
 import harness.endpoint.types.*
@@ -36,11 +35,11 @@ object StandardPattern {
 
   }
 
-  type HealthCheck = EndpointType.Basic[Unit, BodyType.None, BodyType.None, ApiInternalDefect]
-  type Index = EndpointType.Basic[Unit, BodyType.None, BodyType.None, ApiInternalDefect]
-  type Page = EndpointType.Basic[List[String], BodyType.None, BodyType.Encoded[String], ApiInternalDefect]
-  type Favicon = EndpointType.Basic[Unit, BodyType.None, BodyType.Stream, ApiError]
-  type Js = EndpointType.Basic[List[String], BodyType.None, BodyType.Stream, ApiError]
+  type HealthCheck = EndpointType.Builder#Build
+  type Index = EndpointType.Builder#Build
+  type Page = EndpointType.Builder#PathMany#OutputBodyEncoded[String]#Build
+  type Favicon = EndpointType.Builder#OutputBodyStream#Error[ApiError]#Build
+  type Js = EndpointType.Builder#PathMany#OutputBodyStream#Error[ApiError]#Build
 
   // TODO (KR) : improve descriptions
   def spec[T[_[_ <: EndpointType.Any]]](

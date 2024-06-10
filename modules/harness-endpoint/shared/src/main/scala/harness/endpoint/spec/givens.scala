@@ -1,10 +1,9 @@
 package harness.endpoint.spec
 
-import harness.endpoint.error.ApiInternalDefect
-import harness.endpoint.types.{BodyType, EndpointType}
+import harness.endpoint.types.*
 
-implicit def convertSpecBuilder[Path, AllWithCookies, AllWithoutCookies, InputBody <: BodyType, OutputBody <: BodyType]: Conversion[
-  EndpointSpec.Builder5[Path, AllWithCookies, AllWithoutCookies, InputBody, OutputBody],
-  EndpointSpec[EndpointType[AllWithCookies, AllWithoutCookies, InputBody, OutputBody, ApiInternalDefect]],
+implicit def convertSpecBuilder[PathT, QueryT, AuthT, HeaderT, InputBodyT <: BodyType, OutputBodyT <: BodyType, ErrorT]: Conversion[
+  EndpointSpec.Builder7[PathT, QueryT, AuthT, HeaderT, InputBodyT, OutputBodyT, ErrorT],
+  EndpointSpec[EndpointType[PathT, QueryT, AuthT, HeaderT, InputBodyT, OutputBodyT, ErrorT]],
 ] =
-  _ /!--> errorBody.json[ApiInternalDefect]
+  _.toEndpointSpec

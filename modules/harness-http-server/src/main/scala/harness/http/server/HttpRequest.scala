@@ -24,7 +24,7 @@ object HttpRequest {
 
   private[server] def read(exchange: HttpExchange, requestId: UUID): HttpRequest = {
     val uri = exchange.getRequestURI
-    val headerMap: Map[String, List[String]] = exchange.getRequestHeaders.asScala.toMap.map { (k, v) => (k.toLowerCase, v.asScala.toList) }
+    val headerMap: Map[String, List[String]] = exchange.getRequestHeaders.asScala.toMap.map { (k, v) => (k.toUpperCase, v.asScala.toList) }
 
     def getPairs(
         raw: Option[String],
@@ -49,7 +49,7 @@ object HttpRequest {
       path = uri.getPath.split("/").toList.filter(_.nonEmpty),
       queries = getPairs(Option(uri.getRawQuery), "&", identity, URLDecoder.decode(_, "UTF-8")).groupMap(_._1)(_._2),
       headers = headerMap,
-      cookies = getPairs(headerMap.get("cookie").flatMap(_.headOption), ";", _.trim, identity).toMap,
+      cookies = getPairs(headerMap.get("cookie").flatMap(_.headOption), ";", _.trim, identity).map { case (k, v) => (k.toUpperCase, v) }.toMap,
       rawInputStream = exchange.getRequestBody,
       remoteAddress = exchange.getRemoteAddress,
       headerMap.getOrElse("content-length", Nil).map(l => l.toLongOption.getOrElse(throw new RuntimeException(s"Malformed content-length header:$l"))),

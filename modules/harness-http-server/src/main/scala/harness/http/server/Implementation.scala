@@ -3,7 +3,7 @@ package harness.http.server
 import harness.core.*
 import harness.endpoint.types.*
 import harness.endpoint.types.Types.*
-import harness.zio.*
+import harness.zio.{Path as _, *}
 import zio.*
 
 trait Implementation[-R, ET <: EndpointType.Any] {
@@ -12,7 +12,13 @@ trait Implementation[-R, ET <: EndpointType.Any] {
 
   val errorHandler: ErrorHandler[DomainError, Error[ET]]
 
-  val impl: (InputWithCookies[ET], Receive[InputBody[ET]]) => ZIO[HarnessEnv & Implementation.Provided & R, DomainError, HttpResponse[Send[OutputBody[ET]]]]
+  val impl: (
+      Path[ET],
+      Query[ET],
+      Auth[ET],
+      Header[ET],
+      Receive[InputBody[ET]],
+  ) => ZIO[HarnessEnv & Implementation.Provided & R, DomainError, HttpResponse[Send[OutputBody[ET]]]]
 
 }
 object Implementation {
@@ -20,9 +26,9 @@ object Implementation {
   type Projection[R] = [ET <: EndpointType.Any] =>> Implementation[R, ET]
   type Provided = Scope & HttpRequest
 
-  def apply[ET <: EndpointType.Any](using zip: Zip[InputWithCookies[ET], Receive[InputBody[ET]]]): Builder[zip.Out, ET] = new Builder[zip.Out, ET](zip)
+  def apply[ET <: EndpointType.Any](using zip: Zip5[Path[ET], Query[ET], Auth[ET], Header[ET], Receive[InputBody[ET]]]): Builder[zip.Out, ET] = new Builder[zip.Out, ET](zip)
 
-  final class Builder[I, ET <: EndpointType.Any](zip: Zip.Out[InputWithCookies[ET], Receive[InputBody[ET]], I]) {
+  final class Builder[I, ET <: EndpointType.Any](zip: Zip5.Out[Path[ET], Query[ET], Auth[ET], Header[ET], Receive[InputBody[ET]], I]) {
 
     def implement[_R, _DomainError](
         f: I => ZIO[HarnessEnv & Implementation.Provided & _R, _DomainError, HttpResponse[Send[OutputBody[ET]]]],
@@ -30,8 +36,14 @@ object Implementation {
       new Implementation[_R, ET] {
         override type DomainError = _errorHandler._DomainError
         override val errorHandler: ErrorHandler[_errorHandler._DomainError, Error[ET]] = _errorHandler
-        override val impl: (InputWithCookies[ET], Receive[InputBody[ET]]) => ZIO[HarnessEnv & Implementation.Provided & _R, _errorHandler._DomainError, HttpResponse[Send[OutputBody[ET]]]] =
-          (i1, i2) => f(zip.zip(i1, i2)).mapError(_errorHandler.convertErr.mapError)
+        override val impl: (
+            Path[ET],
+            Query[ET],
+            Auth[ET],
+            Header[ET],
+            Receive[InputBody[ET]],
+        ) => ZIO[HarnessEnv & Implementation.Provided & _R, _errorHandler._DomainError, HttpResponse[Send[OutputBody[ET]]]] =
+          (p, q, a, h, b) => f(zip.zip(p, q, a, h, b)).mapError(_errorHandler.convertErr.mapError)
       }
 
   }

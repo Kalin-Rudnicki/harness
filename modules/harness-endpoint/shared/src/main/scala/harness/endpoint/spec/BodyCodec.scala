@@ -7,30 +7,30 @@ import harness.endpoint.types.Types.*
 import harness.schema.Schema
 import zio.*
 
-sealed trait BodySchema[B <: BodyType] {
+sealed trait BodyCodec[B <: BodyType] {
   def in(contentLengths: List[Long], stream: java.io.InputStream): IO[DecodingFailure, Receive[B]]
   def out(send: Send[B]): OutputStream
 }
-object BodySchema {
+object BodyCodec {
 
-  final case class Encoded[O](schema: Schema[O]) extends BodySchema[BodyType.Encoded[O]] {
+  final case class Encoded[O](schema: Schema[O]) extends BodyCodec[BodyType.Encoded[O]] {
 
     override def in(contentLengths: List[Long], stream: java.io.InputStream): IO[DecodingFailure, O] =
       contentLengths match {
         case contentLength :: Nil if contentLength > Int.MaxValue =>
-          ZIO.fail(DecodingFailure(DecodingFailure.Source.Body, "body length is too long"))
+          ZIO.fail(DecodingFailure(SchemaSource.Body :: Nil, DecodingFailure.Cause.ContentLengthTooLong))
         case _ :: Nil =>
           ZIO.attempt { stream.readAllBytes() }.map(new String(_)).orDie.flatMap {
             schema.decode(_) match {
               case Right(value) => ZIO.succeed(value)
-              case Left(error)  => ZIO.fail(DecodingFailure(DecodingFailure.Source.Body, error))
+              case Left(error)  => ZIO.fail(DecodingFailure(SchemaSource.Body :: Nil, DecodingFailure.Cause.DecodeFail(error)))
             }
           }
         case Nil =>
-          ZIO.fail(DecodingFailure(DecodingFailure.Source.Body, "expected input body (missing Content-Length header)"))
+          ZIO.fail(DecodingFailure(SchemaSource.Body :: Nil, DecodingFailure.Cause.MissingContentLength))
         case _ :: _ :: _ =>
           // TODO (KR) :
-          ZIO.fail(DecodingFailure(DecodingFailure.Source.Body, "received multiple Content-Length headers"))
+          ZIO.fail(DecodingFailure(SchemaSource.Body :: Nil, DecodingFailure.Cause.MultipleContentLengths))
       }
 
     override def out(send: O): OutputStream =
@@ -38,17 +38,17 @@ object BodySchema {
 
   }
 
-  case object Stream extends BodySchema[BodyType.Stream] {
+  case object Stream extends BodyCodec[BodyType.Stream] {
 
     override def in(contentLengths: List[Long], stream: java.io.InputStream): IO[DecodingFailure, InputStream] =
       contentLengths match {
         case _ :: Nil =>
           ZIO.succeed(InputStream(stream))
         case Nil =>
-          ZIO.fail(DecodingFailure(DecodingFailure.Source.Body, "expected input body (missing Content-Length header)"))
+          ZIO.fail(DecodingFailure(SchemaSource.Body :: Nil, DecodingFailure.Cause.MissingContentLength))
         case _ :: _ :: _ =>
           // TODO (KR) :
-          ZIO.fail(DecodingFailure(DecodingFailure.Source.Body, "received multiple Content-Length headers"))
+          ZIO.fail(DecodingFailure(SchemaSource.Body :: Nil, DecodingFailure.Cause.MultipleContentLengths))
       }
 
     override def out(send: OutputStream): OutputStream =
@@ -56,7 +56,7 @@ object BodySchema {
 
   }
 
-  case object None extends BodySchema[BodyType.None] {
+  case object None extends BodyCodec[BodyType.None] {
 
     override def in(contentLengths: List[Long], stream: java.io.InputStream): IO[DecodingFailure, Unit] =
       ZIO.unit
