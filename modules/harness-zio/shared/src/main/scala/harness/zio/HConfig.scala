@@ -21,15 +21,15 @@ final case class HConfig(configJson: Json) { self =>
             case Json.Obj(fields) =>
               fields.find(_._1 == head) match {
                 case Some((_, json)) => loop(tail, json, head :: rSeenJsonPath)
-                case None            => ZIO.fail(ConfigError.ReadError.ObjectMissingKey(rSeenJsonPath.reverse, head, json))
+                case None            => ZIO.fail(ConfigError.ReadError.ObjectMissingKey(rSeenJsonPath.reverse, head, fields.map(_._1).toSet))
               }
-            case _ => ZIO.fail(ConfigError.ReadError.ExpectedJsonObject(rSeenJsonPath.reverse, json))
+            case _ => ZIO.fail(ConfigError.ReadError.ExpectedJsonObject(rSeenJsonPath.reverse, json.getClass.getSimpleName))
           }
         case Nil =>
           // NOTE : `fromJsonAST` is not used, because ZIO json doesn't properly decode missing values to None with that function
           decoder.decodeJson(json.toString) match {
             case Right(value) => ZIO.succeed(value)
-            case Left(error)  => ZIO.fail(ConfigError.ReadError.DecodingFailure(rSeenJsonPath.reverse, error, json))
+            case Left(error)  => ZIO.fail(ConfigError.ReadError.DecodingFailure(rSeenJsonPath.reverse, error))
           }
       }
     }
@@ -54,7 +54,7 @@ final case class HConfig(configJson: Json) { self =>
           // NOTE : `fromJsonAST` is not used, because ZIO json doesn't properly decode missing values to None with that function
           decoder.decodeJson(json.toString) match {
             case Right(value) => ZIO.some(value)
-            case Left(error)  => ZIO.fail(ConfigError.ReadError.DecodingFailure(rSeenJsonPath.reverse, error, json))
+            case Left(error)  => ZIO.fail(ConfigError.ReadError.DecodingFailure(rSeenJsonPath.reverse, error))
           }
       }
     }

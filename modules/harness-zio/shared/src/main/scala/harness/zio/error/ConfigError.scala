@@ -3,7 +3,6 @@ package harness.zio.error
 import harness.core.*
 import harness.zio.json.throwableJsonCodec
 import zio.json.*
-import zio.json.ast.Json
 
 sealed trait ConfigError extends Throwable {
 
@@ -21,14 +20,14 @@ sealed trait ConfigError extends Throwable {
       case readError: ConfigError.ReadError =>
         val baseMessage: String =
           readError match {
-            case ConfigError.ReadError.ObjectMissingKey(_, key, _) =>
-              s"Config object is missing key '$key' at path ${readError.showPath}"
-            case ConfigError.ReadError.ExpectedJsonObject(_, _) =>
-              s"Expected json object at path ${readError.showPath}"
-            case ConfigError.ReadError.DecodingFailure(_, message, _) =>
+            case ConfigError.ReadError.ObjectMissingKey(_, key, presentKeys) =>
+              s"Config object is missing key '$key' at path ${readError.showPath}, present keys: ${presentKeys.toList.sorted.mkString("[", ", ", "]")}"
+            case ConfigError.ReadError.ExpectedJsonObject(_, actual) =>
+              s"Expected json object at path ${readError.showPath}, actual: $actual"
+            case ConfigError.ReadError.DecodingFailure(_, message) =>
               s"Failed to decode config object at path ${readError.showPath}: $message"
           }
-        s"$baseMessage\nConfig json @ ${readError.showPath}: ${readError.jsonAtPath.toJson}"
+        s"Config error @ ${readError.showPath}:\n$baseMessage\nConfig json @ ${readError.showPath}"
     }
 
 }
@@ -43,16 +42,15 @@ object ConfigError {
 
   sealed trait ReadError extends ConfigError {
     val path: List[String]
-    val jsonAtPath: Json
     final lazy val showPath: String = path match {
       case Nil => "<root>"
       case _   => path.mkString(".")
     }
   }
   object ReadError {
-    final case class ObjectMissingKey(path: List[String], key: String, jsonAtPath: Json) extends ConfigError.ReadError
-    final case class ExpectedJsonObject(path: List[String], jsonAtPath: Json) extends ConfigError.ReadError
-    final case class DecodingFailure(path: List[String], message: String, jsonAtPath: Json) extends ConfigError.ReadError
+    final case class ObjectMissingKey(path: List[String], key: String, presentKeys: Set[String]) extends ConfigError.ReadError
+    final case class ExpectedJsonObject(path: List[String], actual: String) extends ConfigError.ReadError
+    final case class DecodingFailure(path: List[String], message: String) extends ConfigError.ReadError
   }
 
   sealed trait ConfigTarget
