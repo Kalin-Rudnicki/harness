@@ -6,6 +6,8 @@ import scala.util.matching.Regex
 private val camelRegex: Regex = "\\d+|[A-Z](?=[a-z])|[A-Z]+(?:(?=$)|(?![^A-Z]))".r
 private val snakeRegex: Regex = "_[a-zA-Z0-9]".r
 
+enum Alignment { case Left, Center, Right }
+
 extension (self: String) {
 
   // =====| Misc |=====
@@ -42,6 +44,13 @@ extension (self: String) {
       val left = toAdd / 2
       val right = toAdd - left
       (left.some, right.some)
+    }
+
+  def align(length: Int, alignment: Alignment, char: Char = ' '): String =
+    alignment match {
+      case Alignment.Left   => self.alignLeft(length, char)
+      case Alignment.Center => self.alignCenter(length, char)
+      case Alignment.Right  => self.alignRight(length, char)
     }
 
   // =====| Color |=====
