@@ -5,6 +5,7 @@ import cats.syntax.option.*
 import harness.webUI.*
 import harness.zio.*
 import harness.zio.json.throwableJsonCodec
+import zio.*
 import zio.json.*
 
 sealed trait UIError
@@ -45,4 +46,10 @@ object UIError {
 
   }
 
+  def attempt[A](thunk: => A): IO[UIError.Failure, A] =
+    ZIO.attempt { thunk }.mapError(UIError.Failure.internalDefect)
+
+  def fromEither[A](either: => Either[String, A]): IO[UIError.Failure, A] =
+    ZIO.fromEither(either).mapError(UIError.Failure.internalDefect)
+  
 }
