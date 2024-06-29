@@ -1,12 +1,12 @@
 package harness.web
 
-import harness.test.PlainHarnessSpec
+import harness.zio.test.*
 import scala.reflect.ClassTag
 import zio.json.*
 import zio.test.*
 import zio.test.Assertion.*
 
-object PartialSpec extends PlainHarnessSpec {
+object PartialSpec extends DefaultHarnessSpec {
 
   // =====| Types |=====
 
@@ -80,7 +80,7 @@ object PartialSpec extends PlainHarnessSpec {
 
   // =====| Spec |=====
 
-  override def spec: TestSpec =
+  override def testSpec: TestSpec =
     suite("PartialSpec")(
       makeTypeSuite(
         "Klass1",

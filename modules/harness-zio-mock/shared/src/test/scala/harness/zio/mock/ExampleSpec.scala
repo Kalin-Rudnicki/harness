@@ -7,7 +7,7 @@ import java.util.UUID
 import zio.*
 import zio.test.*
 
-object ExampleSpec extends DefaultHarnessSpec {
+object ExampleSpec extends HarnessSpec[ExampleSpec.Service1 & ExampleSpec.Service2 & ExampleSpec.Service3 & Proxy] {
 
   // =====| Models |=====
 
@@ -78,7 +78,17 @@ object ExampleSpec extends DefaultHarnessSpec {
 
   // =====| Tests |=====
 
-  private val specImpl: Spec[HarnessEnv & Service1 & Service2 & Service3 & Proxy, Any] =
+  override def layerProvider: LayerProvider[R] =
+    LayerProvider.providePerTest(
+      Proxy.layer,
+      (
+        Service1Mock.GetPerson.implement.success(Person(UUID.randomUUID, "first", "last", 18)) ++
+          Service2Mock.empty
+      ).toLayer,
+      Service3.layer,
+    )
+
+  override def testSpec: TestSpec =
     suite("ExampleSpec")(
       test("test-1") {
         for {
@@ -93,16 +103,6 @@ object ExampleSpec extends DefaultHarnessSpec {
           res == List(animal1, animal2),
         )
       },
-    )
-
-  override def spec: TestSpec =
-    specImpl.provideSome[HarnessEnv](
-      Proxy.layer,
-      (
-        Service1Mock.GetPerson.implement.success(Person(UUID.randomUUID, "first", "last", 18)) ++
-          Service2Mock.empty
-      ).toLayer,
-      Service3.layer,
     )
 
 }

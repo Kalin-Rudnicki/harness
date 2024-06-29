@@ -1,12 +1,12 @@
 package harness.xml
 
 import cats.syntax.option.*
-import harness.test.*
+import harness.zio.test.*
 import scala.xml.XML
 import zio.test.*
 import zio.test.Assertion.*
 
-object XmlDecoderSpec extends PlainHarnessSpec {
+object XmlDecoderSpec extends DefaultHarnessSpec {
 
   private final case class Company(
       name: String,
@@ -45,7 +45,7 @@ object XmlDecoderSpec extends PlainHarnessSpec {
       assert(decoder.decodeAccumulating(Seq(XML.loadString(xml))))(isRight(equalTo(exp)))
     }
 
-  override def spec: TestSpec =
+  override def testSpec: TestSpec =
     suite("XmlDecoderSpec")(
       suite("passes")(
         makePassingTest("person-1")(

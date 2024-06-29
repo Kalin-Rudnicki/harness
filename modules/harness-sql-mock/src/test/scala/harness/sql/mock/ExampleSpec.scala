@@ -6,30 +6,30 @@ import zio.{test as _, *}
 import zio.test.*
 import zio.test.Assertion.*
 
-object ExampleSpec extends ZioDefaultHarnessSpec {
+object ExampleSpec extends HarnessSpec[ExampleSpec.Storage] {
 
-  private type Ex1Id = Ex1Id.Id
-  private object Ex1Id extends TableKey
+  type Ex1Id = Ex1Id.Id
+  object Ex1Id extends TableKey
 
-  private final case class Ex1(
+  final case class Ex1(
       id: Ex1Id,
       value: String,
   )
 
-  private type Ex2Id = Ex2Id.Id
-  private object Ex2Id extends TableKey
+  type Ex2Id = Ex2Id.Id
+  object Ex2Id extends TableKey
 
-  private final case class Ex2(
+  final case class Ex2(
       id: Ex2Id,
       ex1Id: Ex1Id,
       value: String,
   )
 
-  private final case class State(
+  final case class State(
       ex1s: State.Ex1Table,
       ex2s: State.Ex2Table,
   )
-  private object State {
+  object State {
 
     final class Ex1Table private (values: Chunk[Ex1]) extends MockTable[Ex1, Ex1Table]("Ex1", values) {
       val PK = primaryKeyIndex(_.id)
@@ -48,7 +48,7 @@ object ExampleSpec extends ZioDefaultHarnessSpec {
 
   }
 
-  private final case class Storage(state: MockState[Throwable, State]) {
+  final case class Storage(state: MockState[Throwable, State]) {
 
     def insertEx1(ex1: Ex1): Task[Unit] =
       state.focusAndUpdate(_.ex1s)(_ + ex1)
@@ -66,12 +66,22 @@ object ExampleSpec extends ZioDefaultHarnessSpec {
       state.focusAndUpdateW(_.ex2s) { (a, b) => a.ex1s.PK.get(ex2.ex1Id) *> (b + ex2) }
 
   }
-  private object Storage {
+  object Storage {
     val layer: URLayer[MockState[Throwable, State], Storage] =
       ZLayer.fromFunction { Storage.apply }
   }
 
-  private val innerSpec: Spec[Storage, Any] =
+  override def layerProvider: LayerProvider[R] =
+    LayerProvider.providePerTest(
+      MockState.layer[Throwable, State](
+        State(
+          MockTable.empty,
+          MockTable.empty,
+        ),
+      ) >>> Storage.layer,
+    )
+
+  override def testSpec: TestSpec =
     suite("ExampleSpec")(
       test("insertEx1") {
         for {
@@ -142,15 +152,5 @@ object ExampleSpec extends ZioDefaultHarnessSpec {
           assert(res2)(fails(anything))
       },
     )
-
-  override def spec: TestSpec =
-    innerSpec.provideLayer {
-      MockState.layer[Throwable, State](
-        State(
-          MockTable.empty,
-          MockTable.empty,
-        ),
-      ) >>> Storage.layer
-    }
 
 }

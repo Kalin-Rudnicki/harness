@@ -51,5 +51,5 @@ object UIError {
 
   def fromEither[A](either: => Either[String, A]): IO[UIError.Failure, A] =
     ZIO.fromEither(either).mapError(UIError.Failure.internalDefect)
-  
+
 }

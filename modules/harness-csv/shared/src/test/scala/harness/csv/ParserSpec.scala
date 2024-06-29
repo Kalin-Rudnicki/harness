@@ -1,18 +1,18 @@
 package harness.csv
 
 import cats.syntax.option.*
-import harness.test.*
+import harness.zio.test.*
 import zio.test.*
 import zio.test.Assertion.*
 
-object ParserSpec extends PlainHarnessSpec {
+object ParserSpec extends DefaultHarnessSpec {
 
   private def passingTest(name: String)(csv: String, exp: List[List[Option[String]]]): TestSpec =
     test(name) {
       assert(Parser.parse(csv).map(_.map(_.toList)))(isRight(equalTo(exp)))
     }
 
-  override def spec: TestSpec =
+  override def testSpec: TestSpec =
     suite("ParserSpec")(
       suite("passes")(
         passingTest("case-1")(

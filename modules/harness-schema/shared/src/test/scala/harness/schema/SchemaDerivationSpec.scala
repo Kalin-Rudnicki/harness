@@ -312,7 +312,7 @@ object SchemaDerivationSpec extends DefaultHarnessSpec {
 
   // override def logLevel: Logger.LogLevel = Logger.LogLevel.Debug
 
-  override def spec: TestSpec =
+  override def testSpec: TestSpec =
     suite("SchemaDerivationSpec")(
       makeSpec("ProductSimple")(productSimpleInstance),
       makeSpec("SumSimple")(sumSimpleInstance),

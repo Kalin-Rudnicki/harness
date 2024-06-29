@@ -22,7 +22,7 @@ object PostgresTestContainerISpec extends DefaultHarnessSpec {
       },
     )
 
-  override def spec: TestSpec =
+  override def testSpec: TestSpec =
     innerSpec
       .provideSome[HarnessEnv & Scope & JDBCConnectionPool](
         JDBCConnection.poolLayer,

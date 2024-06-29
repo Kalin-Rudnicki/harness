@@ -12,3 +12,7 @@ implicit class StringEncoderOps(self: StringEncoder.type) {
 implicit class StringDecoderOps(self: StringDecoder.type) {
   def fromJsonDecoder[T: JsonDecoder]: StringDecoder[T] = JsonDecoder[T].decodeJson(_).leftMap(NonEmptyList.one)
 }
+
+implicit class StringCodecOps(self: StringCodec.type) {
+  def fromJsonCodec[T: JsonCodec]: StringCodec[T] = StringCodec(StringEncoder.fromJsonEncoder[T], StringDecoder.fromJsonDecoder[T])
+}

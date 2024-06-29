@@ -14,7 +14,7 @@ import zio.test.Assertion.*
 
 object UserStorageContract extends Contract[UserStorage] {
 
-  override val contract: TestSpec =
+  override def testSpec: TestSpec =
     suite("UserStorageContract")(
       suite("insert")(
         test("works") {

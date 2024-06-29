@@ -1,11 +1,11 @@
 package harness.csv
 
 import cats.syntax.option.*
-import harness.test.*
+import harness.zio.test.*
 import zio.test.*
 import zio.test.Assertion.*
 
-object DecoderSpec extends PlainHarnessSpec {
+object DecoderSpec extends DefaultHarnessSpec {
 
   private def passingTest[T: CsvDecoder](name: String)(csv: String, exp: List[T]): TestSpec =
     test(name) {
@@ -24,7 +24,7 @@ object DecoderSpec extends PlainHarnessSpec {
 
   }
 
-  override def spec: TestSpec =
+  override def testSpec: TestSpec =
     suite("DecoderSpec")(
       suite("passes")(
         passingTest[Person]("case-1")("F,L,", List(Person("F", "L", None))),

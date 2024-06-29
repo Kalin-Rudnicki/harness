@@ -15,7 +15,7 @@ object FileSystem extends FileSystemCompanionPlatformSpecific with FileSystemCom
   def roots: ZIO[FileSystem, FSError.UnableToGetRoots, Chunk[Path]] = ZIO.service[FileSystem].flatMap(_.roots)
 
   val unimplementedLayer: ULayer[FileSystem] = ZLayer.succeed { FileSystem.Unimplemented }
-  
+
   case object Unimplemented extends FileSystem {
     def path(string: String): IO[FSError.UnableToResolvePath, Path] = ZIO.dieMessage("??? : FileSystem.path")
     def homeDirectory: IO[FSError.UnableToGetHomeDirectory | FSError.UnableToResolvePath, Path] = ZIO.dieMessage("??? : FileSystem.homeDirectory")

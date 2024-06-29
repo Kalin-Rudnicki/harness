@@ -1,12 +1,12 @@
 package harness.webUI.style
 
-import harness.test.*
 import harness.webUI.style.ColorPalate.implicits.default
+import harness.zio.test.*
 import zio.test.*
 
-object StyleSheetSpec extends PlainHarnessSpec {
+object StyleSheetSpec extends DefaultHarnessSpec {
 
-  override def spec: TestSpec =
+  override def testSpec: TestSpec =
     suite("StyleSheetSpec")(
       test("show toString") {
         val ss = new DefaultStyleSheet {}

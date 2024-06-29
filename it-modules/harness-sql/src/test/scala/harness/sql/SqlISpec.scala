@@ -257,7 +257,7 @@ object SqlISpec extends DefaultHarnessSpec {
       ),
     )
 
-  override def spec: TestSpec =
+  override def testSpec: TestSpec =
     innerSpec
       .provideSomeLayer[HarnessEnv & JDBCConnectionPool & Scope](
         JDBCConnection.poolLayer,

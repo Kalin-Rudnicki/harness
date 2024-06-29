@@ -15,7 +15,7 @@ object QueuedSenderSpec extends DefaultHarnessSpec {
       }
     } yield (ref, sender)
 
-  override def spec: TestSpec =
+  override def testSpec: TestSpec =
     suite("QueuedSenderSpec")(
       test("Case 1") {
         for {

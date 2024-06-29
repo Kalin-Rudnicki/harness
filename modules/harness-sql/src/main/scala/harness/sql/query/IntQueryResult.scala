@@ -5,7 +5,7 @@ import harness.sql.error.QueryError
 import harness.zio.*
 import zio.*
 
-final class IntQueryResult private[query](queryName: String, fragment: Fragment, effect: ZIO[JDBCConnection & Logger, QueryError, Int]) {
+final class IntQueryResult private[query] (queryName: String, fragment: Fragment, effect: ZIO[JDBCConnection & Logger, QueryError, Int]) {
 
   def execute: ZIO[JDBCConnection & Logger & Telemetry, QueryError, Int] =
     effect.telemetrize("Executed SQL query", "query-name" -> queryName)

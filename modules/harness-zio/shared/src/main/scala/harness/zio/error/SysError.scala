@@ -26,13 +26,13 @@ sealed trait SysError extends Throwable {
 object SysError {
 
   final case class NonZeroExitCode(
-                                    cmd: Sys.Command,
-                                    exitCode: Int,
+      cmd: Sys.Command,
+      exitCode: Int,
   ) extends SysError
 
   final case class GenericError(
-                                 cmd: Sys.Command,
-                                 cause: Throwable,
+      cmd: Sys.Command,
+      cause: Throwable,
   ) extends SysError
 
 }

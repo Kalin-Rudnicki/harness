@@ -11,7 +11,7 @@ object TUIDSpec extends DefaultHarnessSpec {
       assertTrue(TUID.make(instant, highBytes, lowBytes).toUUID.toString.replaceAll("-", "") == exp.replaceAll("-", ""))
     }
 
-  override def spec: TestSpec =
+  override def testSpec: TestSpec =
     suite("TUIDSpec")(
       suite("epoch 0")(
         makeTest("0/0")(Instant.ofEpochSecond(0), 0L, 0L)("000000000-0000000-0000000000000000"),

@@ -5,7 +5,6 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import harness.core.Version
 import harness.sql.autoSchema.MigrationStep.Encoded
-
 import scala.annotation.tailrec
 
 final case class MigrationPlan private (

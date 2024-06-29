@@ -12,7 +12,7 @@ import zio.test.Assertion.*
 
 object PaymentMethodStorageContract extends Contract[UserStorage & PaymentMethodStorage] {
 
-  val contract: TestSpec =
+  override def testSpec: TestSpec =
     suite("PaymentMethodStorageContract")(
       suite("insert")(
         test("works") {

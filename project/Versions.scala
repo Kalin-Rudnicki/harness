@@ -22,8 +22,8 @@ object Versions {
 
   val stripe = "24.11.0"
 
-  val zio = "2.0.20"
-  val zioJson = "0.6.2"
-  val zioKafka = "2.7.1"
+  val zio = "2.1.5"
+  val zioJson = "0.7.1"
+  val zioKafka = "2.7.5"
 
 }

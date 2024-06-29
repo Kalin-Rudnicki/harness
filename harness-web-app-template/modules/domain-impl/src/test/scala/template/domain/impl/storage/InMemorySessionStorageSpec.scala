@@ -5,11 +5,14 @@ import template.domain.impl.storage.inMemory.*
 import template.domain.storage.*
 import zio.*
 
-object InMemorySessionStorageSpec
-    extends DefaultHarnessSpec.ForContract[UserStorage & SessionStorage]("InMemorySessionStorage", SessionStorageContract)(
-      ZLayer.make[UserStorage & SessionStorage](
+object InMemorySessionStorageSpec extends ContractHarnessSpec[UserStorage & SessionStorage]("InMemorySessionStorage", SessionStorageContract) {
+
+  override def layerProvider: LayerProvider[R] =
+    LayerProvider
+      .providePerTest(
         DbState.layer,
         InMemoryUserStorage.layer,
         InMemorySessionStorage.layer,
-      ),
-    )
+      )
+
+}

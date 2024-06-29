@@ -1,13 +1,18 @@
 package harness.zio.test
 
-import harness.zio.*
 import zio.*
 import zio.test.*
 
-abstract class Contract[R: EnvironmentTag] {
+abstract class Contract[_R: EnvironmentTag] {
 
-  final type TestSpec = Spec[HarnessEnv & R & TestEnvironment & Scope, Any]
+  final type R = _R
+  final type DefaultEnv = HarnessSpec.DefaultEnv
+  final type Env = DefaultEnv & R
 
-  def contract: TestSpec
+  final type TestSpec = Spec[Env, Any]
+
+  // =====| Abstract |=====
+
+  def testSpec: TestSpec
 
 }

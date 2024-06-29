@@ -77,9 +77,7 @@ object ExampleK0DerivationSpec extends DefaultHarnessSpec {
       } *,
     )
 
-  // override def logLevel: Logger.LogLevel = Logger.LogLevel.Debug
-
-  override def spec: TestSpec =
+  override def testSpec: TestSpec =
     suite("ExampleK0DerivationSpec")(
       makeSuite("ProductSimple")(productSimpleInstance, ProductSimple.instances),
       makeSuite("SumSimple")(sumSimpleInstance, SumSimple.instances),

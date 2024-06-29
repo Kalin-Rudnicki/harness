@@ -220,7 +220,7 @@ object MockSpec extends DefaultHarnessSpec {
       },
     ).provideSomeLayer[HarnessEnv](Proxy.layer >+> ExServiceMock.empty.toLayer)
 
-  override def spec: TestSpec =
+  override def testSpec: TestSpec =
     suite("ExServiceSpec")(
       suite("impl")(
         positiveImplSpec,

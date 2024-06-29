@@ -55,6 +55,9 @@ final case class Logger(
   def addContext(context: Map[String, String]): Logger =
     self.copy(defaultContext = defaultContext ++ context)
 
+  def withSource(source: Logger.Source): Logger =
+    self.copy(sources = source :: self.sources)
+
 }
 object Logger { self =>
 

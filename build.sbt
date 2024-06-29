@@ -1,5 +1,7 @@
 //
 
+import sbtcrossproject.CrossProject
+
 // =====| Shared Settings |=====
 
 enablePlugins(GitVersioning)
@@ -20,6 +22,7 @@ ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 ThisBuild / sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
 
 lazy val testAndCompile = "test->test;compile->compile"
+lazy val testToTest = "test->test"
 
 lazy val miscSettings =
   Seq(
@@ -56,7 +59,7 @@ lazy val testSettings =
 
 // =====| Projects |=====
 
-lazy val `harness-root` =
+lazy val `harness-root`: Project =
   project
     .in(file("."))
     .settings(
@@ -71,7 +74,7 @@ lazy val `harness-root` =
       // `harness-archive`,
     )
 
-lazy val `harness-modules` =
+lazy val `harness-modules`: Project =
   project
     .in(file("modules"))
     .settings(
@@ -103,9 +106,6 @@ lazy val `harness-modules` =
       `harness-zio-json`.js,
 
       // Testing
-      `harness-test`.jvm,
-      `harness-test`.native,
-      `harness-test`.js,
       `harness-test-container`,
       `harness-test-container-postgres`,
       `harness-zio-mock`.jvm,
@@ -146,11 +146,76 @@ lazy val `harness-modules` =
       `harness-payments`.js,
       `harness-sql`,
       `harness-sql-mock`,
+
+      // Separate Unit Tests
+      `harness-core-ut`.jvm,
+      `harness-core-ut`.native,
+      `harness-core-ut`.js,
+      `harness-cli-ut`.jvm,
+      `harness-cli-ut`.native,
+      `harness-cli-ut`.js,
+      `harness-zio-ut`.jvm,
+      `harness-zio-ut`.native,
+      `harness-zio-ut`.js,
+      `harness-zio-json-ut`.jvm,
+      `harness-zio-json-ut`.native,
+      `harness-zio-json-ut`.js,
+    )
+
+lazy val `harness-modules-jvm`: Project =
+  project
+    .in(file("modules/jvm"))
+    .settings(
+      publish / skip := true,
+      organization := MyOrg,
+      sonatypeCredentialHost := "s01.oss.sonatype.org",
+      sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
+    )
+    .aggregate(
+      // General
+      `harness-console`,
+      `harness-core`.jvm,
+      `harness-deriving`.jvm,
+      `harness-pk`.jvm,
+      `harness-schema`.jvm,
+      `harness-zio`.jvm,
+      `harness-zio-json`.jvm,
+
+      // Testing
+      `harness-test-container`,
+      `harness-test-container-postgres`,
+      `harness-zio-mock`.jvm,
+      `harness-zio-test`.jvm,
+
+      // Parsing
+      `harness-cli`.jvm,
+      `harness-csv`.jvm,
+      `harness-xml`,
+
+      // Web
+      `harness-endpoint`.jvm,
+      `harness-http-client`.jvm,
+      `harness-http-server`,
+      `harness-web`.jvm,
+
+      // Other
+      `harness-email`,
+      `harness-email-model`.jvm,
+      `harness-kafka`,
+      `harness-payments`.jvm,
+      `harness-sql`,
+      `harness-sql-mock`,
+
+      // Separate Unit Tests
+      `harness-core-ut`.jvm,
+      `harness-cli-ut`.jvm,
+      `harness-zio-ut`.jvm,
+      `harness-zio-json-ut`.jvm,
     )
 
 // =====| General |=====
 
-lazy val `harness-console` =
+lazy val `harness-console`: Project =
   project
     .in(file("modules/harness-console"))
     .settings(
@@ -162,10 +227,10 @@ lazy val `harness-console` =
     )
     .dependsOn(
       `harness-zio`.jvm,
-      `harness-zio-test`.jvm % Test,
+      `harness-zio-ut`.jvm % testToTest,
     )
 
-lazy val `harness-core` =
+lazy val `harness-core`: CrossProject =
   crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-core"))
     .settings(
@@ -178,9 +243,23 @@ lazy val `harness-core` =
       ),
       sonatypeCredentialHost := "s01.oss.sonatype.org",
     )
-    .dependsOn(`harness-test` % Test)
+lazy val `harness-core-ut`: CrossProject =
+  crossProject(JSPlatform, JVMPlatform, NativePlatform)
+    .in(file("modules/harness-core-ut"))
+    .settings(
+      name := "harness-core-ut",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      publish / skip := true,
+      sonatypeCredentialHost := "s01.oss.sonatype.org",
+    )
+    .dependsOn(
+      `harness-core` % testAndCompile,
+      `harness-zio-test` % Test,
+    )
 
-lazy val `harness-deriving` =
+lazy val `harness-deriving`: CrossProject =
   crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-deriving"))
     .settings(
@@ -195,7 +274,7 @@ lazy val `harness-deriving` =
       `harness-zio-test` % Test,
     )
 
-lazy val `harness-pk` =
+lazy val `harness-pk`: CrossProject =
   crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-pk"))
     .settings(
@@ -212,7 +291,7 @@ lazy val `harness-pk` =
       `harness-schema` % testAndCompile,
     )
 
-lazy val `harness-schema` =
+lazy val `harness-schema`: CrossProject =
   crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-schema"))
     .settings(
@@ -229,7 +308,7 @@ lazy val `harness-schema` =
       `harness-deriving` % testAndCompile,
     )
 
-lazy val `harness-zio` =
+lazy val `harness-zio`: CrossProject =
   crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-zio"))
     .settings(
@@ -248,8 +327,30 @@ lazy val `harness-zio` =
       `harness-cli` % testAndCompile,
       `harness-zio-json` % testAndCompile,
     )
+lazy val `harness-zio-ut`: CrossProject =
+  crossProject(JSPlatform, JVMPlatform, NativePlatform)
+    .in(file("modules/harness-zio-ut"))
+    .settings(
+      name := "harness-zio-ut",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      publish / skip := true,
+      libraryDependencies ++= Seq(
+        "dev.zio" %%% "zio" % Versions.zio,
+      ),
+    )
+    .jvmSettings(
+      Test / fork := true,
+    )
+    .dependsOn(
+      `harness-zio` % testAndCompile,
+      `harness-cli-ut` % testAndCompile,
+      `harness-zio-json-ut` % testAndCompile,
+      `harness-zio-test` % Test,
+    )
 
-lazy val `harness-zio-json` =
+lazy val `harness-zio-json`: CrossProject =
   crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-zio-json"))
     .settings(
@@ -267,24 +368,31 @@ lazy val `harness-zio-json` =
     .dependsOn(
       `harness-core` % testAndCompile,
     )
+lazy val `harness-zio-json-ut`: CrossProject =
+  crossProject(JSPlatform, JVMPlatform, NativePlatform)
+    .in(file("modules/harness-zio-json-ut"))
+    .settings(
+      name := "harness-zio-json",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      publish / skip := true,
+      libraryDependencies ++= Seq(
+        "dev.zio" %%% "zio-json" % Versions.zioJson,
+      ),
+    )
+    .jvmSettings(
+      Test / fork := true,
+    )
+    .dependsOn(
+      `harness-zio-json` % testAndCompile,
+      `harness-core-ut` % testAndCompile,
+      `harness-zio-test` % Test,
+    )
 
 // =====| Testing |=====
 
-lazy val `harness-test` =
-  crossProject(JSPlatform, JVMPlatform, NativePlatform)
-    .in(file("modules/harness-test"))
-    .settings(
-      name := "harness-test",
-      publishSettings,
-      miscSettings,
-      libraryDependencies ++= Seq(
-        "org.typelevel" %%% "cats-core" % Versions.catsCore,
-        "dev.zio" %%% "zio-test" % Versions.zio,
-        "dev.zio" %%% "zio-test-sbt" % Versions.zio,
-      ),
-    )
-
-lazy val `harness-test-container` =
+lazy val `harness-test-container`: Project =
   project
     .in(file("modules/harness-test-container"))
     .settings(
@@ -296,7 +404,7 @@ lazy val `harness-test-container` =
       `harness-zio-test`.jvm,
     )
 
-lazy val `harness-test-container-postgres` =
+lazy val `harness-test-container-postgres`: Project =
   project
     .in(file("modules/harness-test-container-postgres"))
     .settings(
@@ -305,11 +413,11 @@ lazy val `harness-test-container-postgres` =
       miscSettings,
     )
     .dependsOn(
-      `harness-test-container`,
-      `harness-sql`,
+      `harness-test-container` % testAndCompile,
+      `harness-sql` % testAndCompile,
     )
 
-lazy val `harness-zio-mock` =
+lazy val `harness-zio-mock`: CrossProject =
   crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-zio-mock"))
     .settings(
@@ -329,7 +437,7 @@ lazy val `harness-zio-mock` =
       `harness-zio-test` % Test,
     )
 
-lazy val `harness-zio-test` =
+lazy val `harness-zio-test`: CrossProject =
   crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-zio-test"))
     .settings(
@@ -337,15 +445,18 @@ lazy val `harness-zio-test` =
       publishSettings,
       miscSettings,
       testSettings,
+      libraryDependencies ++= Seq(
+        "dev.zio" %%% "zio-test" % Versions.zio,
+        "dev.zio" %%% "zio-test-sbt" % Versions.zio,
+      ),
     )
     .dependsOn(
       `harness-zio` % testAndCompile,
-      `harness-test` % testAndCompile,
     )
 
 // =====| Parsing |=====
 
-lazy val `harness-csv` =
+lazy val `harness-csv`: CrossProject =
   crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-csv"))
     .settings(
@@ -357,9 +468,10 @@ lazy val `harness-csv` =
     )
     .dependsOn(
       `harness-core` % testAndCompile,
+      `harness-core-ut` % testToTest,
     )
 
-lazy val `harness-xml` =
+lazy val `harness-xml`: Project =
   project
     .in(file("modules/harness-xml"))
     .settings(
@@ -374,9 +486,10 @@ lazy val `harness-xml` =
     )
     .dependsOn(
       `harness-core`.jvm % testAndCompile,
+      `harness-core-ut`.jvm % testToTest,
     )
 
-lazy val `harness-cli` =
+lazy val `harness-cli`: CrossProject =
   crossProject(JSPlatform, JVMPlatform, NativePlatform)
     .in(file("modules/harness-cli"))
     .settings(
@@ -388,10 +501,25 @@ lazy val `harness-cli` =
     .dependsOn(
       `harness-core` % testAndCompile,
     )
+lazy val `harness-cli-ut`: CrossProject =
+  crossProject(JSPlatform, JVMPlatform, NativePlatform)
+    .in(file("modules/harness-cli-ut"))
+    .settings(
+      name := "harness-cli-ut",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      publish / skip := true,
+    )
+    .dependsOn(
+      `harness-cli` % testAndCompile,
+      `harness-core-ut` % testAndCompile,
+      `harness-zio-test` % Test,
+    )
 
 // =====| Web |=====
 
-lazy val `harness-endpoint` =
+lazy val `harness-endpoint`: CrossProject =
   crossProject(JSPlatform, JVMPlatform)
     .in(file("modules/harness-endpoint"))
     .settings(
@@ -406,7 +534,7 @@ lazy val `harness-endpoint` =
       `harness-schema` % testAndCompile,
     )
 
-lazy val `harness-http-client` =
+lazy val `harness-http-client`: CrossProject =
   crossProject(JSPlatform, JVMPlatform)
     .in(file("modules/harness-http-client"))
     .settings(
@@ -420,7 +548,7 @@ lazy val `harness-http-client` =
       `harness-endpoint` % testAndCompile,
     )
 
-lazy val `harness-http-server` =
+lazy val `harness-http-server`: Project =
   project
     .in(file("modules/harness-http-server"))
     .settings(
@@ -434,7 +562,7 @@ lazy val `harness-http-server` =
       `harness-http-client`.jvm % Test,
     )
 
-lazy val `harness-web` =
+lazy val `harness-web`: CrossProject =
   crossProject(JSPlatform, JVMPlatform)
     .in(file("modules/harness-web"))
     .settings(
@@ -453,10 +581,11 @@ lazy val `harness-web` =
     )
     .dependsOn(
       `harness-zio` % testAndCompile,
+      `harness-zio-ut` % testToTest,
       `harness-pk` % testAndCompile,
     )
 
-lazy val `harness-web-ui` =
+lazy val `harness-web-ui`: Project =
   project
     .in(file("modules/harness-web-ui"))
     .enablePlugins(ScalaJSPlugin)
@@ -472,7 +601,7 @@ lazy val `harness-web-ui` =
 
 // =====| Plugins |=====
 
-lazy val `harness-js-plugin` =
+lazy val `harness-js-plugin`: Project =
   project
     .in(file("modules/harness-js-plugin"))
     .enablePlugins(SbtPlugin)
@@ -486,7 +615,7 @@ lazy val `harness-js-plugin` =
 
 // =====| Integration Tests |=====
 
-lazy val `it-modules` =
+lazy val `it-modules`: Project =
   project
     .in(file("it-modules"))
     .settings(
@@ -500,7 +629,7 @@ lazy val `it-modules` =
       `harness-test-containers-postgres-it`,
     )
 
-lazy val `harness-sql-it` =
+lazy val `harness-sql-it`: Project =
   project
     .in(file("it-modules/harness-sql"))
     .settings(
@@ -511,10 +640,10 @@ lazy val `harness-sql-it` =
       publish / skip := true,
     )
     .dependsOn(
-      `harness-test-container-postgres`,
+      `harness-test-container-postgres` % testAndCompile,
     )
 
-lazy val `harness-test-containers-postgres-it` =
+lazy val `harness-test-containers-postgres-it`: Project =
   project
     .in(file("it-modules/harness-test-containers-postgres"))
     .settings(
@@ -525,12 +654,12 @@ lazy val `harness-test-containers-postgres-it` =
       publish / skip := true,
     )
     .dependsOn(
-      `harness-test-container-postgres`,
+      `harness-test-container-postgres` % testAndCompile,
     )
 
 // =====| Other |=====
 
-lazy val `harness-email` =
+lazy val `harness-email`: Project =
   project
     .in(file("modules/harness-email"))
     .settings(
@@ -544,7 +673,7 @@ lazy val `harness-email` =
       `harness-email-model`.jvm % testAndCompile,
     )
 
-lazy val `harness-email-model` =
+lazy val `harness-email-model`: CrossProject =
   crossProject(JSPlatform, JVMPlatform)
     .in(file("modules/harness-email-model"))
     .settings(
@@ -562,9 +691,10 @@ lazy val `harness-email-model` =
     .dependsOn(
       `harness-schema` % testAndCompile,
       `harness-zio` % testAndCompile,
+      `harness-zio-ut` % testToTest,
     )
 
-lazy val `harness-kafka` =
+lazy val `harness-kafka`: Project =
   project
     .in(file("modules/harness-kafka"))
     .settings(
@@ -579,9 +709,10 @@ lazy val `harness-kafka` =
     )
     .dependsOn(
       `harness-zio`.jvm % testAndCompile,
+      `harness-zio-ut`.jvm % testToTest,
     )
 
-lazy val `harness-payments` =
+lazy val `harness-payments`: CrossProject =
   crossProject(JSPlatform, JVMPlatform)
     .in(file("modules/harness-payments"))
     .settings(
@@ -602,7 +733,7 @@ lazy val `harness-payments` =
       `harness-pk` % testAndCompile,
     )
 
-lazy val `harness-sql` =
+lazy val `harness-sql`: Project =
   project
     .in(file("modules/harness-sql"))
     .settings(
@@ -617,11 +748,12 @@ lazy val `harness-sql` =
     )
     .dependsOn(
       `harness-zio`.jvm % testAndCompile,
+      `harness-zio-ut`.jvm % testToTest,
       `harness-pk`.jvm % testAndCompile,
       `harness-deriving`.jvm % testAndCompile,
     )
 
-lazy val `harness-sql-mock` =
+lazy val `harness-sql-mock`: Project =
   project
     .in(file("modules/harness-sql-mock"))
     .settings(
