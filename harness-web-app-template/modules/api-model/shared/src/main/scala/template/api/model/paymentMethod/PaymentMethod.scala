@@ -12,5 +12,5 @@ final case class PaymentMethod(
     typeDetails: Option[PM.result.TypeDetails],
 )
 object PaymentMethod {
-  implicit val schema: JsonSchema[PaymentMethod] = JsonSchema.derive
+  implicit val schema: JsonSchema[PaymentMethod] = JsonSchema.derived
 }

@@ -197,7 +197,7 @@ abstract class K11T[UB] {
 
     inline implicit def genSum[F[_[_ <: UB]]](implicit m: SumGeneric[F]): Derived[T[F]]
 
-    inline final def derive[F[_[_ <: UB]]](using m: Generic[F]): T[F] =
+    inline final def derived[F[_[_ <: UB]]](using m: Generic[F]): T[F] =
       inline m match {
         case m: ProductGeneric[F] => genProduct[F](using m).derived
         case m: SumGeneric[F]     => genSum[F](using m).derived

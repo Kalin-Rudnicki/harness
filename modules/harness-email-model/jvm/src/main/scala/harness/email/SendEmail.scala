@@ -36,10 +36,10 @@ object SendEmail {
     def cc(address: EmailAddress): Recipient = Recipient(RecipientType.CC, address)
     def bcc(address: EmailAddress): Recipient = Recipient(RecipientType.BCC, address)
 
-    implicit val schema: JsonSchema[Recipient] = JsonSchema.derive
+    implicit val schema: JsonSchema[Recipient] = JsonSchema.derived
 
   }
 
-  implicit val schema: JsonSchema[SendEmail] = JsonSchema.derive
+  implicit val schema: JsonSchema[SendEmail] = JsonSchema.derived
 
 }

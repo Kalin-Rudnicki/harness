@@ -22,6 +22,15 @@ object TrimmedRawSchema {
     override val ids: Set[UUID] = Set(ref.id)
   }
 
+  final case class RawJWT(ref: SchemaRef) extends TrimmedRawSchema {
+    override val ids: Set[UUID] = Set(ref.id)
+  }
+
+
+  final case class JWT(ref: SchemaRef, trimmedJsonSchema: TrimmedJsonSchema) extends TrimmedRawSchema {
+    override val ids: Set[UUID] = trimmedJsonSchema.ids + ref.id
+  }
+  
 }
 
 // =====| Json |=====

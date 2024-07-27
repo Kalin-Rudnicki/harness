@@ -12,6 +12,6 @@ object ApiInternalDefect {
   @errorExamples(InternalDefect)
   case object InternalDefect extends ApiInternalDefect
 
-  implicit val errorSchema: ErrorSchema[ApiInternalDefect] = ErrorSchema.derive
+  implicit val errorSchema: ErrorSchema[ApiInternalDefect] = ErrorSchema.derived
 
 }

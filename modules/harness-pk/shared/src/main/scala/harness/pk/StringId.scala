@@ -2,14 +2,14 @@ package harness.pk
 
 import harness.core.*
 import harness.schema.*
-import harness.zio.TypeOps
+import harness.zio.*
 import java.util.UUID
 import zio.*
 
 trait StringId { self =>
 
   final case class Id(value: String) {
-    override def toString: String = s"${Id.tag.typeName.prefixNoneNoGenerics}($value)"
+    override def toString: String = s"${Id.tag.toHTag.prefixNoneNoGenerics}($value)"
   }
   object Id {
 
@@ -17,7 +17,7 @@ trait StringId { self =>
     implicit val stringDecoder: StringDecoder[Id] = StringDecoder.string.map(Id(_))
     implicit val iMap: IMap[String, Id] = IMap.make[String](Id(_))(_.value)
 
-    implicit val tag: Tag[Id] = TypeOps.tagFromClass(self.getClass)
+    implicit val tag: Tag[Id] = self.getClass.toHTag.withType[Id].toTag
 
     implicit val rawSchema: RawSchema[Id] = RawSchema.encodedStringSchema
     implicit val jsonSchema: JsonSchema[Id] = JsonSchema.encodedStringSchema

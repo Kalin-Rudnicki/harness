@@ -44,6 +44,6 @@ object ApiError {
   @errorExamples(InvalidInput("error message"))
   final case class InvalidInput(error: String) extends ApiError
 
-  implicit val schema: ErrorSchema[ApiError] = ErrorSchema.derive
+  implicit val schema: ErrorSchema[ApiError] = ErrorSchema.derived
 
 }

@@ -7,5 +7,5 @@ final case class Login(
     password: String,
 )
 object Login {
-  implicit val schema: JsonSchema[Login] = JsonSchema.derive
+  implicit val schema: JsonSchema[Login] = JsonSchema.derived
 }

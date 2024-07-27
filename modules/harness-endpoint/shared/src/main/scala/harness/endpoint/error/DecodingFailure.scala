@@ -41,7 +41,7 @@ object DecodingFailure {
 
   }
   object Simple {
-    implicit val schema: JsonSchema[Simple] = JsonSchema.derive
+    implicit val schema: JsonSchema[Simple] = JsonSchema.derived
   }
 
   final case class Or private[DecodingFailure] (simple: NonEmptyList[Simple]) extends DecodingFailure
@@ -62,7 +62,7 @@ object DecodingFailure {
 
     final case class DecodeFail(message: String) extends Cause(message) // TODO (KR) : prefix?
 
-    implicit val schema: JsonSchema[Cause] = JsonSchema.derive
+    implicit val schema: JsonSchema[Cause] = JsonSchema.derived
 
   }
 

@@ -2,9 +2,6 @@ package harness.schema
 
 import cats.syntax.option.*
 import harness.schema.internal.*
-import harness.zio.TypeOps
-import java.util.UUID
-import scala.annotation.tailrec
 
 final case class SchemaSpec(
     ref: SchemaRef,
@@ -20,8 +17,7 @@ final case class SchemaSpec(
 }
 object SchemaSpec {
 
-  implicit val ordering: Ordering[SchemaSpec] =
-    Ordering.by[SchemaSpec, String](_.baseType).orElseBy(_.ref.tag.typeName.prefixAll)
+  implicit val ordering: Ordering[SchemaSpec] = Ordering.by(_.ref)
 
   sealed trait Details
 
@@ -30,6 +26,10 @@ object SchemaSpec {
   sealed trait RawDetails extends Details
 
   final case class RawStr(enumValues: Option[List[String]]) extends RawDetails
+
+  case object RawJWT extends RawDetails
+
+  final case class JWT(jsonRef: SchemaRef) extends RawDetails
 
   // =====| Json |=====
 
@@ -61,7 +61,7 @@ object SchemaSpec {
 
   // =====| Conversion |=====
 
-  def fromTrimmed(schema: TrimmedSchema): List[SchemaSpec] =
+  private[schema] def fromTrimmed(schema: TrimmedSchema): List[SchemaSpec] =
     schema match {
       case schema: TrimmedJsonSchema =>
         schema match {
@@ -88,62 +88,11 @@ object SchemaSpec {
         }
       case schema: TrimmedRawSchema =>
         schema match {
-          case TrimmedRawSchema.Duplicate(_)         => Nil
-          case TrimmedRawSchema.Str(ref, enumValues) => SchemaSpec(ref, RawStr(enumValues)) :: Nil
+          case TrimmedRawSchema.Duplicate(_)                => Nil
+          case TrimmedRawSchema.Str(ref, enumValues)        => SchemaSpec(ref, RawStr(enumValues)) :: Nil
+          case TrimmedRawSchema.RawJWT(ref)                 => SchemaSpec(ref, RawJWT) :: Nil
+          case TrimmedRawSchema.JWT(ref, trimmedJsonSchema) => SchemaSpec(ref, JWT(trimmedJsonSchema.ref)) :: fromTrimmed(trimmedJsonSchema)
         }
     }
-
-  private def updateRef(ref: SchemaRef, idMap: Map[UUID, UUID]): SchemaRef =
-    idMap.get(ref.id) match {
-      case Some(newId) => ref.copy(id = newId)
-      case None        => ref
-    }
-
-  private def replaceDetails(details: Details, idMap: Map[UUID, UUID]): Details =
-    details match {
-      case details: JsonDetails =>
-        details match {
-          case JsonNum                                           => JsonNum
-          case JsonBool                                          => JsonBool
-          case JsonStr(enumValues)                               => JsonStr(enumValues)
-          case JsonNotRequired(elemRef, canBeNull, canBeMissing) => JsonNotRequired(updateRef(elemRef, idMap), canBeNull, canBeMissing)
-          case JsonArr(elemRef)                                  => JsonArr(updateRef(elemRef, idMap))
-          case JsonObj(fields) =>
-            JsonObj(
-              fields.map {
-                case SchemaSpec.Field(key, SchemaSpec.FieldValue.Ref(fieldRef, req)) =>
-                  SchemaSpec.Field(key, SchemaSpec.FieldValue.Ref(updateRef(fieldRef, idMap), req.map(updateRef(_, idMap))))
-                case f @ SchemaSpec.Field(_, SchemaSpec.FieldValue.Const(_)) => f
-              },
-            )
-          case JsonSum(optionRefs) =>
-            JsonSum(optionRefs.map(updateRef(_, idMap)))
-        }
-      case details: RawDetails =>
-        details match {
-          case RawStr(enumValues) => RawStr(enumValues)
-        }
-    }
-
-  @tailrec
-  private def removeDuplicates(specs: List[SchemaSpec]): List[SchemaSpec] = {
-    val idMap: Map[UUID, UUID] =
-      specs.groupMap(s => (s.ref.tag, s.details))(_.ref.id).toList.collect { case (_, id0 :: idN) => idN.map(_ -> id0) }.flatten.toMap
-    val newSpecs =
-      specs.flatMap { spec =>
-        Option.when(!idMap.contains(spec.ref.id)) {
-          SchemaSpec(spec.ref, replaceDetails(spec.details, idMap))
-        }
-      }
-
-    if (newSpecs.size < specs.size) removeDuplicates(newSpecs)
-    else newSpecs
-  }
-
-  def fromSchemas(schemas: List[Schema[?]]): List[SchemaSpec] =
-    removeDuplicates(TrimSchema.convert(schemas).flatMap(fromTrimmed))
-
-  def fromSchemas(schemas: Schema[?]*): List[SchemaSpec] =
-    fromSchemas(schemas.toList)
 
 }

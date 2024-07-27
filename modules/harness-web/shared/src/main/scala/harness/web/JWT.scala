@@ -3,11 +3,16 @@ package harness.web
 import cats.data.NonEmptyList
 import cats.syntax.either.*
 import harness.core.*
+import harness.schema.*
+import harness.zio.HTag
 import java.time.Instant
 import java.util.Base64
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+import monocle.Lens
+import monocle.macros.GenLens
 import scala.util.Try
+import zio.Tag
 import zio.json.*
 
 final case class JWTHeader(alg: JWTHeader.Alg, typ: JWTHeader.Type) derives JsonCodec
@@ -21,9 +26,27 @@ object JWTHeader {
 
 }
 
-trait JWTPayload[A <: JWTPayload[A]] { self: A =>
-  val exp: Instant
-  def updateExp(exp: Instant): A
+trait JWTPayload[A] {
+  def getExpiration(payload: A): Instant
+  def updateExpiration(payload: A, exp: Instant): A
+}
+object JWTPayload {
+
+  def apply[A](implicit jwtPayload: JWTPayload[A]): JWTPayload[A] = jwtPayload
+
+  def withoutExpiration[A]: JWTPayload[A] =
+    new JWTPayload[A] {
+      override def getExpiration(payload: A): Instant = Instant.MAX
+      override def updateExpiration(payload: A, exp: Instant): A = payload
+    }
+
+  inline def make[A](inline exp: A => Instant): JWTPayload[A] =
+    new JWTPayload[A] {
+      private val expirationLens: Lens[A, Instant] = GenLens[A](exp).asInstanceOf[Lens[A, Instant]]
+      override def getExpiration(payload: A): Instant = expirationLens.get(payload)
+      override def updateExpiration(payload: A, exp: Instant): A = expirationLens.replace(exp)(payload)
+    }
+
 }
 
 final case class RawJWT private (
@@ -72,7 +95,7 @@ object RawJWT {
   }
 
   implicit val stringEncoder: StringEncoder[RawJWT] =
-    _.toString
+    _.bearer
 
   implicit val stringDecoder: StringDecoder[RawJWT] = {
     case reg(headerBase64, payloadBase64, signatureBase64) =>
@@ -90,6 +113,9 @@ object RawJWT {
     case _ =>
       "Malformed bearer token".leftNel
   }
+
+  implicit val schema: RawSchema[RawJWT] =
+    RawSchema.RawJWT(HTag[RawJWT], StringCodec.fromParts[RawJWT])
 
 }
 
@@ -109,5 +135,12 @@ object JWT {
 
   def fromRaw[A: JsonDecoder](raw: RawJWT): Either[String, JWT[A]] =
     raw.payload.fromJson[A].map(JWT(raw, _))
+
+  implicit def stringEncoder[A]: StringEncoder[JWT[A]] = RawJWT.stringEncoder.imap(_.raw)
+
+  implicit def stringDecoder[A: JsonDecoder]: StringDecoder[JWT[A]] = RawJWT.stringDecoder.flatMap(JWT.fromRaw[A](_).leftMap(NonEmptyList.one))
+
+  implicit def schema[A: JsonSchema: Tag]: RawSchema[JWT[A]] =
+    RawSchema.JWT(HTag[JWT[A]], StringCodec.fromParts[JWT[A]], JsonSchema[A])
 
 }

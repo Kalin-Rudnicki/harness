@@ -12,5 +12,5 @@ final case class User(
     emailIsVerified: Boolean,
 )
 object User {
-  implicit val schema: JsonSchema[User] = JsonSchema.derive
+  implicit val schema: JsonSchema[User] = JsonSchema.derived
 }

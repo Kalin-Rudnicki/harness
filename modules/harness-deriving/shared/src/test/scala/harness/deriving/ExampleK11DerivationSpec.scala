@@ -46,8 +46,8 @@ object ExampleK11DerivationSpec extends DefaultHarnessSpec {
 
   // =====| Instances |=====
 
-  implicit val productSimpleFunctor: FunctorK[ProductSimple] = FunctorK.derive
-  implicit val sumSimpleFunctor: FunctorK[SumSimple] = FunctorK.derive
+  implicit val productSimpleFunctor: FunctorK[ProductSimple] = FunctorK.derived
+  implicit val sumSimpleFunctor: FunctorK[SumSimple] = FunctorK.derived
 
   // =====| Test |=====
 

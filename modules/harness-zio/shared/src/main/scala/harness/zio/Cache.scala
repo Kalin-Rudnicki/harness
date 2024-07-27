@@ -123,7 +123,7 @@ object Cache {
     Ref.Synchronized
       .make(Map.empty[K, (Option[Instant], V)])
       .map(
-        new Cache(_, name, s"[${Tag[K].typeName.prefixObject}, ${Tag[V].typeName.prefixObject}]", expireDuration),
+        new Cache(_, name, s"[${HTag[K].prefixObject}, ${HTag[V].prefixObject}]", expireDuration),
       )
 
 }

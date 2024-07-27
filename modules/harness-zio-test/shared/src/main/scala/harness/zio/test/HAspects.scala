@@ -44,9 +44,8 @@ object HAspects {
             case Spec.TestCase(test, annotations) =>
               Spec.TestCase(
                 ZIO.clock.flatMap { clock =>
-                  Logger.addContext("test-path" -> rPath.reverse.map(n => s"\"$n\"").mkString("[", "/", "]")) {
-                    test.withClock(clock).telemetrize("Test Duration").withClock(Clock.ClockLive)
-                  }
+                  test.withClock(clock).telemetrize("Test Duration").withClock(Clock.ClockLive) @@
+                    Logger.context("test-path" -> rPath.reverse.map(n => s"\"$n\"").mkString("[", "/", "]"))
                 },
                 annotations,
               )

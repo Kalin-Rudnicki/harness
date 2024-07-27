@@ -571,13 +571,15 @@ lazy val `harness-web`: CrossProject =
       publishSettings,
       miscSettings,
       testSettings,
+      libraryDependencies ++= Seq(
+        "com.github.julien-truffaut" %%% "monocle-core" % Versions.monocle,
+        "com.github.julien-truffaut" %%% "monocle-macro" % Versions.monocle,
+      ),
     )
     .jsSettings(
       libraryDependencies ++= Seq(
         "com.lihaoyi" %%% "scalatags" % Versions.scalaTags,
         "io.github.cquiroz" %%% "scala-java-time" % Versions.scalaJavaTime,
-        "com.github.julien-truffaut" %%% "monocle-core" % Versions.monocle,
-        "com.github.julien-truffaut" %%% "monocle-macro" % Versions.monocle,
       ),
     )
     .dependsOn(

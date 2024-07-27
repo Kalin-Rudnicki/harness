@@ -25,7 +25,7 @@ object TmpMain extends ExecutableApp {
     @errorExamples(InternalDefect)
     case object InternalDefect extends ApiError
 
-    implicit val errorSchema: ErrorSchema[ApiError] = ErrorSchema.derive
+    implicit val errorSchema: ErrorSchema[ApiError] = ErrorSchema.derived
 
   }
 

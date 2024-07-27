@@ -42,11 +42,11 @@ object Server {
       enum RefType extends Enum[RefType] { case Str, Jar, File }
       object RefType extends Enum.Companion[RefType]
 
-      implicit val jsonCodec: JsonSchema[SslConfig] = JsonSchema.derive
+      implicit val jsonCodec: JsonSchema[SslConfig] = JsonSchema.derived
 
     }
 
-    implicit val jsonCodec: JsonSchema[Config] = JsonSchema.derive
+    implicit val jsonCodec: JsonSchema[Config] = JsonSchema.derived
 
   }
 

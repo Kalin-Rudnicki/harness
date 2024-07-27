@@ -47,18 +47,17 @@ object HConsumer {
 
     override def consume[R: EnvironmentTag](use: ConsumerRecord[K, V] => URIO[R, Unit]): RIO[R & Logger & Telemetry, Unit] =
       consumer.consumeWith(Subscription.topics(topicName), keySerde, valueSerde) { record =>
-        Logger.addContext("record-key" -> record.key) {
-          (for {
-            _ <- Logger.log.debug(s"Consuming kafka record: $record")
-            _ <- use(record)
-          } yield ()).telemetrize(
-            "kafka-consumer",
-            "kafka-topic" -> record.topic,
-            "kafka-partition" -> record.partition,
-            "kafka-offset" -> record.offset,
-            "value-class" -> record.value.getClass.getNameWithoutPackage,
-          )
-        }
+        (for {
+          _ <- Logger.log.debug(s"Consuming kafka record: $record")
+          _ <- use(record)
+        } yield ()).telemetrize(
+          "kafka-consumer",
+          "kafka-topic" -> record.topic,
+          "kafka-partition" -> record.partition,
+          "kafka-offset" -> record.offset,
+          "value-class" -> record.value.getClass.getNameWithoutPackage,
+        ) @@
+          Logger.context("record-key" -> record.key)
       }
 
   }

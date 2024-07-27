@@ -127,6 +127,12 @@ object Logger { self =>
       effect.provideSomeLayer(ZLayer.succeed(logger.addContext(context.toList.map { (k, v) => (k, String.valueOf(v)) }.toMap)))
     }
 
+  def context(context: (String, Any)*): ZIOAspect[Nothing, Logger, Nothing, Any, Nothing, Any] =
+    new ZIOAspect[Nothing, Logger, Nothing, Any, Nothing, Any] {
+      override def apply[R >: Nothing <: Logger, E >: Nothing <: Any, A >: Nothing <: Any](zio: ZIO[R, E, A])(implicit trace: Trace): ZIO[R, E, A] =
+        Logger.addContext(context*)(zio)
+    }
+
   // =====| Types |=====
 
   final case class ExecutedEvent(

@@ -30,10 +30,10 @@ object TrimSchema {
     if (ids.contains(schema.ref.id)) TrimmedRawSchema.Duplicate(schema.ref)
     else convertRawNew(ids, schema)
 
-  private def convertRawNew(@scala.annotation.unused ids: Set[UUID], schema: RawSchema[?]): TrimmedRawSchema =
-    schema match {
-      case RawSchema.Str(_, _, enumValues) => TrimmedRawSchema.Str(schema.ref, enumValues)
-    }
+  private def convertRawNew(@scala.annotation.unused ids: Set[UUID], schema: RawSchema[?]): TrimmedRawSchema = schema match
+    case RawSchema.Str(_, _, enumValues) => TrimmedRawSchema.Str(schema.ref, enumValues)
+    case RawSchema.RawJWT(_, _)          => TrimmedRawSchema.RawJWT(schema.ref)
+    case RawSchema.JWT(_, _, jsonSchema) => TrimmedRawSchema.JWT(schema.ref, convertJson(ids + schema.ref.id, jsonSchema))
 
   private def convertJson(ids: Set[UUID], schema: JsonSchema[?]): TrimmedJsonSchema =
     if (ids.contains(schema.ref.id)) TrimmedJsonSchema.Duplicate(schema.ref)

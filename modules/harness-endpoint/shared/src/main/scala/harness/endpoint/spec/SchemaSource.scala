@@ -15,6 +15,6 @@ object SchemaSource {
   final case class HeaderOrCookie(key: String) extends SchemaSource(s"header/cookie '$key'")
   case object Body extends SchemaSource("body")
 
-  implicit val schema: JsonSchema[SchemaSource] = JsonSchema.derive
+  implicit val schema: JsonSchema[SchemaSource] = JsonSchema.derived
 
 }

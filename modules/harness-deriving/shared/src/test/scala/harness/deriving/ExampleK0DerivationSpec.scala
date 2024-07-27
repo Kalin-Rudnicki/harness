@@ -58,12 +58,12 @@ object ExampleK0DerivationSpec extends DefaultHarnessSpec {
 
   // =====| Instances |=====
 
-  implicit val productSimpleInstance: Show[ProductSimple] = Show.derive
-  implicit val sumSimpleInstance: Show[SumSimple] = Show.derive
-  implicit val selfRecursiveProductInstance: Show[SelfRecursiveProduct] = Show.derive
-  implicit val otherRecursiveProduct1Instance: Show[OtherRecursiveProduct1] = Show.derive
-  implicit val otherRecursiveProduct2Instance: Show[OtherRecursiveProduct2] = Show.derive
-  implicit val selfRecursiveSumInstance: Show[SelfRecursiveSum] = Show.derive
+  implicit val productSimpleInstance: Show[ProductSimple] = Show.derived
+  implicit val sumSimpleInstance: Show[SumSimple] = Show.derived
+  implicit val selfRecursiveProductInstance: Show[SelfRecursiveProduct] = Show.derived
+  implicit val otherRecursiveProduct1Instance: Show[OtherRecursiveProduct1] = Show.derived
+  implicit val otherRecursiveProduct2Instance: Show[OtherRecursiveProduct2] = Show.derived
+  implicit val selfRecursiveSumInstance: Show[SelfRecursiveSum] = Show.derived
 
   // =====| Test |=====
 

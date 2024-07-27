@@ -7,7 +7,8 @@ import harness.endpoint.error.ApiInternalDefect
 import harness.endpoint.types.*
 import harness.endpoint.types.Types.*
 import harness.schema.*
-import harness.web.HttpMethod
+import harness.web.*
+import zio.Tag
 
 final case class EndpointSpec[ET <: EndpointType.Any](
     method: HttpMethod,
@@ -372,8 +373,13 @@ object query {
 
 final case class header[A](name: String, schema: Schema[A])
 object header {
+
   def raw[A](name: String)(implicit schema: RawSchema[A]): header[A] = header(name, schema)
   def json[A](name: String)(implicit schema: JsonSchema[A]): header[A] = header(name, schema)
+
+  // TODO (KR) : have a special schema for this
+  def bearer[A: Tag](name: String)(implicit schema: JsonSchema[A]): header[JWT[A]] = header.raw[JWT[A]](name)
+
 }
 
 final case class cookie[A](name: String, schema: Schema[A])

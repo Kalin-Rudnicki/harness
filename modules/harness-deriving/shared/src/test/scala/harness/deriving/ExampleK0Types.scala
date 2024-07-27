@@ -5,12 +5,12 @@ import cats.syntax.option.*
 object ExampleK0Types {
 
   /*
-  implicit val productSimpleInstance: MyTypeClass[ProductSimple] = MyTypeClass.derive
-  implicit val sumSimpleInstance: MyTypeClass[SumSimple] = MyTypeClass.derive
-  implicit val selfRecursiveProductInstance: MyTypeClass[SelfRecursiveProduct] = MyTypeClass.derive
-  implicit val otherRecursiveProduct1Instance: MyTypeClass[OtherRecursiveProduct1] = MyTypeClass.derive
-  implicit val otherRecursiveProduct2Instance: MyTypeClass[OtherRecursiveProduct2] = MyTypeClass.derive
-  implicit val selfRecursiveSumInstance: MyTypeClass[SelfRecursiveSum] = MyTypeClass.derive
+  implicit val productSimpleInstance: MyTypeClass[ProductSimple] = MyTypeClass.derived
+  implicit val sumSimpleInstance: MyTypeClass[SumSimple] = MyTypeClass.derived
+  implicit val selfRecursiveProductInstance: MyTypeClass[SelfRecursiveProduct] = MyTypeClass.derived
+  implicit val otherRecursiveProduct1Instance: MyTypeClass[OtherRecursiveProduct1] = MyTypeClass.derived
+  implicit val otherRecursiveProduct2Instance: MyTypeClass[OtherRecursiveProduct2] = MyTypeClass.derived
+  implicit val selfRecursiveSumInstance: MyTypeClass[SelfRecursiveSum] = MyTypeClass.derived
    */
 
   // =====| Simple |=====

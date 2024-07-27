@@ -11,5 +11,5 @@ final case class SignUp(
     email: EmailAddress,
 )
 object SignUp {
-  implicit val schema: JsonSchema[SignUp] = JsonSchema.derive
+  implicit val schema: JsonSchema[SignUp] = JsonSchema.derived
 }
