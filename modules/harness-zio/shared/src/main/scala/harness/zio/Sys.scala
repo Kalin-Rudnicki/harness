@@ -161,7 +161,14 @@ object Sys {
 
       private val decodeLogLevel: Unapply[String, Logger.LogLevel] = s => Logger.LogLevel.stringDecoder.decode(s.trim).toOption
 
-      private val levelPrefixRegex = "^(\\[[A-Za-z]+]):?[ \t]*(.*)$".r
+      private val levelPrefixRegex1 = "^\\[([A-Za-z]+)[ ]*]:?[ \t]*(.*)$".r
+      private val levelPrefixRegex2 = "^([A-Za-z]+):[ \t]*(.*)$".r
+
+      private val levelAndMessage: Unapply[String, (String, String)] = {
+        case levelPrefixRegex1(level, message) => (level, message).some
+        case levelPrefixRegex2(level, message) => (level, message).some
+        case _                                 => None
+      }
 
       private def makeEvent(level: Logger.LogLevel, context: Map[String, String], message: String): Logger.Event =
         Logger.Event.AtLogLevel(level, () => Logger.Event.Output(context, message))
@@ -169,8 +176,8 @@ object Sys {
       val all: List[MessageDecoder] =
         List(
           MessageDecoder.make { case (defaultLevel, harnessLoggerJson(event)) => makeEvent(event.logLevel.getOrElse(defaultLevel), event.context, event.message) },
-          MessageDecoder.make { case (defaultLevel, levelPrefixRegex(_, harnessLoggerJson(event))) => makeEvent(event.logLevel.getOrElse(defaultLevel), event.context, event.message) },
-          MessageDecoder.make { case (_, levelPrefixRegex(decodeLogLevel(level), message)) => makeEvent(level, Map.empty, message) },
+          MessageDecoder.make { case (defaultLevel, levelAndMessage(_, harnessLoggerJson(event))) => makeEvent(event.logLevel.getOrElse(defaultLevel), event.context, event.message) },
+          MessageDecoder.make { case (_, levelAndMessage(decodeLogLevel(level), message)) => makeEvent(level, Map.empty, message) },
           // TODO (KR) : add decoders for SLF4J json
         )
 
