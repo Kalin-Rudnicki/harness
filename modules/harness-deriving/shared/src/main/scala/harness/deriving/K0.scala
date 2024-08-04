@@ -18,11 +18,20 @@ abstract class K0T[UB] {
   type ProductGeneric[O <: UB] = Kind[Mirror.Product, O]
   type SumGeneric[O <: UB] = Kind[Mirror.Sum, O]
 
+  type FlatFieldInstances[T <: Tuple, F[_ <: UB]] <: Tuple =
+    T match {
+      case EmptyTuple => EmptyTuple
+      case x *: xs    => F[x] *: FlatFieldInstances[xs, F]
+    }
+
   type FieldInstances[T <: Tuple, W[_], F[_ <: UB]] <: Tuple =
     T match {
       case EmptyTuple => EmptyTuple
       case x *: xs    => W[F[x]] *: FieldInstances[xs, W, F]
     }
+
+  inline def summonFlatFieldInstances[T <: Tuple, G[_ <: UB]]: List[G[UB]] =
+    summonAll[FlatFieldInstances[T, G]].toIArray.toList.asInstanceOf[List[G[UB]]]
 
   inline def summonFieldInstances[T <: Tuple, F[_], G[_ <: UB]]: List[F[G[UB]]] =
     summonAll[FieldInstances[T, F, G]].toIArray.toList.asInstanceOf[List[F[G[UB]]]]
@@ -169,4 +178,47 @@ abstract class K0T[UB] {
 
 }
 
-object K0 extends K0T[Any]
+object K0 extends K0T[Any] {
+
+  type UnionGeneric[A] = UnionMirror[A]
+  type IntersectionGeneric[A] = IntersectionMirror[A]
+
+  trait DerivableUnion[T[_]] {
+
+    protected inline def foldUnion[A, B](ta: T[A], tb: T[B]): T[A | B]
+
+    final inline def deriveUnion[A](implicit ev: UnionGeneric[A]): T[A] = {
+      summonFlatFieldInstances[ev.ElementTypes, T]
+        .reduceLeft { (a, b) => foldUnion(a.asInstanceOf[T[Any]], b.asInstanceOf[T[Any]]) }
+        .asInstanceOf[T[A]]
+    }
+
+  }
+  object DerivableUnion {
+
+    trait Auto[T[_]] extends DerivableUnion[T] {
+      final inline implicit def deriveUnionAuto[A](implicit ev: UnionGeneric[A]): T[A] = deriveUnion[A]
+    }
+
+  }
+
+  trait DerivableIntersection[T[_]] {
+
+    protected inline def foldIntersection[A, B](ta: T[A], tb: T[B]): T[A & B]
+
+    final inline def deriveIntersection[A](implicit ev: IntersectionGeneric[A]): T[A] = {
+      summonFlatFieldInstances[ev.ElementTypes, T]
+        .reduceLeft { (a, b) => foldIntersection(a.asInstanceOf[T[Any]], b.asInstanceOf[T[Any]]) }
+        .asInstanceOf[T[A]]
+    }
+
+  }
+  object DerivableIntersection {
+
+    trait Auto[T[_]] extends DerivableIntersection[T] {
+      final inline implicit def deriveIntersectionAuto[A](implicit ev: IntersectionGeneric[A]): T[A] = deriveIntersection[A]
+    }
+
+  }
+
+}
