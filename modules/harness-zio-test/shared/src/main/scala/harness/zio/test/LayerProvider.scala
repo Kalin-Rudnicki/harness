@@ -5,6 +5,7 @@ import zio.*
 import zio.test.*
 
 sealed trait LayerProvider[+R] {
+  // TODO (KR) : def build[E] (?)
   private[test] def build(spec: Spec[R & HarnessSpec.DefaultEnv, Any]): Spec[HarnessSpec.DefaultEnv, Any]
 }
 object LayerProvider {

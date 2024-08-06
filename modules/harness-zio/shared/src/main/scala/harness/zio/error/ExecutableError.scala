@@ -1,61 +1,50 @@
 package harness.zio.error
 
 import cats.syntax.either.*
-import harness.cli.FinalizedParser
-import harness.cli.FinalizedParser.Result
+import harness.cli.*
+import harness.cli.error.BuildError
 import harness.core.*
 import harness.zio.*
-import zio.json.*
+import harness.zio.json.*
 
-sealed trait ExecutableError[+E]
+sealed trait ExecutableError
 object ExecutableError {
 
-  final case class External[+E](error: E) extends ExecutableError[E]
+  final case class CommandLineHelp(help: HelpMessage) extends ExecutableError
+  final case class FailedToParseArgs(message: String) extends ExecutableError
+  final case class FailedToLoadConfig(error: ConfigError.LoadError) extends ExecutableError
+  final case class FailedToReadConfig(error: String) extends ExecutableError
+  final case class MissingSubCommand(options: List[String]) extends ExecutableError
+  final case class InvalidSubCommand(command: String, options: List[String]) extends ExecutableError
+  final case class InvalidParser(fail: BuildError) extends ExecutableError
+  final case class CommandLineParsingFailure(fail: HelpMessage, help: HelpMessage) extends ExecutableError
+  final case class FailedToCreateService(service: String, cause: Throwable) extends ExecutableError
 
-  sealed trait Internal extends ExecutableError[Nothing]
-  object Internal {
-    implicit val jsonEncoder: JsonEncoder[Internal] = {
-      implicit val loadErrorEncoder: JsonEncoder[ConfigError.LoadError] = ConfigError.jsonCodec.encoder.narrow
-      implicit val readErrorEncoder: JsonEncoder[ConfigError.ReadError] = ConfigError.jsonCodec.encoder.narrow
-      implicit val nonSuccessEncoder: JsonEncoder[FinalizedParser.Result.NonSuccess] = JsonEncoder.string.contramap(_.toString)
-      DeriveJsonEncoder.gen
-    }
-  }
-
-  final case class FailedToParseIndexedArgs(message: String) extends ExecutableError.Internal
-  final case class FailedToLoadConfig(error: ConfigError.LoadError) extends ExecutableError.Internal
-  final case class FailedToReadConfig(error: ConfigError.ReadError) extends ExecutableError.Internal
-  final case class MissingSubCommand(options: List[String]) extends ExecutableError.Internal
-  final case class InvalidSubCommand(command: String, options: List[String]) extends ExecutableError.Internal
-  final case class ParsingFailure(fail: FinalizedParser.Result.NonSuccess) extends ExecutableError.Internal
-
-  implicit def errorLogger[E](implicit eErrorLogger: ErrorLogger[E]): ErrorLogger[ExecutableError[E]] =
-    ErrorLogger.make[ExecutableError[E]] {
-      case External(error) => eErrorLogger.convert(error)
-      case internal: Internal =>
-        val message: String = internal match {
-          case FailedToParseIndexedArgs(message) =>
-            s"Executable failed to parse args: $message"
-          case FailedToLoadConfig(error) =>
-            error.safeGetMessage
-          case FailedToReadConfig(error) =>
-            error.safeGetMessage
-          case MissingSubCommand(options) =>
-            s"Executable is missing sub-command, options:${options.map(o => s"\n  - $o").mkString}"
-          case InvalidSubCommand(command, options) =>
-            s"Executable received invalid sub-command '$command', options:${options.map(o => s"\n  - $o").mkString}"
-          case ParsingFailure(fail) =>
-            fail match {
-              case Result.ParseFail(fail) => fail.toString // TODO (KR) : enough?
-              case Result.InvalidArg(msg) => msg // TODO (KR) : enough?
-              case Result.ParamNameConflict(duplicateParam) =>
-                s"[Internal Defect] Unable to create CLI parser, param name conflict: ${duplicateParam.showName}"
-              case Result.Help(_, _) =>
-                "Should not be possible, failed with help message..."
-            }
-        }
-
-        Logger.LogLevel.Fatal -> message
-    }
+  // TODO (KR) : show child executables in message
+  implicit val errorLogger: ErrorLogger[ExecutableError] =
+    ErrorLogger.make[ExecutableError](
+      {
+        case _: CommandLineHelp           => Logger.LogLevel.Info
+        case _: CommandLineParsingFailure => Logger.LogLevel.Fatal
+        case _: MissingSubCommand         => Logger.LogLevel.Fatal
+        case _: InvalidSubCommand         => Logger.LogLevel.Fatal
+        case _: FailedToReadConfig        => Logger.LogLevel.Fatal
+        case _: FailedToCreateService     => Logger.LogLevel.Fatal
+        case _: FailedToParseArgs         => Logger.LogLevel.Fatal
+        case _: FailedToLoadConfig        => Logger.LogLevel.Fatal
+        case _: InvalidParser             => Logger.LogLevel.Fatal
+      },
+      { // TODO (KR) : improve this
+        case CommandLineHelp(help)                 => help.toString
+        case CommandLineParsingFailure(fail, _)    => s"Error parsing command line:\n\n$fail\n"
+        case MissingSubCommand(options)            => s"Executable is missing sub-command, options:${options.map { o => s"\n  - $o" }.mkString}"
+        case InvalidSubCommand(command, options)   => s"Executable received invalid sub-command '$command', options:${options.map { o => s"\n  - $o" }.mkString}"
+        case FailedToReadConfig(error)             => s"Failed to read config: $error"
+        case FailedToCreateService(service, cause) => s"Failed to create $service service: ${cause.safeGetMessage}"
+        case FailedToParseArgs(message)            => s"Executable failed to parse args: $message"
+        case FailedToLoadConfig(error)             => (error: Throwable).safeToJsonAST
+        case InvalidParser(error)                  => (error: Throwable).safeToJsonAST
+      },
+    )
 
 }

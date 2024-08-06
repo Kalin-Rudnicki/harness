@@ -9,11 +9,19 @@ import harness.zio.test.*
 import zio.*
 import zio.test.*
 
-object PostgresTestContainerISpec extends DefaultHarnessSpec {
+object PostgresTestContainerISpec extends HarnessSpec[Database] {
 
-  override def logLevel: Logger.LogLevel = Logger.LogLevel.Debug
+  override def layerProvider: LayerProvider[R] =
+    LayerProvider.provideShared[Database](
+      PortFinder.layer(),
+      PostgresTestContainer.layer,
+      Database.poolLayer,
+    )
 
-  private val innerSpec: Spec[HarnessEnv & JDBCConnection, Any] =
+  override def testAspects: Chunk[TestSpecAspect] =
+    Chunk(Logger.withLevel.debug.testAspect)
+
+  override def testSpec: TestSpec =
     suite("PostgresTestContainerSpec")(
       test("can run a query") {
         for {
@@ -21,16 +29,5 @@ object PostgresTestContainerISpec extends DefaultHarnessSpec {
         } yield assertTrue(res == 123)
       },
     )
-
-  override def testSpec: TestSpec =
-    innerSpec
-      .provideSome[HarnessEnv & Scope & JDBCConnectionPool](
-        JDBCConnection.poolLayer,
-      )
-      .provideSomeShared[HarnessEnv & Scope](
-        PortFinder.layer(),
-        PostgresTestContainer.layer,
-        JDBCConnectionPool.configLayer,
-      )
 
 }

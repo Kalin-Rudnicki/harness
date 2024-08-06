@@ -3,7 +3,6 @@ package harness.http.server
 import harness.core.*
 import harness.endpoint.types.*
 import harness.endpoint.types.Types.*
-import harness.zio.{Path as _, *}
 import zio.*
 
 trait Implementation[-R, ET <: EndpointType.Any] {
@@ -18,7 +17,7 @@ trait Implementation[-R, ET <: EndpointType.Any] {
       Auth[ET],
       Header[ET],
       Receive[InputBody[ET]],
-  ) => ZIO[HarnessEnv & Implementation.Provided & R, DomainError, HttpResponse[Send[OutputBody[ET]]]]
+  ) => ZIO[Implementation.Provided & R, DomainError, HttpResponse[Send[OutputBody[ET]]]]
 
 }
 object Implementation {
@@ -31,7 +30,7 @@ object Implementation {
   final class Builder[I, ET <: EndpointType.Any](zip: Zip5.Out[Path[ET], Query[ET], Auth[ET], Header[ET], Receive[InputBody[ET]], I]) {
 
     def implement[_R, _DomainError](
-        f: I => ZIO[HarnessEnv & Implementation.Provided & _R, _DomainError, HttpResponse[Send[OutputBody[ET]]]],
+        f: I => ZIO[Implementation.Provided & _R, _DomainError, HttpResponse[Send[OutputBody[ET]]]],
     )(using _errorHandler: ErrorHandler.Aux[_DomainError, ?, Error[ET]]): Implementation[_R, ET] =
       new Implementation[_R, ET] {
         override type DomainError = _errorHandler._DomainError
@@ -42,7 +41,7 @@ object Implementation {
             Auth[ET],
             Header[ET],
             Receive[InputBody[ET]],
-        ) => ZIO[HarnessEnv & Implementation.Provided & _R, _errorHandler._DomainError, HttpResponse[Send[OutputBody[ET]]]] =
+        ) => ZIO[Implementation.Provided & _R, _errorHandler._DomainError, HttpResponse[Send[OutputBody[ET]]]] =
           (p, q, a, h, b) => f(zip.zip(p, q, a, h, b)).mapError(_errorHandler.convertErr.mapError)
       }
 

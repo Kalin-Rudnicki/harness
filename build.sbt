@@ -85,7 +85,6 @@ lazy val `harness-modules`: Project =
     )
     .aggregate(
       // General
-      `harness-console`,
       `harness-core`.jvm,
       `harness-core`.native,
       `harness-core`.js,
@@ -173,7 +172,6 @@ lazy val `harness-modules-jvm`: Project =
     )
     .aggregate(
       // General
-      `harness-console`,
       `harness-core`.jvm,
       `harness-deriving`.jvm,
       `harness-pk`.jvm,
@@ -214,21 +212,6 @@ lazy val `harness-modules-jvm`: Project =
     )
 
 // =====| General |=====
-
-lazy val `harness-console`: Project =
-  project
-    .in(file("modules/harness-console"))
-    .settings(
-      name := "harness-console",
-      publishSettings,
-      miscSettings,
-      testSettings,
-      Test / fork := true,
-    )
-    .dependsOn(
-      `harness-zio`.jvm,
-      `harness-zio-ut`.jvm % testToTest,
-    )
 
 lazy val `harness-core`: CrossProject =
   crossProject(JSPlatform, JVMPlatform, NativePlatform)
@@ -322,6 +305,7 @@ lazy val `harness-zio`: CrossProject =
     )
     .jvmSettings(
       Test / fork := true,
+      Compile / fork := true, // TODO (KR) :
     )
     .dependsOn(
       `harness-cli` % testAndCompile,

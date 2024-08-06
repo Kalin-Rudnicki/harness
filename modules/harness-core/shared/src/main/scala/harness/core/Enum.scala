@@ -1,5 +1,7 @@
 package harness.core
 
+import cats.data.NonEmptyList
+
 trait Enum[E <: Enum[E]] extends java.lang.Enum[E] { self: E => }
 object Enum {
 
@@ -13,22 +15,29 @@ object Enum {
 
     implicit final val hasCompanion: HasCompanion[E] = Enum.HasCompanion(this)
 
-    protected val defaultToString: E => String = _.toString
+    protected val defaultToString: E => NonEmptyList[String] = e => NonEmptyList.one(e.toString)
 
     def values: Array[E]
 
     final lazy val enumValues: Seq[E] = values.toSeq
 
-    abstract class EnumMap[Enc](enc: E => Enc) {
-      private final lazy val map: Map[Enc, E] = values.map { e => (enc(e), e) }.toMap
-      final def encode(e: E): Enc = enc(e)
-      final def decode(enc: Enc): Option[E] = map.get(enc)
+    abstract class EnumMap[Enc](enc: E => NonEmptyList[Enc]) {
+      final lazy val encodedValues: Seq[Enc] = enumValues.flatMap(enc(_).toList)
+
+      protected lazy val map: Map[Enc, E] = values.flatMap { e => enc(e).toList.map((_, e)) }.toMap
+      def encode(e: E): Enc = enc(e).head
+      def decode(enc: Enc): Option[E] = map.get(enc)
     }
 
-    implicit object ToString extends EnumMap[String](defaultToString)
+    abstract class CaseInsensitiveStringMap(enc: E => NonEmptyList[String]) extends EnumMap[String](enc) {
+      override protected lazy val map: Map[String, E] = values.flatMap { e => enc(e).toList.map(str => (str.toUpperCase, e)) }.toMap
+      override def decode(enc: String): Option[E] = map.get(enc.toUpperCase)
+    }
+
+    implicit object ToString extends CaseInsensitiveStringMap(defaultToString)
 
     implicit val stringEncoder: StringEncoder[E] = ToString.encode(_)
-    implicit val stringDecoder: StringDecoder[E] = StringDecoder.fromOptionF(getClass.getSimpleName, ToString.decode)
+    implicit val stringDecoder: StringDecoder[E] = StringDecoder.fromOptionF("LogLevel", ToString.decode)
 
   }
 
@@ -36,6 +45,7 @@ object Enum {
 
   trait WithEnc[E <: Enum[E], Enc] private[Enum] {
     def values: Seq[E]
+    def encodedValues: Seq[Enc]
     def encode(e: E): Enc
     def decode(enc: Enc): Option[E]
   }
@@ -46,6 +56,7 @@ object Enum {
     given [E <: Enum[E], Enc](using hc: HasCompanion[E], em: Enum.Companion[E]#EnumMap[Enc]): WithEnc[E, Enc] =
       new WithEnc[E, Enc] {
         override def values: Seq[E] = hc.companion.enumValues
+        override def encodedValues: Seq[Enc] = em.encodedValues
         override def encode(e: E): Enc = em.encode(e)
         override def decode(enc: Enc): Option[E] = em.decode(enc)
       }

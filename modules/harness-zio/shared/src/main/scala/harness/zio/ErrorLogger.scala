@@ -1,77 +1,54 @@
 package harness.zio
 
 import harness.core.*
-import harness.zio.json.throwableJsonCodec
+import harness.zio.json.*
 import zio.*
 import zio.json.*
+import zio.json.ast.Json
 
 final case class ErrorLogger[-E](
-    convert: E => (Logger.LogLevel, String),
-) {
-
-  def log(e: E, context: (String, Any)*): URIO[Logger, Unit] = {
-    val (level, message) = convert(e)
-    Logger.log(level, message, context*)
-  }
-
-  def logCause(e: Cause[E], causeLevel: Logger.LogLevel, stackTraceLevel: Option[Logger.LogLevel], context: (String, Any)*): URIO[Logger, Unit] = {
-    inline def logTrace(trace: StackTrace): URIO[Logger, Unit] =
-      ZIO.foreachDiscard(stackTraceLevel)(Logger.log(_, trace.prettyPrint))
-
-    e match {
-      case Cause.Empty => ZIO.unit
-      case Cause.Fail(value, trace) =>
-        log(value, context*) *>
-          logTrace(trace)
-      case Cause.Die(value, trace) =>
-        Logger.log(causeLevel, s"ZIO Died (${value.getClass.getName}): ${value.safeGetMessage}", context*) *>
-          logTrace(trace)
-      case Cause.Interrupt(fiberId, trace) =>
-        Logger.log(causeLevel, s"Interrupted: $fiberId", context*) *>
-          logTrace(trace)
-      case Cause.Stackless(cause, stackless) =>
-        logCause(cause, causeLevel, Option.when(!stackless)(stackTraceLevel).flatten, context*)
-      case Cause.Then(left, right) =>
-        logCause(left, causeLevel, stackTraceLevel, context*) *>
-          logCause(right, causeLevel, stackTraceLevel, context*)
-      case Cause.Both(left, right) =>
-        logCause(left, causeLevel, stackTraceLevel, context*) *>
-          logCause(right, causeLevel, stackTraceLevel, context*)
-    }
-  }
-
-  // If there are any Cause.Fail, don't log other stuff
-  def logCauseSimple(e: Cause[E], causeLevel: Logger.LogLevel, stackTraceLevel: Option[Logger.LogLevel], context: (String, Any)*): URIO[Logger, Unit] =
-    e.causeFailuresOpt match {
-      case Some(causeFailures) => ZIO.foreachDiscard(causeFailures.toList)(logCause(_, causeLevel, stackTraceLevel, context*))
-      case None                => logCause(e, causeLevel, stackTraceLevel, context*)
-    }
-
-  def withPrefix(prefix: String): ErrorLogger[E] =
-    ErrorLogger[E] { e =>
-      val (level, str) = convert(e)
-      (level, s"$prefix$str")
-    }
-
-}
+    logLevel: E => Logger.LogLevel,
+    show: E => Json,
+)
 object ErrorLogger {
 
   def apply[E](implicit errorLogger: ErrorLogger[E]): ErrorLogger[E] = errorLogger
 
-  def make[E](convert: E => (Logger.LogLevel, String)): ErrorLogger[E] = ErrorLogger(convert)
+  def make[E](
+      logLevel: E => Logger.LogLevel,
+      show: E => Json | String,
+  ): ErrorLogger[E] =
+    ErrorLogger[E](
+      logLevel,
+      show(_) match {
+        case string: String => Json.Str(string)
+        case json: Json     => json
+      },
+    )
 
-  def withToString[E]: ErrorLogger.Builder[E] = new Builder[E](_.toString)
-  def withGetMessage[E <: Throwable]: ErrorLogger.Builder[E] = new Builder[E](_.safeGetMessage)
-  def withShow[E](f: E => String): ErrorLogger.Builder[E] = new Builder[E](f)
-  def withJsonShow[E: JsonEncoder]: ErrorLogger.Builder[E] = new Builder[E](_.toJson)
-  def withJsonPrettyShow[E: JsonEncoder]: ErrorLogger.Builder[E] = new Builder[E](_.toJsonPretty)
+  // =====|  |=====
 
-  final class Builder[E] private[ErrorLogger] (show: E => String) {
+  def stringEncoded[E: StringEncoder]: ErrorLogger.Builder[E] = Builder.string[E](StringEncoder[E].encode(_))
+  def jsonEncoded[E: JsonEncoder]: ErrorLogger.Builder[E] = Builder.json[E](_.safeToJsonAST)
 
-    def atLevel: WithLogLevel[ErrorLogger[E]] = WithLogLevel.make { level => ErrorLogger[E](e => (level, show(e))) }
+  def withShow[E](f: E => String): ErrorLogger.Builder[E] = Builder.string[E](f)
+  def withJsonShow[E](f: E => Json): ErrorLogger.Builder[E] = Builder.json[E](f)
 
-    def withLevel(f: E => Logger.LogLevel): ErrorLogger[E] = ErrorLogger[E](e => (f(e), show(e)))
+  def withToString[E]: ErrorLogger.Builder[E] = Builder.string[E](_.toString)
+  def forThrowable[E <: Throwable]: ErrorLogger.Builder[E] = Builder.json[E](EncodedThrowable.fromThrowable(_).safeToJsonAST)
 
+  // =====|  |=====
+
+  final class Builder[E] private (show: E => Json) {
+
+    def atLevel: WithLogLevel[ErrorLogger[E]] = WithLogLevel.make { logLevel => ErrorLogger[E](_ => logLevel, show) }
+
+    def withLevel(f: E => Logger.LogLevel): ErrorLogger[E] = ErrorLogger[E](f, show)
+
+  }
+  object Builder {
+    private[ErrorLogger] def json[E](f: E => Json): Builder[E] = new Builder(f)
+    private[ErrorLogger] def string[E](f: E => String): Builder[E] = new Builder(e => Json.Str(f(e)))
   }
 
   implicit val nothingErrorLogger: ErrorLogger[Nothing] =
@@ -79,20 +56,10 @@ object ErrorLogger {
 
   object ThrowableInstances {
 
-    def getMessageErrorLogger(level: Logger.LogLevel): ErrorLogger[Throwable] =
-      ErrorLogger.withGetMessage[Throwable].atLevel(level)
-    implicit def getMessageErrorLogger: ErrorLogger[Throwable] =
-      getMessageErrorLogger(Logger.LogLevel.Error)
-
-    def jsonErrorLogger(level: Logger.LogLevel): ErrorLogger[Throwable] =
-      ErrorLogger
-        .withShow[Throwable] {
-          case jsonShowable: JsonShowable[?] => jsonShowable.showJsonPretty
-          case t                             => t.toJsonPretty
-        }
-        .atLevel(level)
-    implicit def jsonErrorLogger: ErrorLogger[Throwable] =
-      jsonErrorLogger(Logger.LogLevel.Error)
+    def throwableErrorLogger(level: Logger.LogLevel): ErrorLogger[Throwable] =
+      ErrorLogger.forThrowable[Throwable].atLevel(level)
+    implicit def throwableErrorLogger: ErrorLogger[Throwable] =
+      throwableErrorLogger(Logger.LogLevel.Error)
 
   }
 

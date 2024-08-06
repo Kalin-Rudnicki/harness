@@ -1,23 +1,25 @@
 package harness.zio
 
-class WithLogLevel[A](make: Logger.LogLevel => A) {
+trait WithLogLevelAbstract[A] {
 
-  def apply(level: Logger.LogLevel): A = make(level)
+  protected val make: Logger.LogLevel => A
 
-  def never: A = make(Logger.LogLevel.Never)
-  def trace: A = make(Logger.LogLevel.Trace)
-  def debug: A = make(Logger.LogLevel.Debug)
-  def detailed: A = make(Logger.LogLevel.Detailed)
-  def info: A = make(Logger.LogLevel.Info)
-  def important: A = make(Logger.LogLevel.Important)
-  def warning: A = make(Logger.LogLevel.Warning)
-  def error: A = make(Logger.LogLevel.Error)
-  def fatal: A = make(Logger.LogLevel.Fatal)
-  def always: A = make(Logger.LogLevel.Always)
+  final def apply(level: Logger.LogLevel): A = make(level)
+
+  final def never: A = make(Logger.LogLevel.Never)
+  final def trace: A = make(Logger.LogLevel.Trace)
+  final def debug: A = make(Logger.LogLevel.Debug)
+  final def detailed: A = make(Logger.LogLevel.Detailed)
+  final def info: A = make(Logger.LogLevel.Info)
+  final def important: A = make(Logger.LogLevel.Important)
+  final def warning: A = make(Logger.LogLevel.Warning)
+  final def error: A = make(Logger.LogLevel.Error)
+  final def fatal: A = make(Logger.LogLevel.Fatal)
+  final def always: A = make(Logger.LogLevel.Always)
 
 }
+
+trait WithLogLevel[A](override protected val make: Logger.LogLevel => A) extends WithLogLevelAbstract[A]
 object WithLogLevel {
-
-  def make[A](f: Logger.LogLevel => A): WithLogLevel[A] = new WithLogLevel[A](f)
-
+  def make[A](f: Logger.LogLevel => A): WithLogLevel[A] = new WithLogLevel[A](f) {}
 }

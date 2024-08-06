@@ -1,9 +1,7 @@
 package template.ui.web.helpers
 
-import harness.http.client.HttpClient
 import harness.webUI.*
 import harness.webUI.error.UIError
-import harness.zio.*
 import template.api.model.error.ApiError
 import zio.*
 
@@ -11,7 +9,7 @@ def redirectToLogin: UIError.Redirect = UIError.Redirect(Url("page", "login")())
 def redirectToHome: UIError.Redirect = UIError.Redirect(Url("page", "home")())
 def redirectToVerifyEmail: UIError.Redirect = UIError.Redirect(Url("page", "verify-email")())
 
-implicit class RequestOps[A](self: ZIO[HarnessEnv & HttpClient, ApiError, A]) {
+implicit class RequestOps[A](self: IO[ApiError, A]) {
 
   def toPageLoadTask: PageLoadTask[A] =
     self.mapError {

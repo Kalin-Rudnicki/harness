@@ -6,7 +6,6 @@ import harness.http.client.*
 import harness.payments.*
 import harness.payments.model.ids.*
 import harness.webUI.*
-import harness.zio.*
 import template.api.model.error.ApiError
 import template.api.model as ApiModel
 import template.api.spec as Spec
@@ -16,7 +15,7 @@ object Api {
 
   private val api: Spec.Api[EndpointSend] = EndpointSend.make("", "api" /: Spec.Api.spec(headerOrCookie.raw[ApiModel.user.UserToken]("empty")))
 
-  type ReqIO[+A] = ZIO[HarnessEnv & HttpClient, ApiError, A]
+  type ReqIO[+A] = IO[ApiError, A]
 
   object user {
 

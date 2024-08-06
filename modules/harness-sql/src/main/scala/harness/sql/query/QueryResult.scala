@@ -8,34 +8,34 @@ import harness.zio.*
 import zio.*
 import zio.stream.*
 
-final class QueryResult[O] private (queryName: String, fragment: Fragment, _stream: => ZStream[JDBCConnection & Logger & Scope, QueryError, O]) {
+final class QueryResult[O] private (queryName: String, fragment: Fragment, _stream: => ZStream[Database & Scope, QueryError, O]) {
 
-  def single: ZIO[JDBCConnection & Logger & Telemetry, QueryError, O] =
+  def single: ZIO[Database, QueryError, O] =
     chunk.flatMap {
       case Chunk(value) => ZIO.succeed(value)
       case chunk        => ZIO.fail(QueryError(queryName, fragment.sql, QueryError.Cause.InvalidResultSetSize("1", chunk.length)))
     }
 
-  def single[E](onMissing: => E)(implicit errorMapper: ErrorMapper[QueryError, E]): ZIO[JDBCConnection & Logger & Telemetry, E, O] =
+  def single[E](onMissing: => E)(implicit errorMapper: ErrorMapper[QueryError, E]): ZIO[Database, E, O] =
     option.mapError(errorMapper.mapError).someOrFail(onMissing)
 
-  def option: ZIO[JDBCConnection & Logger & Telemetry, QueryError, Option[O]] =
+  def option: ZIO[Database, QueryError, Option[O]] =
     chunk.flatMap {
       case Chunk(value) => ZIO.some(value)
       case Chunk()      => ZIO.none
       case chunk        => ZIO.fail(QueryError(queryName, fragment.sql, QueryError.Cause.InvalidResultSetSize("0..1", chunk.length)))
     }
 
-  inline def list: ZIO[JDBCConnection & Logger & Telemetry, QueryError, List[O]] = chunk.map(_.toList)
+  inline def list: ZIO[Database, QueryError, List[O]] = chunk.map(_.toList)
 
-  inline def chunk: ZIO[JDBCConnection & Logger & Telemetry, QueryError, Chunk[O]] = ZIO.scoped { _stream.runCollect }.telemetrize("Executed SQL query", "query-name" -> queryName)
+  inline def chunk: ZIO[Database, QueryError, Chunk[O]] = ZIO.scoped { _stream.runCollect }.telemetrize("Executed SQL query", "query-name" -> queryName)
 
-  def stream: ZStream[JDBCConnection & Logger & Scope, QueryError, O] = _stream
+  def stream: ZStream[Database & Scope, QueryError, O] = _stream
 
   // =====|  |=====
 
   // NOTE : Make sure results are ordered by `K`
-  def groupBy[K, V](kf: O => K)(vf: O => V): ZStream[JDBCConnection & Logger & Scope, QueryError, (K, NonEmptyChunk[V])] =
+  def groupBy[K, V](kf: O => K)(vf: O => V): ZStream[Database & Scope, QueryError, (K, NonEmptyChunk[V])] =
     _stream.groupAdjacentBy(kf).map { (k, os) => (k, os.map(vf)) }
 
   // NOTE : Make sure results are ordered by `K`

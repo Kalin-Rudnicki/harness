@@ -1,6 +1,7 @@
-package harness.zio
+package harness.zio.config
 
 import cats.syntax.either.*
+import harness.zio.*
 import zio.*
 import zio.json.*
 
@@ -28,9 +29,20 @@ object TelemetryConfig {
     DeriveJsonDecoder.gen
   }
 
+  def defaultJsonDecoder: JsonDecoder[TelemetryConfig] =
+    jsonDecoder(
+      loggedDecoder,
+    )
+
+  // =====|  |=====
+
+  final case class LoggedConfig(
+      level: Option[Logger.LogLevel],
+  ) derives JsonCodec
+
   val loggedDecoder: HConfig.KeyedConfigDecoder[TelemetryConfig.Src] =
-    HConfig.KeyedConfigDecoder.make[StdConfigs.Tolerance, TelemetryConfig.Src]("logged") { config =>
-      TelemetryConfig.Src(ZIO.succeed(Telemetry.log.withMinLogTolerance(config.logTolerance)))
+    HConfig.KeyedConfigDecoder.make[LoggedConfig, TelemetryConfig.Src]("logged") { config =>
+      TelemetryConfig.Src(ZIO.succeed(Telemetry.log.withMinLogTolerance(config.level)))
     }
 
 }

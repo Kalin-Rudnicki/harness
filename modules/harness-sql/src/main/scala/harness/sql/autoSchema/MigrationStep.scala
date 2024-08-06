@@ -1,7 +1,6 @@
 package harness.sql.autoSchema
 
-import harness.sql.{Col, JDBCConnection}
-import harness.zio.*
+import harness.sql.{Col, Database}
 import zio.*
 import zio.json.*
 import zio.json.ast.*
@@ -62,7 +61,7 @@ object MigrationStep {
         }
     }
 
-    final case class Code(name: String, up: RIO[HarnessEnv & JDBCConnection, Unit], down: Option[RIO[HarnessEnv & JDBCConnection, Unit]]) extends MigrationStep.InMemory
+    final case class Code(name: String, up: RIO[Database, Unit], down: Option[RIO[Database, Unit]]) extends MigrationStep.InMemory
   }
 
   final case class CreateSchema(ref: SchemaRef.Custom) extends MigrationStep.Encoded.SqlEncoded with MigrationStep.InMemory.Auto {

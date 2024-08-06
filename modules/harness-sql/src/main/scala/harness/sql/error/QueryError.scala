@@ -33,6 +33,8 @@ object QueryError {
         s"Query result had unexpected number of columns. Expected = $expected, actual = $actual."
       case Cause.UnableToExecuteQuery(cause) =>
         s"Error executing query: ${cause.safeGetMessage}"
+      case Cause.ErrorGettingConnection(cause) =>
+        s"Error getting connection: ${cause.safeGetMessage}"
       case Cause.Generic(message, cause) =>
         s"Generic query error '$message', cause: ${cause.safeGetMessage}"
     }
@@ -43,6 +45,7 @@ object QueryError {
     final case class InvalidResultSetSize(expected: String, actual: Int) extends Cause
     final case class RowDecodeFailure(errors: NonEmptyList[String], values: Chunk[Object]) extends Cause
     final case class InvalidResultSetWidth(expected: Int, actual: Int) extends Cause
+    final case class ErrorGettingConnection(cause: ConnectionError) extends Cause
     final case class UnableToExecuteQuery(cause: Throwable) extends Cause
 
     // TODO (KR) : try to eliminate this

@@ -7,9 +7,9 @@ import harness.http.server.*
 import harness.payments.service.PaymentProcessor
 import harness.sql.*
 import harness.sql.autoSchema.*
-import harness.sql.query.Transaction
 import harness.web.*
 import harness.zio.*
+import harness.zio.config.{LoggerConfig, TelemetryConfig}
 import template.api.impl as Impl
 import template.api.model as Api
 import template.api.service.*
@@ -26,83 +26,39 @@ import zio.json.*
 
 object Main extends ExecutableApp {
 
-  // TODO (KR) :
-  // override val config: ExecutableApp.Config = ExecutableApp.Config.default.addArchiveDecoders
+  // TODO (KR) : remove once JWT is used
+  final case class SessionTokenHeader(value: String)
+  object SessionTokenHeader {
+    implicit val jsonDecoder: JsonDecoder[SessionTokenHeader] = JsonDecoder.string.map(SessionTokenHeader(_))
+  }
 
-  final case class SessionTokenKey(value: String)
+  given JsonDecoder[LoggerConfig] = LoggerConfig.defaultJsonDecoder
+  given JsonDecoder[TelemetryConfig] = TelemetryConfig.defaultJsonDecoder
+
+  final case class Config(
+      logging: LoggerConfig,
+      telemetry: TelemetryConfig,
+      db: DbConfig,
+      ui: StdClientConfig,
+      email: EmailConfig,
+      http: Server.Config,
+      payment: PaymentConfig,
+      sessionTokenHeader: SessionTokenHeader, // TODO (KR) : remove once JWT is used
+  ) derives JsonDecoder
+
+  final case class EmailConfig(
+      client: EmailClient.LiveOrLoggedConfig,
+      service: LiveEmailService.Config,
+  ) derives JsonDecoder
+
+  final case class PaymentConfig(
+      stripe: PaymentProcessor.StripePaymentProcessor.Config,
+  ) derives JsonDecoder
+
+  // type ConfigEnv =
 
   type ServerEnv =
-    // Config
-    LiveSessionService.Config & Server.Config & PaymentProcessor.StripePaymentProcessor.Config & SessionTokenKey & StdClientConfig &
-      // Services
-      EmailService & PaymentProcessor &
-      // Other
-      JDBCConnectionPool
-  type ReqEnv =
-    // Apis
-    UserApi & PaymentApi &
-      // Other
-      SessionService & Transaction[DomainError]
-
-  val serverLayer: RLayer[HarnessEnv & Scope, ServerEnv] =
-    ZLayer.makeSome[HarnessEnv & Scope, ServerEnv](
-      // config read layer
-      HConfig.readLayer[DbConfig]("db"),
-      HConfig.readLayer[EmailConfig]("email", "client"),
-      HConfig.readLayer[StdClientConfig]("ui"),
-      HConfig.readLayer[Server.Config]("http"),
-      HConfig.readLayer[String]("http", "session", "key").project(SessionTokenKey(_)),
-      HConfig.readLayer[PaymentProcessor.StripePaymentProcessor.Config]("payment", "stripe"),
-      // compose
-      JDBCConnectionPool.configLayer,
-      EmailClient.liveLayer,
-      PaymentProcessor.StripePaymentProcessor.layer,
-      HConfig.readLayer[Boolean]("email", "service", "live").flatMap { live =>
-        if (live.get) HConfig.readLayer[LiveEmailService.Config]("email", "service") >>> LiveEmailService.liveLayer
-        else LiveEmailService.logLayer
-      },
-      ZLayer.fromZIO {
-        for {
-          http <- ZIO.service[Server.Config]
-          token <- ZIO.service[SessionTokenKey]
-        } yield LiveSessionService.Config(http.ssl.nonEmpty, token.value)
-      },
-    )
-
-  val reqLayer: URLayer[ServerEnv & JDBCConnection & Scope, ReqEnv] =
-    ZLayer.makeSome[ServerEnv & JDBCConnection & Scope, ReqEnv](
-      // db
-      Transaction.liveLayer[DomainError],
-      LiveUserStorage.liveLayer,
-      LiveSessionStorage.liveLayer,
-      LivePaymentMethodStorage.liveLayer,
-      // session
-      LiveSessionService.layer,
-      // api
-      UserApi.layer,
-      PaymentApi.layer,
-    )
-
-  val endpoints: URIO[
-    StdClientConfig & PaymentProcessor.StripePaymentProcessor.Config & Server.Config & SessionTokenKey,
-    StandardPattern[Spec.Api, Endpoint.Projection[Impl.Api.Env]],
-  ] =
-    for {
-      stdUIConfig <- ZIO.service[StdClientConfig]
-      serverConfig <- ZIO.service[Server.Config]
-      stripeConfig <- ZIO.service[PaymentProcessor.StripePaymentProcessor.Config]
-      sessionTokenKey <- ZIO.service[SessionTokenKey]
-
-      uiConfig = Api.config.UiConfig(
-        stdUIConfig,
-        stripeConfig.publishableKey,
-      )
-
-      endpoints = Endpoint.make(
-        StandardPattern.spec(Spec.Api.spec(headerOrCookie.raw[Api.user.UserToken](sessionTokenKey.value))),
-        StandardPattern.impl(serverConfig, uiConfig)(Impl.Api.impl),
-      )
-    } yield endpoints
+    Impl.Api.Env & Server.Config
 
   private val migrations: PlannedMigrations =
     PlannedMigrations(
@@ -113,14 +69,69 @@ object Main extends ExecutableApp {
       Migrations.`0.0.5`,
     )
 
+  val serverLayer: RLayer[Config & Scope, ServerEnv] =
+    ZLayer.makeSome[Config & Scope, ServerEnv](
+      // config
+      ZLayer.service[Config].project(_.db),
+      ZLayer.service[Config].project(_.email.client),
+      ZLayer.service[Config].project(_.email.service),
+      ZLayer.service[Config].project(_.http),
+      ZLayer.service[Config].project(_.payment.stripe),
+      ZLayer.service[Config].project(_.sessionTokenHeader), // TODO (KR) : remove once JWT is used
+      ZLayer.fromZIO {
+        for {
+          http <- ZIO.service[Server.Config]
+          token <- ZIO.service[SessionTokenHeader]
+        } yield LiveSessionService.Config(http.ssl.nonEmpty, token.value)
+      },
+      // storage
+      Database.poolLayerWithMigrations(migrations),
+      Atomically.Live.layer[DomainError],
+      LiveUserStorage.liveLayer,
+      LivePaymentMethodStorage.liveLayer,
+      LiveSessionStorage.liveLayer,
+      // service
+      EmailClient.liveOrLoggedLayer,
+      PaymentProcessor.StripePaymentProcessor.layer,
+      LiveSessionService.layer,
+      LiveEmailService.liveLayer,
+      // api
+      UserApi.layer,
+      PaymentApi.layer,
+    )
+
+  val endpoints: URIO[
+    Config,
+    StandardPattern[Spec.Api, Endpoint.Projection[Impl.Api.Env]],
+  ] =
+    for {
+      config <- ZIO.service[Config]
+      stdUIConfig = config.ui
+      serverConfig = config.http
+      stripeConfig = config.payment.stripe
+      sessionTokenHeader = config.sessionTokenHeader
+
+      uiConfig = Api.config.UiConfig(
+        stdUIConfig,
+        stripeConfig.publishableKey,
+      )
+
+      endpoints = Endpoint.make(
+        StandardPattern.spec(Spec.Api.spec(headerOrCookie.raw[Api.user.UserToken](sessionTokenHeader.value))),
+        StandardPattern.impl(serverConfig, uiConfig)(Impl.Api.impl),
+      )
+    } yield endpoints
+
   override val executable: Executable =
     Executable.fromSubCommands(
       "server" ->
         Executable
-          .withLayer[ServerEnv, Throwable] { serverLayer }
-          .withThrowableEffect {
-            MigrationRunner.runMigrationsFromPool(migrations) *>
-              endpoints.flatMap { Server.start[ServerEnv, ReqEnv, StandardPattern.Projection[Spec.Api], Impl.Api.Env](JDBCConnection.poolLayer >>> reqLayer, _) }
+          .withConfig[Config]
+          .withConfigLogger(_.logging)
+          .withConfigTelemetry(_.telemetry)
+          .withEnv[Config & ServerEnv] { (config, _) => ZLayer.succeed(config) >+> serverLayer }
+          .implement {
+            endpoints.flatMap { Server.start[ServerEnv, Any, StandardPattern.Projection[Spec.Api], Impl.Api.Env](ZLayer.empty, _) }
           },
     )
 

@@ -13,7 +13,7 @@ final class PortFinder(min: Int, max: Int, acquiredRef: Ref.Synchronized[Set[Int
     random.fold(effect)(effect.withRandom)
   }
 
-  private def attemptSocketConnect(host: String, port: Int): ZIO[Logger, Int, Int] =
+  private def attemptSocketConnect(host: String, port: Int): IO[Int, Int] =
     ZIO.scoped {
       Logger.addContext("target-port" -> port) {
         Logger.log.debug("Attempting to acquire port") *>
@@ -29,14 +29,14 @@ final class PortFinder(min: Int, max: Int, acquiredRef: Ref.Synchronized[Set[Int
       }
     }
 
-  private def attemptConnect(host: String, port: Int): ZIO[Logger & Scope, Int, Int] =
+  private def attemptConnect(host: String, port: Int): ZIO[Scope, Int, Int] =
     acquiredRef.modifyZIO { acquired =>
       if (acquired.contains(port)) ZIO.fail(port)
       else attemptSocketConnect(host, port).map(_ -> (acquired + port))
     } <*
       ZIO.addFinalizer(acquiredRef.update(_ - port))
 
-  private def rec(host: String, containerName: String, ports: List[Int]): URIO[Logger & Scope, Int] =
+  private def rec(host: String, containerName: String, ports: List[Int]): URIO[Scope, Int] =
     ports match {
       case port :: rest =>
         attemptConnect(host, port).foldCauseZIO(
@@ -47,7 +47,7 @@ final class PortFinder(min: Int, max: Int, acquiredRef: Ref.Synchronized[Set[Int
         ZIO.dieMessage(s"Unable to acquire port for container '$containerName' in range $min-$max")
     }
 
-  def acquirePort(containerName: String): URIO[Logger & Scope, Int] =
+  def acquirePort(containerName: String): URIO[Scope, Int] =
     Logger.addContext("container-name" -> containerName) {
       Logger.log.debug(s"Attempting to acquire localhost port for container '$containerName' in range [$min, $max]") *>
         randomPortList.flatMap(rec("localhost", containerName, _))
@@ -61,7 +61,7 @@ object PortFinder {
       Ref.Synchronized.make(Set.empty[Int]).map { new PortFinder(min, max, _, random) }
     }
 
-  def acquirePort(containerName: String): URIO[PortFinder & Logger & Scope, Int] =
+  def acquirePort(containerName: String): URIO[PortFinder & Scope, Int] =
     ZIO.serviceWithZIO[PortFinder](_.acquirePort(containerName))
 
 }

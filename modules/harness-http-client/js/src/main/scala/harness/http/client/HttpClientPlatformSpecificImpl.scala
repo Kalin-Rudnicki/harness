@@ -81,13 +81,11 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
               }
         } yield response.asInstanceOf[Receive[OutputBody[ET]]]
 
-      private inline def send(xhr: XMLHttpRequest, body: OutputStream): RIO[Logger, Unit] =
-        body match {
-          case OutputStream.Empty                     => ZIO.attempt { xhr.send() }
-          case OutputStream.Str(string)               => ZIO.attempt { xhr.send(string) }
-          case OutputStream.File(WrappedJsPath(file)) => ZIO.attempt { xhr.send(file) }
-          case _                                      => ZIO.dieMessage("TODO : send of invalid body not supported")
-        }
+      private inline def send(xhr: XMLHttpRequest, body: OutputStream): Task[Unit] = body match
+        case OutputStream.Empty                     => ZIO.attempt { xhr.send() }
+        case OutputStream.Str(string)               => ZIO.attempt { xhr.send(string) }
+        case OutputStream.File(WrappedJsPath(file)) => ZIO.attempt { xhr.send(file) }
+        case _                                      => ZIO.dieMessage("TODO : send of invalid body not supported")
 
       override def send_internal[ET <: EndpointType.Any](
           inputBodySchema: BodyCodec[InputBody[ET]],
@@ -96,9 +94,9 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
       )(
           request: HttpRequestParams,
           body: Send[InputBody[ET]],
-      ): ZIO[Logger & Telemetry, Error[ET], Receive[OutputBody[ET]]] =
+      ): IO[Error[ET], Receive[OutputBody[ET]]] =
         ZIO
-          .asyncZIO[Logger, Throwable, XMLHttpRequest] { register =>
+          .asyncZIO[Any, Throwable, XMLHttpRequest] { register =>
             for {
               xhr <- makeXHR
               _ <- openXHR(xhr, request.method, request.url, request.paths, request.queryParams)

@@ -61,7 +61,7 @@ object ErrorHandler {
       identity,
       _ => ???,
       _ => ApiInternalDefect.InternalDefect,
-      ErrorLogger.withGetMessage[Throwable].atLevel.error,
+      ErrorLogger.forThrowable[Throwable].atLevel.error,
       _ => identity,
     )
 

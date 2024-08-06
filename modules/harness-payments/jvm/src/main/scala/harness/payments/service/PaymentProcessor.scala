@@ -13,11 +13,11 @@ import zio.*
 import zio.json.*
 
 trait PaymentProcessor {
-  def createCustomer(customer: PM.create.Customer): ZIO[Logger & Telemetry, PaymentError, CustomerId]
-  def createSetupIntent(create: PM.create.SetupIntent): ZIO[Logger & Telemetry, PaymentError, PM.result.SetupIntent.Empty]
-  def getSetupIntent(setupIntentId: SetupIntentId): ZIO[Logger & Telemetry, PaymentError, PM.result.SetupIntent.Initialized]
-  def getPaymentMethod(paymentMethodId: PaymentMethodId): ZIO[Logger & Telemetry, PaymentError, PM.result.PaymentMethod]
-  def processPayment(payment: PM.create.Payment): ZIO[Logger & Telemetry, PaymentError, PaymentId] // TODO (KR) : payment?
+  def createCustomer(customer: PM.create.Customer): IO[PaymentError, CustomerId]
+  def createSetupIntent(create: PM.create.SetupIntent): IO[PaymentError, PM.result.SetupIntent.Empty]
+  def getSetupIntent(setupIntentId: SetupIntentId): IO[PaymentError, PM.result.SetupIntent.Initialized]
+  def getPaymentMethod(paymentMethodId: PaymentMethodId): IO[PaymentError, PM.result.PaymentMethod]
+  def processPayment(payment: PM.create.Payment): IO[PaymentError, PaymentId] // TODO (KR) : payment?
 }
 object PaymentProcessor {
 
@@ -52,7 +52,7 @@ object PaymentProcessor {
         }
     }
 
-    private def runStripe[R, E, A](method: String)(effect: => ZIO[R, E, A]): ZIO[R & Logger & Telemetry, E, A] =
+    private def runStripe[R, E, A](method: String)(effect: => ZIO[R, E, A]): ZIO[R, E, A] =
       (ZIO.attempt { Stripe.apiKey = config.secretKey }.orDie *> effect)
         .telemetrize(s"StripePaymentProcessor call", "stripe-method" -> method)
 
@@ -69,7 +69,7 @@ object PaymentProcessor {
       Logger.log.info(s"--- $mainLabel ---$fieldsStr")
     }
 
-    override def createCustomer(customer: PM.create.Customer): ZIO[Logger & Telemetry, PaymentError, CustomerId] =
+    override def createCustomer(customer: PM.create.Customer): IO[PaymentError, CustomerId] =
       runStripe("createCustomer") {
         for {
           params <- safeWrapStripeParams {
@@ -83,7 +83,7 @@ object PaymentProcessor {
         } yield CustomerId(customer.getId)
       }
 
-    override def createSetupIntent(create: PM.create.SetupIntent): ZIO[Logger & Telemetry, PaymentError, PM.result.SetupIntent.Empty] =
+    override def createSetupIntent(create: PM.create.SetupIntent): IO[PaymentError, PM.result.SetupIntent.Empty] =
       runStripe("createSetupIntent") {
         for {
           params <- safeWrapStripeParams {
@@ -98,7 +98,7 @@ object PaymentProcessor {
         } yield apiSetupIntent
       }
 
-    override def getSetupIntent(setupIntentId: SetupIntentId): ZIO[Logger & Telemetry, PaymentError, PM.result.SetupIntent.Initialized] =
+    override def getSetupIntent(setupIntentId: SetupIntentId): IO[PaymentError, PM.result.SetupIntent.Initialized] =
       runStripe("getSetupIntent") {
         for {
           setupIntent <- safeWrapStripeCall("SetupIntent.retrieve") { SetupIntent.retrieve(setupIntentId.value) }
@@ -106,7 +106,7 @@ object PaymentProcessor {
         } yield apiSetupIntent
       }
 
-    override def getPaymentMethod(paymentMethodId: PaymentMethodId): ZIO[Logger & Telemetry, PaymentError, PM.result.PaymentMethod] =
+    override def getPaymentMethod(paymentMethodId: PaymentMethodId): IO[PaymentError, PM.result.PaymentMethod] =
       runStripe("getPaymentMethod") {
         for {
           paymentMethod <- safeWrapStripeCall("PaymentMethod.retrieve") { PaymentMethod.retrieve(paymentMethodId.value) }
@@ -114,7 +114,7 @@ object PaymentProcessor {
         } yield apiPaymentMethod
       }
 
-    override def processPayment(payment: PM.create.Payment): ZIO[Logger & Telemetry, PaymentError, PaymentId] =
+    override def processPayment(payment: PM.create.Payment): IO[PaymentError, PaymentId] =
       runStripe("processPayment") {
         for {
           params <- safeWrapStripeParams {
@@ -154,19 +154,19 @@ object PaymentProcessor {
   // TODO (KR) :
   final case class MockPaymentProcessor() extends PaymentProcessor {
 
-    override def createCustomer(customer: PM.create.Customer): ZIO[Logger & Telemetry, PaymentError, CustomerId] =
+    override def createCustomer(customer: PM.create.Customer): IO[PaymentError, CustomerId] =
       ZIO.dieMessage("unimplemented : MockPaymentProcessor.createCustomer") // TODO (KR) :
 
-    override def createSetupIntent(create: PM.create.SetupIntent): ZIO[Logger & Telemetry, PaymentError, PM.result.SetupIntent.Empty] =
+    override def createSetupIntent(create: PM.create.SetupIntent): IO[PaymentError, PM.result.SetupIntent.Empty] =
       ZIO.dieMessage("unimplemented : MockPaymentProcessor.createSetupIntent") // TODO (KR) :
 
-    override def getSetupIntent(setupIntentId: SetupIntentId): ZIO[Logger & Telemetry, PaymentError, PM.result.SetupIntent.Initialized] =
+    override def getSetupIntent(setupIntentId: SetupIntentId): IO[PaymentError, PM.result.SetupIntent.Initialized] =
       ZIO.dieMessage("unimplemented : MockPaymentProcessor.getSetupIntent") // TODO (KR) :
 
-    override def getPaymentMethod(paymentMethodId: PaymentMethodId): ZIO[Logger & Telemetry, PaymentError, PM.result.PaymentMethod] =
+    override def getPaymentMethod(paymentMethodId: PaymentMethodId): IO[PaymentError, PM.result.PaymentMethod] =
       ZIO.dieMessage("unimplemented : MockPaymentProcessor.getPaymentMethod") // TODO (KR) :
 
-    override def processPayment(payment: PM.create.Payment): ZIO[Logger & Telemetry, PaymentError, PaymentId] =
+    override def processPayment(payment: PM.create.Payment): IO[PaymentError, PaymentId] =
       ZIO.dieMessage("unimplemented : MockPaymentProcessor.processPayment") // TODO (KR) :
 
   }

@@ -4,6 +4,7 @@ import cats.syntax.option.*
 import harness.archive.model as D
 import harness.http.client.*
 import harness.zio.*
+import harness.zio.config.{HConfig, LoggerConfig}
 import zio.*
 import zio.json.*
 

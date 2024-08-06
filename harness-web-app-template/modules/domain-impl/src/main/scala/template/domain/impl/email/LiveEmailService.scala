@@ -2,7 +2,6 @@ package template.domain.impl.email
 
 import cats.data.NonEmptyList
 import harness.email.*
-import harness.zio.*
 import template.domain.email.EmailService
 import template.domain.model.DomainError
 import zio.*
@@ -19,7 +18,7 @@ final case class LiveEmailService(
   )(
       subject: String,
       body: String,
-  ): ZIO[Logger & Telemetry, DomainError.FailedToSendEmail, Unit] =
+  ): IO[DomainError.FailedToSendEmail, Unit] =
     client
       .sendEmail(
         SendEmail(
@@ -43,12 +42,5 @@ object LiveEmailService {
 
   val liveLayer: URLayer[LiveEmailService.Config & EmailClient, EmailService] =
     ZLayer.fromFunction { LiveEmailService.apply }
-
-  val logLayer: ULayer[EmailService] =
-    ZLayer.make[EmailService](
-      ZLayer.succeed(LiveEmailService.Config(EmailAddress.parseUnsafe("no.op@email.com"))),
-      EmailClient.logLayer,
-      LiveEmailService.liveLayer,
-    )
 
 }

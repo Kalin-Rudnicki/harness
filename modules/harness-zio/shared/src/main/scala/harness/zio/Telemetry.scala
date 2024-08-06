@@ -4,86 +4,79 @@ import java.time.Instant
 import zio.*
 import zio.json.*
 
-trait Telemetry { self =>
+trait Telemetry {
 
-  def telemetrize(event: Telemetry.Trace): URIO[Logger, Boolean]
+  def telemetrize(event: Telemetry.Trace): UIO[Boolean]
+
+  final def telemetrize[R, E, A](
+      effect: ZIO[R, E, A],
+      label: String,
+      logLevel: Logger.LogLevel,
+      telemetryContext: Logger.LogContext,
+      trace: Logger.Trace,
+  ): ZIO[R, E, A] =
+    (for {
+      start <- Clock.instant
+      logContext <- Logger.getContext
+      exit <- effect.interruptible.exit
+      end <- Clock.instant
+      _ <- this.telemetrize(Telemetry.Trace(logLevel, label, start, end, exit.isSuccess, telemetryContext, logContext, trace))
+      res <- exit
+    } yield res).uninterruptible
 
   final def withMinLogTolerance(min: Logger.LogLevel): Telemetry =
-    new Telemetry {
-      override def telemetrize(event: Telemetry.Trace): URIO[Logger, Boolean] =
-        ZIO.when(event.logLevel.logPriority >= min.tolerancePriority)(self.telemetrize(event)).map(_.getOrElse(false))
-    }
+    event =>
+      if (event.logLevel.logPriority >= min.tolerancePriority) this.telemetrize(event)
+      else ZIO.succeed(false)
 
-  final def ||(other: Telemetry): Telemetry =
-    new Telemetry {
-      override def telemetrize(event: Telemetry.Trace): URIO[Logger, Boolean] =
-        self.telemetrize(event) || other.telemetrize(event)
-    }
+  final def withMinLogTolerance(min: Option[Logger.LogLevel]): Telemetry = min match
+    case Some(min) => withMinLogTolerance(min)
+    case None      => this
 
-  final def &&(other: Telemetry): Telemetry =
-    new Telemetry {
-      override def telemetrize(event: Telemetry.Trace): URIO[Logger, Boolean] =
-        (self.telemetrize(event) <&> other.telemetrize(event)).map { _ || _ }
-    }
+  final def ||(that: Telemetry): Telemetry =
+    event => this.telemetrize(event) || that.telemetrize(event)
+
+  final def &&(that: Telemetry): Telemetry =
+    event => (this.telemetrize(event) <&> that.telemetrize(event)).map { _ || _ }
 
 }
 object Telemetry {
 
-  val configLayer: URLayer[TelemetryConfig & Scope, Telemetry] =
-    ZLayer.fromZIO { ZIO.serviceWithZIO[TelemetryConfig](_.telemetry) }
+  // =====| API |=====
 
-  // =====| Api |=====
+  // --- Modify ---
 
-  def telemetrize[R, E, A](
-      effect: ZIO[R, E, A],
-      label: String,
-      logLevel: Logger.LogLevel,
-      telemetryContext: Map[String, String],
-  ): ZIO[Telemetry & Logger & R, E, A] =
-    Clock.instant.flatMap { startInstant =>
-      effect.foldCauseZIO(
-        { cause =>
-          Clock.instant.flatMap { endInstant =>
-            Telemetry.telemetrize(label, logLevel, startInstant, endInstant, false, telemetryContext) *> ZIO.failCause(cause)
-          }
-        },
-        { a =>
-          Clock.instant.flatMap { endInstant =>
-            Telemetry.telemetrize(label, logLevel, startInstant, endInstant, true, telemetryContext) *> ZIO.succeed(a)
-          }
-        },
-      )
-    }
+  def withTelemetry(f: Telemetry => Telemetry): FiberRefModification =
+    Telemetry.telemetryRef.modification.update(f)
+  def withTelemetry(telemetry: Telemetry): FiberRefModification =
+    Telemetry.telemetryRef.modification.set(telemetry)
+
+  def withMinLogTolerance(min: Logger.LogLevel): FiberRefModification =
+    Telemetry.telemetryRef.modification.update(_.withMinLogTolerance(min))
+
+  // --- Execute ---
 
   def telemetrize(
       label: String,
       logLevel: Logger.LogLevel,
-      startInstant: Instant,
-      endInstant: Instant,
-      success: Boolean,
-      telemetryContext: Map[String, String],
-  ): URIO[Telemetry & Logger, Unit] =
-    for {
-      telemetry <- ZIO.service[Telemetry]
-      logContext <- Logger.getContext
-      _ <- telemetry.telemetrize(Telemetry.Trace(logLevel, label, startInstant, endInstant, success, telemetryContext, logContext))
-    } yield ()
+      telemetryContext: Logger.LogContext,
+  ): ZIOAspectPoly =
+    new ZIOAspectPoly.Impl {
+      override def apply[R, E, A](effect: ZIO[R, E, A])(implicit trace: zio.Trace): ZIO[R, E, A] =
+        Telemetry.telemetryRef.getWith(_.telemetrize(effect, label, logLevel, telemetryContext, Logger.Trace.fromZio(trace)))
+    }
 
   // =====| Types |=====
 
-  final class StartMarker(startInstant: Instant) {
+  final class StartMarker(start: Instant) {
 
-    def markEnd(label: String, logLevel: Logger.LogLevel, success: Boolean, telemetryContext: (String, Any)*): URIO[Telemetry & Logger, Unit] =
-      Clock.instant.flatMap { endInstant =>
-        telemetrize(
-          label,
-          logLevel,
-          startInstant,
-          endInstant,
-          success,
-          telemetryContext.map { case (k, v) => k -> String.valueOf(v) }.toMap,
-        )
-      }
+    def markEnd(label: String, logLevel: Logger.LogLevel, success: Boolean, telemetryContext: (String, Any)*)(implicit trace: zio.Trace): UIO[Unit] =
+      for {
+        end <- Clock.instant
+        telemetry <- Telemetry.telemetryRef.get
+        logContext <- Logger.getContext
+        _ <- telemetry.telemetrize(Telemetry.Trace(logLevel, label, start, end, success, Logger.LogContext(telemetryContext), logContext, Logger.Trace.fromZio(trace)))
+      } yield ()
 
   }
   object StartMarker {
@@ -96,39 +89,42 @@ object Telemetry {
       startInstant: Instant,
       endInstant: Instant,
       success: Boolean,
-      telemetryContext: Map[String, String],
-      logContext: Map[String, String],
+      telemetryContext: Logger.LogContext,
+      logContext: Logger.LogContext,
+      trace: Logger.Trace,
   ) { self =>
 
     def duration: Duration = Duration.fromInterval(startInstant, endInstant)
 
     def toLoggerEvent: Logger.Event =
-      Logger.Event.AtLogLevel(
+      Logger.Event(
         self.logLevel,
-        { () =>
-          Logger.Event.Output(
-            self.telemetryContext + ("success" -> self.success.toString),
-            s"TELEMETRY - (${self.label}) [${self.duration.render}]${if (self.success) "" else " *** FAIL ***"}",
-          )
-        },
+        "TELEMETRY",
+        self.telemetryContext ++ Chunk("label" -> self.label, "duration" -> self.duration.render, "success" -> self.success.toString),
+        Logger.Cause.Empty,
+        trace,
+        None,
       )
 
   }
   object Trace {
     implicit val jsonCodec: JsonCodec[Trace] = DeriveJsonCodec.gen
   }
-
-  // =====| Layers |=====
+  // =====|  |=====
 
   val none: Telemetry =
-    new Telemetry {
-      override def telemetrize(event: Telemetry.Trace): URIO[Logger, Boolean] = ZIO.succeed(false)
-    }
+    _ => ZIO.succeed(false)
 
   val log: Telemetry =
-    new Telemetry {
-      override def telemetrize(event: Telemetry.Trace): URIO[Logger, Boolean] =
-        Logger.execute { event.toLoggerEvent }.as(true)
+    event => Logger.execute { event.toLoggerEvent }.as(true)
+
+  private[zio] val telemetryRef: FiberRef[Telemetry] =
+    Unsafe.unsafely {
+      FiberRef.unsafe.make[Telemetry](
+        Telemetry.log,
+        identity,
+        (_, child) => child,
+      )
     }
 
 }

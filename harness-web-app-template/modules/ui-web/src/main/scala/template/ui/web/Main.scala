@@ -8,7 +8,7 @@ import zio.*
 
 object Main extends PageApp[ApiModel.config.UiConfig] {
 
-  override protected val preload: RIO[Environment, Unit] =
+  override protected val preload: RIO[ApiModel.config.UiConfig, Unit] =
     ZIO.serviceWithZIO[ApiModel.config.UiConfig] { cfg => PaymentsUI.initStripe(cfg.stripePublishableKey) }
 
   override val styleSheets: List[StyleSheet] = List(DefaultStyleSheet)

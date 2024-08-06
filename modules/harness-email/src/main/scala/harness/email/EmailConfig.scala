@@ -10,14 +10,12 @@ final case class EmailConfig(
     port: Int,
     authType: EmailConfig.AuthType,
     passwordMap: Option[Map[EmailAddress, String]],
-)
+) derives JsonCodec
 object EmailConfig {
 
   enum AuthType extends Enum[AuthType] { case NoAuth, TLS, SSL }
   object AuthType extends Enum.Companion[AuthType] {
     implicit val jsonCodec: JsonCodec[AuthType] = JsonCodec.`enum`[AuthType, String]
   }
-
-  implicit val jsonCodec: JsonCodec[EmailConfig] = DeriveJsonCodec.gen
 
 }

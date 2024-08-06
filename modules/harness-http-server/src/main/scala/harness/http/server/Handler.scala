@@ -1,18 +1,19 @@
 package harness.http.server
 
-import cats.syntax.option.*
 import com.sun.net.httpserver.{HttpExchange, HttpHandler}
 import harness.endpoint.types.*
 import harness.endpoint.types.Types.*
 import harness.web.{HttpCode, HttpMethod}
 import harness.web.Constants.harnessInternalErrorHeader
 import harness.zio.{Path as _, *}
+import harness.zio.ErrorLogger.ThrowableInstances.*
+import harness.zio.json.*
 import java.util.Base64
 import scala.annotation.tailrec
 import zio.*
 
 final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
-    serverRuntime: Runtime[HarnessEnv & ServerEnv],
+    serverRuntime: Runtime[ServerEnv],
     reqLayer: RLayer[ServerEnv & Scope, ReqEnv],
     endpoints: List[Endpoint[ServerEnv & ReqEnv, EndpointType.Any]],
     debugErrorHeader: Boolean,
@@ -30,8 +31,9 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
       endpoint: Endpoint[ServerEnv & ReqEnv, ET],
   )(
       parsedPath: Path[ET],
-  ): URIO[HarnessEnv & ServerEnv & Scope, HttpResponse[OutputResult]] = {
+  ): URIO[ServerEnv & Scope, HttpResponse[OutputResult]] = {
     val errorHandler = endpoint.implementation.errorHandler
+    implicit val errorLogger: ErrorLogger[endpoint.implementation.DomainError] = errorHandler.errorLogger
 
     val convertError: Cause[endpoint.implementation.DomainError] => endpoint.implementation.DomainError = {
       case Cause.Fail(error, _) =>
@@ -51,15 +53,15 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
     endpoint
       .handleRaw(request, parsedPath)
       .flatMap { response => OutputResult.fromOutputStream(response.body).mapBoth(errorHandler.convertUnexpectedError, b => response.copy(body = b)) }
-      .provideSomeLayer[HarnessEnv & ServerEnv & Scope] { ZLayer.succeed(request) ++ reqLayer.mapError(errorHandler.convertUnexpectedError) }
-      .tapErrorCause(Logger.logErrorCauseSimple(_, Logger.LogLevel.Error, Logger.LogLevel.Debug.some)(using errorHandler.errorLogger))
+      .provideSomeLayer[ServerEnv & Scope] { ZLayer.succeed(request) ++ reqLayer.mapError(errorHandler.convertUnexpectedError) }
+      .tapErrorCause(Logger.logCause.error(_))
       .foldCause(
         { cause =>
           val domainError = convertError(cause)
           val apiError = errorHandler.convertDomainError.mapError(domainError)
           val (errorCode, errorBody) = endpoint.spec.errorCodec.encode(apiError)
           val optErrorHeader = Option.when(debugErrorHeader) {
-            Base64.getEncoder.encodeToString(errorHandler.errorLogger.convert(domainError)._2.getBytes)
+            Base64.getEncoder.encodeToString(errorHandler.errorLogger.show(domainError).jsonToStringPretty.getBytes)
           }
           errorHandler
             .headersAndCookiesOnError(apiError)(HttpResponse(OutputResult.fromString(errorBody), errorCode))
@@ -74,7 +76,7 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
       startMarker: Telemetry.StartMarker,
       request: HttpRequest,
       endpoints: List[Endpoint[ServerEnv & ReqEnv, EndpointType.Any]], // expected to only have the right method
-  ): URIO[HarnessEnv & ServerEnv & Scope, HttpResponse[OutputResult]] =
+  ): URIO[ServerEnv & Scope, HttpResponse[OutputResult]] =
     endpoints match {
       case eHead :: eTail =>
         eHead.spec.pathCodec.decodePath(request.path) match {
@@ -99,32 +101,32 @@ final case class Handler[ServerEnv, ReqEnv: EnvironmentTag](
         }
     }
 
-  private def handleZIO(exchange: HttpExchange): URIO[HarnessEnv & ServerEnv, Unit] =
+  private def handleZIO(exchange: HttpExchange): URIO[ServerEnv, Unit] =
     Random.nextUUID.flatMap { requestId =>
-      Logger.addContext("request-id" -> requestId) {
-        ZIO
-          .scoped {
-            for {
-              responseBody <- ZIO.fromAutoCloseable { ZIO.succeed(exchange.getResponseBody) }
+      ZIO
+        .scoped {
+          for {
+            responseBody <- ZIO.fromAutoCloseable { ZIO.succeed(exchange.getResponseBody) }
 
-              request <- ZIO.attempt { HttpRequest.read(exchange, requestId) }
-              startMarker <- Telemetry.StartMarker.make
-              response <- loop(startMarker, request, groupedByMethod.getOrElse(request.method, Nil))
+            request <- ZIO.attempt { HttpRequest.read(exchange, requestId) }
+            startMarker <- Telemetry.StartMarker.make
+            response <- loop(startMarker, request, groupedByMethod.getOrElse(request.method, Nil))
 
-              _ <- ZIO.attempt {
-                val headers = exchange.getResponseHeaders
-                response.headers.foreach { (k, vs) => vs.foreach(headers.add(k, _)) }
-                response.cookies.reverse.foreach { c => headers.add("Set-Cookie", c.cookieString) }
-              }
-              _ <- ZIO.attempt { exchange.sendResponseHeaders(response.code.code, response.body.length) }
-              _ <- ZIO.attempt { response.body.writeOutput(responseBody) }
-            } yield ()
-          }
-          .logErrorCauseSimpleAndContinue(Logger.LogLevel.Error, Logger.LogLevel.Debug.some)(using ErrorLogger.ThrowableInstances.getMessageErrorLogger)
-          .unit
-          .telemetrize("HTTP server - request handler", Logger.LogLevel.Detailed, "method" -> exchange.getRequestMethod, "path" -> exchange.getRequestURI.getPath)
-      }
-
+            _ <- ZIO.attempt {
+              val headers = exchange.getResponseHeaders
+              response.headers.foreach { (k, vs) => vs.foreach(headers.add(k, _)) }
+              response.cookies.reverse.foreach { c => headers.add("Set-Cookie", c.cookieString) }
+            }
+            _ <- ZIO.attempt { exchange.sendResponseHeaders(response.code.code, response.body.length) }
+            _ <- ZIO.attempt { response.body.writeOutput(responseBody) }
+          } yield ()
+        }
+        .logErrorDiscard
+        .simpleCause(Logger.LogLevel.Error)
+        .telemetrize
+        .detailed("HTTP server - request handler", "method" -> exchange.getRequestMethod, "path" -> exchange.getRequestURI.getPath)
+        .unit @@
+        Logger.addContext("request-id" -> requestId).aspect
     }
 
   override def handle(httpExchange: HttpExchange): Unit =

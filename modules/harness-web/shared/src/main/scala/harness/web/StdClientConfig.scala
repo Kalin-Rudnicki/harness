@@ -4,10 +4,7 @@ import harness.zio.*
 import zio.json.*
 
 final case class StdClientConfig(
-    logTolerance: Logger.LogLevel,
-) {
+    logLevel: Logger.LogLevel,
+) derives JsonCodec {
   def basic: HasStdClientConfig.Basic = HasStdClientConfig.Basic(this)
-}
-object StdClientConfig {
-  implicit val jsonCodec: JsonCodec[StdClientConfig] = DeriveJsonCodec.gen
 }

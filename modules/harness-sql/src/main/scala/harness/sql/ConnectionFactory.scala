@@ -11,9 +11,15 @@ final class ConnectionFactory private (
 object ConnectionFactory {
 
   private def wrapUnsafe(get: => Connection): ConnectionFactory =
-    new ConnectionFactory(ZIO.acquireAutoClosable(ZIO.attempt(get)).mapBoth(ConnectionError(_), JDBCConnection(_)))
+    new ConnectionFactory(
+      for {
+        con <- ZIO.attempt(get).autoClose.mapError(ConnectionError(_))
+        id <- Random.nextUUID
+      } yield JDBCConnection(con, id),
+    )
 
   def apply(url: String): ConnectionFactory = wrapUnsafe(DriverManager.getConnection(url))
   def apply(url: String, user: String, password: String): ConnectionFactory = wrapUnsafe(DriverManager.getConnection(url, user, password))
+  def apply(dbConfig: DbConfig): ConnectionFactory = ConnectionFactory(dbConfig.psqlJdbcUrl, dbConfig.credentials.username, dbConfig.credentials.password)
 
 }

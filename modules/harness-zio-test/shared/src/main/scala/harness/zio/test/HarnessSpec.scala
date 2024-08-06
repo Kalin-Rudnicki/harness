@@ -10,6 +10,7 @@ abstract class HarnessSpec[_R: EnvironmentTag] extends ZIOSpecDefault {
   final type DefaultEnv = HarnessSpec.DefaultEnv
   final type Env = DefaultEnv & R
 
+  final type TestSpecAspect = TestAspectAtLeastR[Env]
   final type TestSpec = Spec[Env, Any]
 
   // =====| Abstract |=====
@@ -22,27 +23,43 @@ abstract class HarnessSpec[_R: EnvironmentTag] extends ZIOSpecDefault {
 
   def withDefaultAspects: Boolean = true
 
-  def testAspects: Chunk[TestAspectAtLeastR[Env]] = Chunk.empty
+  /**
+    * Chunk of aspects to be applied to [[testSpec]].
+    * Note: `Chunk(a, b, c)` will yield `a(b(c(testSpec)))`.
+    */
+  def testAspects: Chunk[TestSpecAspect] = Chunk.empty
+
+  // TODO (KR) : allow aspects with `Chunk[TestAspectAtLeastR[DefaultEnv]]` that can be applied after layer application.
 
   // =====| Concrete |=====
 
+  // TODO (KR) : The logger
   override final def spec: Spec[TestEnvironment & Scope, Any] = {
-    val allAspects: Chunk[TestAspectAtLeastR[Env]] =
-      if (withDefaultAspects) HarnessSpec.defaultTestAspects ++ testAspects
-      else testAspects
-    val spec2: TestSpec = allAspects.foldLeft(testSpec)(_ @@ _)
-    val spec3: Spec[DefaultEnv, Any] = layerProvider.build(spec2)
-    val spec4: Spec[TestEnvironment & Scope, Any] = spec3.provideSomeLayer(HarnessTestEnv.layer)
+    val spec2: TestSpec =
+      testAspects.foldRight(testSpec) { case (a, s) => s @@ a }
+    val spec3: Spec[DefaultEnv, Any] =
+      layerProvider.build(spec2)
+    val spec4: Spec[DefaultEnv, Any] =
+      if (withDefaultAspects) HarnessSpec.defaultTestAspects.foldRight(spec3) { case (a, s) => s @@ a }
+      else spec3
+    val spec5: Spec[TestEnvironment & Scope, Any] =
+      spec4.provideSomeLayer(HarnessTestEnv.layer)
 
-    spec4
+    spec5
   }
 
 }
 object HarnessSpec {
 
-  type DefaultEnv = HarnessEnv & HarnessTestEnv & TestEnvironment & Scope
+  type DefaultEnv = HarnessTestEnv & TestEnvironment & Scope
 
   private val defaultTestAspects: Chunk[TestAspectAtLeastR[DefaultEnv]] =
-    Chunk(TestAspect.samples(15), TestAspect.shrinks(0), HAspects.logTestPathAndDuration)
+    Chunk(
+      TestAspect.samples(15),
+      TestAspect.shrinks(0),
+      Logger.withLevel.important.testAspect,
+      HAspects.setLoggerSources,
+      HAspects.logTestPathAndDuration,
+    )
 
 }

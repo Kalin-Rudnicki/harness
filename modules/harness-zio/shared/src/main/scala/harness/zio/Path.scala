@@ -71,7 +71,7 @@ trait Path {
 }
 object Path {
 
-  inline def apply(string: String): ZIO[FileSystem, FSError.UnableToResolvePath, Path] = FileSystem.path(string)
+  inline def apply(string: String): IO[FSError.UnableToResolvePath, Path] = FileSystem.path(string)
 
   final case class Name(
       name: String,

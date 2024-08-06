@@ -30,7 +30,7 @@ object StringDecoder {
     f(_).leftMap(NonEmptyList.one)
 
   def fromOptionF[R](typeName: String, f: String => Option[R]): StringDecoder[R] =
-    str => f(str).toRight(NonEmptyList.one(s"Malformatted $typeName '$str'"))
+    str => f(str).toRight(NonEmptyList.one(s"Invalid $typeName '$str'"))
 
   def fromTryF[R](typeName: String, f: String => R): StringDecoder[R] =
     fromOptionF(typeName, string => Try(f(string)).toOption)

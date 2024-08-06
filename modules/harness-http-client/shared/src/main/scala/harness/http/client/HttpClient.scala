@@ -15,7 +15,7 @@ trait HttpClient { self =>
   )(
       request: HttpRequestParams,
       body: Send[InputBody[ET]],
-  ): ZIO[Logger & Telemetry & Scope, Error[ET], Receive[OutputBody[ET]]]
+  ): ZIO[Scope, Error[ET], Receive[OutputBody[ET]]]
 
   final def send[ET <: EndpointType.Any](
       inputBodySchema: BodyCodec[InputBody[ET]],
@@ -24,7 +24,7 @@ trait HttpClient { self =>
   )(
       request: HttpRequestParams,
       body: Send[InputBody[ET]],
-  ): ZIO[Logger & Telemetry & Scope, Error[ET], Receive[OutputBody[ET]]] =
+  ): ZIO[Scope, Error[ET], Receive[OutputBody[ET]]] =
     self
       .send_internal(inputBodySchema, outputBodySchema, errorSchema)(request, body)
       .telemetrize("HTTP Client Send", "url" -> request.url, "path" -> request.paths.mkString("/", "/", ""))
@@ -32,6 +32,21 @@ trait HttpClient { self =>
 }
 object HttpClient extends HttpClientPlatformSpecific with HttpClientPlatformSpecificImpl {
 
-  final val defaultLayer: ULayer[HttpClient] = ZLayer.succeed { defaultClient }
+  private[client] val httpClientRef: FiberRef[HttpClient] =
+    Unsafe.unsafely {
+      FiberRef.unsafe.make[HttpClient](
+        defaultClient,
+        identity,
+        (_, child) => child,
+      )
+    }
+
+  // =====| API |=====
+
+  def withHttpClient(f: HttpClient): FiberRefModification =
+    HttpClient.httpClientRef.modification.set(f)
+
+  def withHttpClient(f: HttpClient => HttpClient): FiberRefModification =
+    HttpClient.httpClientRef.modification.update(f)
 
 }

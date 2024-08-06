@@ -18,10 +18,10 @@ final case class UserApi(
     emailService: EmailService,
 ) {
 
-  def get(token: Api.user.UserToken): ZIO[HarnessEnv, DomainError, User] =
+  def get(token: Api.user.UserToken): IO[DomainError, User] =
     sessionService.getUserAllowUnverifiedEmail(token)
 
-  def login(req: Api.user.Login): ZIO[HarnessEnv, DomainError, (User, Api.user.UserToken)] =
+  def login(req: Api.user.Login): IO[DomainError, (User, Api.user.UserToken)] =
     for {
       _ <- Logger.log.info("Attempting login", "username" -> req.username.toLowerCase)
       user <- userStorage.byUsername(req.username).someOrFail(DomainError.InvalidUsername(req.username))
@@ -30,14 +30,14 @@ final case class UserApi(
       _ <- sessionStorage.insert(session)
     } yield (user, session.token)
 
-  def logOut(token: Api.user.UserToken): ZIO[HarnessEnv, DomainError, Unit] =
+  def logOut(token: Api.user.UserToken): IO[DomainError, Unit] =
     for {
       _ <- Logger.log.info("Attempting logout")
       session <- sessionService.getSession(token)
       _ <- sessionStorage.deleteById(session.id)
     } yield ()
 
-  def signUp(req: Api.user.SignUp): ZIO[HarnessEnv, DomainError, (User, Api.user.UserToken)] =
+  def signUp(req: Api.user.SignUp): IO[DomainError, (User, Api.user.UserToken)] =
     for {
       _ <- Logger.log.info("Attempting sign-up", "username" -> req.username.toLowerCase)
       existingUser <- userStorage.byUsername(req.username)
@@ -55,7 +55,7 @@ final case class UserApi(
       )
     } yield (user, session.token)
 
-  def verifyEmail(token: Api.user.UserToken, code: Api.user.EmailVerificationCode): ZIO[HarnessEnv, DomainError, Unit] =
+  def verifyEmail(token: Api.user.UserToken, code: Api.user.EmailVerificationCode): IO[DomainError, Unit] =
     for {
       _ <- Logger.log.info("Attempting to verify email")
       user <- sessionService.getUserAllowUnverifiedEmail(token)
@@ -67,7 +67,7 @@ final case class UserApi(
       _ <- userStorage.setEmailCodes(user.id, None)
     } yield ()
 
-  def resendEmailVerification(token: Api.user.UserToken): ZIO[HarnessEnv, DomainError, Unit] =
+  def resendEmailVerification(token: Api.user.UserToken): IO[DomainError, Unit] =
     for {
       _ <- Logger.log.info("Attempting to resend email code")
       user <- sessionService.getUserAllowUnverifiedEmail(token)

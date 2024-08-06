@@ -3,8 +3,8 @@ package template.ui.web.pages
 import cats.data.EitherNel
 import cats.syntax.either.*
 import harness.webUI.*
-import harness.webUI.style.{given, *}
-import harness.webUI.vdom.{given, *}
+import harness.webUI.style.{*, given}
+import harness.webUI.vdom.{*, given}
 import harness.webUI.widgets.*
 import template.api.model as ApiModel
 import template.ui.web.helpers.*

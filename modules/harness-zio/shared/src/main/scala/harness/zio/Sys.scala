@@ -10,10 +10,10 @@ import zio.json.*
 
 trait Sys {
 
-  def execute(cmd: Sys.Command, logLevels: Option[Sys.LogLevels]): ZIO[Logger, SysError, Int]
-  def executeString0(cmd: Sys.Command, logLevels: Option[Sys.LogLevels]): ZIO[Logger, SysError, String]
+  def execute(cmd: Sys.Command, logLevels: Option[Sys.LogLevels]): IO[SysError, Int]
+  def executeString0(cmd: Sys.Command, logLevels: Option[Sys.LogLevels]): IO[SysError, String]
 
-  final def execute0(cmd: Sys.Command, logLevels: Option[Sys.LogLevels]): ZIO[Logger, SysError, Unit] =
+  final def execute0(cmd: Sys.Command, logLevels: Option[Sys.LogLevels]): IO[SysError, Unit] =
     execute(cmd, logLevels).flatMap {
       case 0    => ZIO.unit
       case code => ZIO.fail(SysError.NonZeroExitCode(cmd, code))
@@ -21,6 +21,24 @@ trait Sys {
 
 }
 object Sys {
+
+  private[zio] val sysRef: FiberRef[Sys] =
+    Unsafe.unsafely {
+      FiberRef.unsafe.make[Sys](
+        Sys.Live(false),
+        identity,
+        (_, child) => child,
+      )
+    }
+
+  // =====| API |=====
+
+  def withSys(f: Sys): FiberRefModification =
+    Sys.sysRef.modification.set(f)
+  def withSys(f: Sys => Sys): FiberRefModification =
+    Sys.sysRef.modification.update(f)
+
+  // =====| Types |=====
 
   final case class LogLevels(outLevel: Logger.LogLevel, errLevel: Logger.LogLevel)
 
@@ -41,10 +59,10 @@ object Sys {
 
     // --- Execute ---
 
-    abstract class ExecuteBuilder[A](run: (Sys, Option[Sys.LogLevels]) => ZIO[Logger, SysError, A]) {
-      def apply(logLevels: Option[Sys.LogLevels]): ZIO[Sys & Logger, SysError, A] = ZIO.serviceWithZIO[Sys] { run(_, logLevels) }
-      def apply(outLevel: Logger.LogLevel = Logger.LogLevel.Info, errLevel: Logger.LogLevel = Logger.LogLevel.Error): ZIO[Sys & Logger, SysError, A] = apply(LogLevels(outLevel, errLevel).some)
-      def simple: ZIO[Sys & Logger, SysError, A] = apply(None)
+    abstract class ExecuteBuilder[A](run: (Sys, Option[Sys.LogLevels]) => IO[SysError, A]) {
+      def apply(logLevels: Option[Sys.LogLevels]): IO[SysError, A] = Sys.sysRef.getWith { run(_, logLevels) }
+      def apply(outLevel: Logger.LogLevel = Logger.LogLevel.Info, errLevel: Logger.LogLevel = Logger.LogLevel.Error): IO[SysError, A] = apply(LogLevels(outLevel, errLevel).some)
+      def simple: IO[SysError, A] = apply(None)
     }
 
     object execute extends ExecuteBuilder[Int](_.execute(self, _))
@@ -77,12 +95,10 @@ object Sys {
 
   // =====| Live |=====
 
-  def liveLayer(addCommandLogContext: Boolean): ULayer[Sys] = ZLayer.succeed { Sys.Live(addCommandLogContext) }
-
   final case class Live(addCommandLogContext: Boolean) extends Sys {
 
-    private inline def makeLogger(logLevels: LogLevels): URIO[Logger, HarnessProcessLogger] =
-      ZIO.runtime[Logger].map(HarnessProcessLogger(_, logLevels.outLevel, logLevels.errLevel))
+    private inline def makeLogger(logLevels: LogLevels)(implicit trace: Trace): UIO[HarnessProcessLogger] =
+      ZIO.runtime[Any].map(HarnessProcessLogger(_, logLevels.outLevel, logLevels.errLevel, Logger.Trace.fromZio(trace)))
 
     private inline def attempt[O](cmd: Command)(thunk: => O): IO[SysError.GenericError, O] =
       ZIO.attempt { thunk }.mapError(SysError.GenericError(cmd, _))
@@ -90,7 +106,7 @@ object Sys {
     private def doRun[O](cmd: Sys.Command, logLevels: Option[LogLevels])(
         withLogger: (ProcessBuilder, HarnessProcessLogger) => O,
         withoutLogger: ProcessBuilder => O,
-    ): ZIO[Logger, SysError, O] = {
+    ): IO[SysError, O] = {
       val base =
         logLevels match {
           case Some(logLevels) =>
@@ -106,24 +122,25 @@ object Sys {
       else base
     }
 
-    override def execute(cmd: Command, logLevels: Option[LogLevels]): ZIO[Logger, SysError, Int] =
+    override def execute(cmd: Command, logLevels: Option[LogLevels]): IO[SysError, Int] =
       doRun(cmd, logLevels)(_.!<(_), _.!<)
 
-    override def executeString0(cmd: Command, logLevels: Option[LogLevels]): ZIO[Logger, SysError, String] =
+    override def executeString0(cmd: Command, logLevels: Option[LogLevels]): IO[SysError, String] =
       doRun(cmd, logLevels)(_.!!<(_), _.!!<)
 
   }
 
   // =====| Unimplemented |=====
 
+  // TODO (KR) : remove
   val unimplementedLayer: ULayer[Sys] = ZLayer.succeed { Sys.Unimplemented }
 
   case object Unimplemented extends Sys {
 
-    override def execute(cmd: Command, logLevels: Option[LogLevels]): ZIO[Logger, SysError, Int] =
+    override def execute(cmd: Command, logLevels: Option[LogLevels]): IO[SysError, Int] =
       ZIO.fail(SysError.GenericError(cmd, new UnsupportedOperationException("Unimplemented - Sys.execute")))
 
-    override def executeString0(cmd: Command, logLevels: Option[LogLevels]): ZIO[Logger, SysError, String] =
+    override def executeString0(cmd: Command, logLevels: Option[LogLevels]): IO[SysError, String] =
       ZIO.fail(SysError.GenericError(cmd, new UnsupportedOperationException("Unimplemented - Sys.executeString0")))
 
   }
@@ -133,10 +150,10 @@ object Sys {
   // TODO (KR) : support multi-line collapsing into a single log event, ex:
   // [INFO ]: ABC
   //        : DEF
-  final case class HarnessProcessLogger(runtime: Runtime[Logger], outLevel: Logger.LogLevel, errLevel: Logger.LogLevel) extends ProcessLogger {
+  final case class HarnessProcessLogger(runtime: Runtime[Any], outLevel: Logger.LogLevel, errLevel: Logger.LogLevel, trace: Logger.Trace) extends ProcessLogger {
 
     private def run(defaultLevel: Logger.LogLevel, message: String): Unit =
-      Unsafe.unsafely { runtime.unsafe.run(Logger.execute(HarnessProcessLogger.MessageDecoder.decode(defaultLevel, message, HarnessProcessLogger.MessageDecoder.all))).getOrThrow() }
+      Unsafe.unsafely { runtime.unsafe.run(Logger.execute(HarnessProcessLogger.MessageDecoder.decode(defaultLevel, message, HarnessProcessLogger.MessageDecoder.all, trace))).getOrThrow() }
 
     override def out(s: => String): Unit = run(outLevel, s)
 
@@ -148,12 +165,12 @@ object Sys {
   object HarnessProcessLogger {
 
     trait MessageDecoder {
-      def decode(defaultLevel: Logger.LogLevel, message: String): Option[Logger.Event]
+      def decode(defaultLevel: Logger.LogLevel, message: String, trace: Logger.Trace): Option[Logger.Event]
     }
     object MessageDecoder {
 
-      def make(f: PartialFunction[(Logger.LogLevel, String), Logger.Event]): MessageDecoder =
-        (l, m) => f.lift((l, m))
+      def make(f: PartialFunction[(Logger.LogLevel, String, Logger.Trace), Logger.Event]): MessageDecoder =
+        (l, m, t) => f.lift((l, m, t))
 
       private def decodeJson[A: JsonDecoder]: Unapply[String, A] = _.fromJson[A].toOption
 
@@ -170,26 +187,29 @@ object Sys {
         case _                                 => None
       }
 
-      private def makeEvent(level: Logger.LogLevel, context: Map[String, String], message: String): Logger.Event =
-        Logger.Event.AtLogLevel(level, () => Logger.Event.Output(context, message))
-
       val all: List[MessageDecoder] =
         List(
-          MessageDecoder.make { case (defaultLevel, harnessLoggerJson(event)) => makeEvent(event.logLevel.getOrElse(defaultLevel), event.context, event.message) },
-          MessageDecoder.make { case (defaultLevel, levelAndMessage(_, harnessLoggerJson(event))) => makeEvent(event.logLevel.getOrElse(defaultLevel), event.context, event.message) },
-          MessageDecoder.make { case (_, levelAndMessage(decodeLogLevel(level), message)) => makeEvent(level, Map.empty, message) },
-          // TODO (KR) : add decoders for SLF4J json
+          MessageDecoder.make { case (defaultLevel, harnessLoggerJson(event), _) =>
+            Logger.Event(event.logLevel.getOrElse(defaultLevel), event.message, event.context, event.cause, event.trace, event.stackTrace)
+          },
+          MessageDecoder.make { case (defaultLevel, levelAndMessage(_, harnessLoggerJson(event)), _) =>
+            Logger.Event(event.logLevel.getOrElse(defaultLevel), event.message, event.context, event.cause, event.trace, event.stackTrace)
+          },
+          MessageDecoder.make { case (_, levelAndMessage(decodeLogLevel(level), message), trace) =>
+            Logger.Event(level, message, Chunk.empty, Logger.Cause.Empty, trace, None)
+          },
+          // TODO (KR) : add decoders for default zio-logger / SLF4J json
         )
 
       @tailrec
-      def decode(defaultLevel: Logger.LogLevel, message: String, decoders: List[MessageDecoder]): Logger.Event =
+      def decode(defaultLevel: Logger.LogLevel, message: String, decoders: List[MessageDecoder], trace: Logger.Trace): Logger.Event =
         decoders match {
           case head :: tail =>
-            head.decode(defaultLevel, message) match {
+            head.decode(defaultLevel, message, trace) match {
               case Some(event) => event
-              case None        => decode(defaultLevel, message, tail)
+              case None        => decode(defaultLevel, message, tail, trace)
             }
-          case Nil => makeEvent(defaultLevel, Map.empty, message)
+          case Nil => Logger.Event(defaultLevel, message, Chunk.empty, Logger.Cause.Empty, trace, None)
         }
 
     }

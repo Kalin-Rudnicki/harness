@@ -55,14 +55,14 @@ object TmpMain extends ExecutableApp {
     )
 
   trait Service1 {
-    def sayHi(message: String): URIO[Logger, Unit]
+    def sayHi(message: String): Task[Unit]
   }
   object Service1 {
 
     val layer: ULayer[Service1] =
       ZLayer.succeed {
         new Service1 {
-          override def sayHi(message: String): URIO[Logger, Unit] = Logger.log.info(message)
+          override def sayHi(message: String): Task[Unit] = Logger.log.info(message)
         }
       }
 
@@ -93,12 +93,14 @@ object TmpMain extends ExecutableApp {
       route1 = Implementation[Pattern1.Route1].implement { (id: UUID) =>
         ZIO
           .serviceWithZIO[Service1](_.sayHi(id.toString))
+          .mapError(DomainError.InternalDefect(_): DomainError)
           .as(HttpResponse(id.toString))
       },
       route2 = Implementation[Pattern1.Route2].implement { (id: UUID, auth: String) =>
         Logger.log.info(s"auth: $auth") *>
           ZIO
             .serviceWithZIO[Service1](_.sayHi(id.toString))
+            .mapError(DomainError.InternalDefect(_): DomainError)
             .as(HttpResponse(id.toString))
       },
       route3 = Implementation[Pattern1.Route3].implement { (id: UUID) =>
@@ -115,7 +117,7 @@ object TmpMain extends ExecutableApp {
   override val executable: Executable =
     Executable.fromSubCommands(
       "server" -> Executable
-        .withLayer {
+        .withEnv { (_, _) =>
           ZLayer.succeed {
             Server.Config(
               3030.some,
@@ -126,7 +128,7 @@ object TmpMain extends ExecutableApp {
             )
           }
         }
-        .withThrowableEffect {
+        .implement {
           for {
             _ <- Logger.log.info("=====| Server |=====")
             _ <- Server.start[Any, Service1 & String, Pattern1, Service1](
@@ -135,7 +137,7 @@ object TmpMain extends ExecutableApp {
             )
           } yield ()
         },
-      "client" -> Executable.withLayer { HttpClient.defaultLayer }.withEffect {
+      "client" -> Executable.implement {
         for {
           _ <- Logger.log.info("=====| Client |=====")
           res1 <- client.route1(UUID.randomUUID).either

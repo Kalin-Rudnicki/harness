@@ -1,7 +1,5 @@
 package harness.webUI
 
-import cats.syntax.option.*
-import harness.http.client.HttpClient
 import harness.webUI.error.UIError
 import harness.webUI.vdom.*
 import harness.zio.*
@@ -11,15 +9,15 @@ import scala.annotation.nowarn
 import zio.*
 
 abstract class RaiseHandler[-A, -S] private (
-    runtime: Runtime[HarnessEnv & HttpClient],
+    runtime: Runtime[Any],
 ) { self =>
 
   val handleRaise: Raise[A, S] => PageTask[Unit]
 
   // =====| Public API |=====
 
-  private def logCauseAndShowErrors(cause: Cause[UIError.Failure]): URIO[HarnessEnv & HttpClient, Unit] =
-    Logger.logErrorCauseSimple(cause, Logger.LogLevel.Error, Logger.LogLevel.Debug.some) *>
+  private def logCauseAndShowErrors(cause: Cause[UIError.Failure]): UIO[Unit] =
+    Logger.logCause(Logger.LogLevel.Error)(cause) *>
       ZIO
         .foreachDiscard(cause.collapsedCauseFailures.toList) { fail =>
           ZIO.foreachDiscard(fail.value.messages.toList.map(_.pageMessage))(msg => handleRaise(Raise.DisplayMessage(msg)))
@@ -87,7 +85,7 @@ abstract class RaiseHandler[-A, -S] private (
 }
 object RaiseHandler {
 
-  private def apply[A, S](runtime: Runtime[HarnessEnv & HttpClient])(_handleRaise: Raise[A, S] => PageTask[Unit]): RaiseHandler[A, S] =
+  private def apply[A, S](runtime: Runtime[Any])(_handleRaise: Raise[A, S] => PageTask[Unit]): RaiseHandler[A, S] =
     new RaiseHandler[A, S](runtime) {
       override val handleRaise: Raise[A, S] => PageTask[Unit] = _handleRaise
     }
@@ -98,13 +96,13 @@ object RaiseHandler {
       widget: PModifier[A, PageState[S], PageState[S], Any],
       handleA: A => PageTask[List[Raise.StandardOrUpdate[PageState[S]]]],
       titleF: Either[String, S => String],
-      runtime: Runtime[HarnessEnv & HttpClient],
+      runtime: Runtime[Any],
       urlToPage: Url => Page,
   ): RaiseHandler[A, PageState[S]] =
     new RaiseHandler[A, PageState[S]](runtime) { self =>
       override val handleRaise: Raise[A, PageState[S]] => PageTask[Unit] = { raise =>
         def displayPageMessages(pageMessages: List[PageMessage]): PageTask[Unit] =
-          ZIO.foreachDiscard(pageMessages)(pm => Logger.log(pm.logLevel, pm.title)) *>
+          ZIO.foreachDiscard(pageMessages)(pm => Logger.log(pm.logLevel)(pm.title)) *>
             stateRef.updateZIO { state =>
               val newState = PageState(state.pageMessages ::: pageMessages, state.state)
               val newVDom = widget.build(self, newState)

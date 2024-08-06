@@ -63,6 +63,19 @@ implicit class ZIOOps[R, E, A](self: ZIO[R, E, A]) {
   def mapErrorTo[E2](implicit errorMapper: ErrorMapper[E, E2]): ZIO[R, E2, A] =
     self.mapError(errorMapper.mapError)
 
+  def partialStacklessFailures(f: E => Boolean): ZIO[R, E, A] =
+    self.mapErrorCause(_.partialStacklessFailures(f))
+  def stacklessFailures: ZIO[R, E, A] =
+    self.mapErrorCause(_.stacklessFailures)
+  def stacklessCause: ZIO[R, E, A] =
+    self.mapErrorCause(Cause.stackless)
+
+}
+
+implicit class ZIOAutoClosableOps[R, E, A <: java.lang.AutoCloseable](self: ZIO[R, E, A]) {
+
+  def autoClose: ZIO[R & Scope, E, A] = ZIO.fromAutoCloseable { self }
+
 }
 
 implicit class OptionZIOOps[R, E, A](self: ZIO[R, E, Option[A]]) {
@@ -86,13 +99,12 @@ implicit class CauseOps[E](self: Cause[E]) {
       .toNel
 
   def collapsedCauseFailures(implicit errorMapper: ErrorMapper[Throwable, E]): NonEmptyList[Cause.Fail[E]] =
-    self.collapse.causeFailuresOpt match {
+    self.collapse.causeFailuresOpt match
       case Some(value) => value
       case None        => throw new RuntimeException("collapsedCauseFailures = Nil, should not be possible")
-    }
 
   def collapse(implicit errorMapper: ErrorMapper[Throwable, E]): Cause[E] =
-    self match {
+    self match
       case Cause.Empty                       => Cause.fail(errorMapper.mapError(new RuntimeException("Empty Cause")))
       case Cause.Fail(value, trace)          => Cause.Fail(value, trace)
       case Cause.Die(value, trace)           => Cause.Fail(errorMapper.mapError(value), trace)
@@ -100,7 +112,18 @@ implicit class CauseOps[E](self: Cause[E]) {
       case Cause.Stackless(cause, stackless) => Cause.Stackless(cause.collapse, stackless)
       case Cause.Then(left, right)           => Cause.Then(left.collapse, right.collapse)
       case Cause.Both(left, right)           => Cause.Both(left.collapse, right.collapse)
-    }
+
+  def stacklessFailures: Cause[E] = self match
+    case fail @ Cause.Fail(_, _) => Cause.stackless(fail)
+    case Cause.Then(left, right) => Cause.Then(left.stacklessFailures, right.stacklessFailures)
+    case Cause.Both(left, right) => Cause.Both(left.stacklessFailures, right.stacklessFailures)
+    case _                       => self
+
+  def partialStacklessFailures(f: E => Boolean): Cause[E] = self match
+    case fail @ Cause.Fail(e, _) if f(e) => Cause.stackless(fail)
+    case Cause.Then(left, right)         => Cause.Then(left.stacklessFailures, right.stacklessFailures)
+    case Cause.Both(left, right)         => Cause.Both(left.stacklessFailures, right.stacklessFailures)
+    case _                               => self
 
 }
 
@@ -108,35 +131,75 @@ implicit class CauseOps[E](self: Cause[E]) {
 
 implicit class ZIOLogTelemetryOps[R, E, A](self: ZIO[R, E, A]) {
 
-  inline def telemetrize(label: String, telemetryContext: (String, Any)*): ZIO[Telemetry & Logger & R, E, A] =
-    self.telemetrize(label, Logger.LogLevel.Trace, telemetryContext*)
-  def telemetrize(label: String, logLevel: Logger.LogLevel, telemetryContext: (String, Any)*): ZIO[Telemetry & Logger & R, E, A] =
-    Telemetry.telemetrize(self, label, logLevel, telemetryContext.map { (k, v) => (k, String.valueOf(v)) }.toMap)
+  object telemetrize {
 
-  def logErrorAndContinue(context: (String, Any)*)(implicit errorLogger: ErrorLogger[E]): URIO[R & Logger, Option[A]] =
-    self.foldZIO(
-      Logger.logError(_, context*).as(None),
-      ZIO.some,
-    )
+    def apply(label: String, logLevel: Logger.LogLevel, telemetryContext: (String, Any)*)(implicit trace: Trace): ZIO[R, E, A] =
+      self @@ Telemetry.telemetrize(label, logLevel, Logger.LogContext(telemetryContext))
 
-  def logErrorCauseAndContinue(
-      causeLevel: Logger.LogLevel,
-      stackTraceLevel: Option[Logger.LogLevel],
-      context: (String, Any)*,
-  )(implicit errorLogger: ErrorLogger[E]): URIO[R & Logger, Option[A]] =
-    self.foldCauseZIO(
-      Logger.logErrorCause(_, causeLevel, stackTraceLevel, context*).as(None),
-      ZIO.some,
-    )
+    def apply(label: String, telemetryContext: (String, Any)*)(implicit trace: Trace): ZIO[R, E, A] =
+      apply(label, Logger.LogLevel.Trace, telemetryContext*)
 
-  def logErrorCauseSimpleAndContinue(
-      causeLevel: Logger.LogLevel,
-      stackTraceLevel: Option[Logger.LogLevel],
-      context: (String, Any)*,
-  )(implicit errorLogger: ErrorLogger[E]): URIO[R & Logger, Option[A]] =
-    self.foldCauseZIO(
-      Logger.logErrorCauseSimple(_, causeLevel, stackTraceLevel, context*).as(None),
-      ZIO.some,
-    )
+    // Note : WithLogLevelAbstract was not giving good type hints
+    def apply(logLevel: Logger.LogLevel)(label: String, telemetryContext: (String, Any)*): ZIO[R, E, A] = apply(label, logLevel, telemetryContext*)
+    def never(label: String, telemetryContext: (String, Any)*)(implicit trace: Trace): ZIO[R, E, A] = apply(label, Logger.LogLevel.Never, telemetryContext*)
+    def trace(label: String, telemetryContext: (String, Any)*)(implicit trace: Trace): ZIO[R, E, A] = apply(label, Logger.LogLevel.Trace, telemetryContext*)
+    def debug(label: String, telemetryContext: (String, Any)*)(implicit trace: Trace): ZIO[R, E, A] = apply(label, Logger.LogLevel.Debug, telemetryContext*)
+    def detailed(label: String, telemetryContext: (String, Any)*)(implicit trace: Trace): ZIO[R, E, A] = apply(label, Logger.LogLevel.Detailed, telemetryContext*)
+    def info(label: String, telemetryContext: (String, Any)*)(implicit trace: Trace): ZIO[R, E, A] = apply(label, Logger.LogLevel.Info, telemetryContext*)
+    def important(label: String, telemetryContext: (String, Any)*)(implicit trace: Trace): ZIO[R, E, A] = apply(label, Logger.LogLevel.Important, telemetryContext*)
+    def warning(label: String, telemetryContext: (String, Any)*)(implicit trace: Trace): ZIO[R, E, A] = apply(label, Logger.LogLevel.Warning, telemetryContext*)
+    def error(label: String, telemetryContext: (String, Any)*)(implicit trace: Trace): ZIO[R, E, A] = apply(label, Logger.LogLevel.Error, telemetryContext*)
+    def fatal(label: String, telemetryContext: (String, Any)*)(implicit trace: Trace): ZIO[R, E, A] = apply(label, Logger.LogLevel.Fatal, telemetryContext*)
+    def always(label: String, telemetryContext: (String, Any)*)(implicit trace: Trace): ZIO[R, E, A] = apply(label, Logger.LogLevel.Always, telemetryContext*)
+
+  }
+
+  sealed abstract class ErrorLogOps(
+      doLog: (Logger.LogLevel, Cause[E], Seq[(String, Any)], Trace, ErrorLogger[E]) => UIO[Unit],
+  ) {
+
+    /**
+      * If the [[Cause]] has a [[Cause.Fail]], log it, and succeed with None.
+      */
+    def failure(
+        context: (String, Any)*,
+    )(implicit trace: Trace, errorLogger: ErrorLogger[E]): URIO[R, Option[A]] =
+      self.foldCauseZIO(
+        _.failureTraceOrCause match {
+          case Left((e, stackTrace)) => doLog(Logger.LogLevel.Error, Cause.Fail(e, stackTrace), context, trace, errorLogger).as(None)
+          case Right(cause)          => ZIO.refailCause(cause)
+        },
+        ZIO.some,
+      )
+
+    /**
+      * No matter the [[Cause]], log it, and succeed with None.
+      */
+    def cause(
+        causeLevel: Logger.LogLevel,
+        context: (String, Any)*,
+    )(implicit trace: Trace, errorLogger: ErrorLogger[E]): URIO[R, Option[A]] =
+      self.foldCauseZIO(
+        doLog(causeLevel, _, context, trace, errorLogger).as(None),
+        ZIO.some,
+      )
+
+    /**
+      * No matter the [[Cause]], log it, and succeed with None.
+      * If the [[Cause]] contains a [[Cause.Fail]], only that cause will be logged, instead of all potential causes.
+      */
+    def simpleCause(
+        causeLevel: Logger.LogLevel,
+        context: (String, Any)*,
+    )(implicit trace: Trace, errorLogger: ErrorLogger[E]): URIO[R, Option[A]] =
+      self.foldCauseZIO(
+        cause => doLog(causeLevel, cause.failureTraceOption.fold(cause) { case (e, stackTrace) => Cause.Fail(e, stackTrace) }, context, trace, errorLogger).as(None),
+        ZIO.some,
+      )
+
+  }
+
+  object logErrorDiscard extends ErrorLogOps((causeLevel, cause, context, trace, errorLogger) => Logger.logCause(causeLevel)(cause, context*)(using trace, errorLogger))
+  object logErrorStackDiscard extends ErrorLogOps((causeLevel, cause, context, trace, errorLogger) => Logger.logCauseStack(causeLevel)(cause, context*)(using trace, errorLogger))
 
 }

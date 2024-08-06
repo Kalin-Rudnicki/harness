@@ -16,7 +16,7 @@ implicit val errorHandler: ErrorHandler.Id[DomainError, ApiError] =
     },
     convertUnexpectedError = DomainError.UnexpectedServerError(_),
     convertDomainError = _.toApi,
-    errorLogger = ErrorLogger.withJsonShow[DomainError].atLevel.error, // TODO (KR) :
+    errorLogger = ErrorLogger.jsonEncoded[DomainError].atLevel.error, // TODO (KR) :
     headersAndCookiesOnError = {
       case ApiError.InvalidSessionToken => identity // TODO (KR) : need token key - unset
       case _                            => identity

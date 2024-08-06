@@ -23,7 +23,7 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
         if (queryParams.isEmpty) ""
         else queryParams.map(encodeQueryParam(_, _)).mkString("?", "&", "")
 
-      private inline def makeUrl(url: String, paths: List[String], queryParams: List[(String, String)]): RIO[Logger, URL] =
+      private inline def makeUrl(url: String, paths: List[String], queryParams: List[(String, String)]): Task[URL] =
         ZIO.attempt { new URL(s"$url${paths.map(p => s"/${URLEncoder.encode(p, "UTF-8")}").mkString}${encodeQueryParams(queryParams)}") }
 
       private inline def getConnection(url: URL): RIO[Scope, HttpURLConnection] =
@@ -58,7 +58,7 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
             }
         }
 
-      private inline def getResponseParamsAndStream(con: HttpURLConnection): RIO[Logger & Scope, (HttpResponseParams, InputStream)] =
+      private inline def getResponseParamsAndStream(con: HttpURLConnection): RIO[Scope, (HttpResponseParams, InputStream)] =
         for {
           responseCode: HttpCode <- ZIO.attempt { con.getResponseCode() }.mapBoth(new RuntimeException("Error getting response code", _), HttpCode(_))
           contentLength: Long <- ZIO.attempt { con.getContentLengthLong() }.mapError(new RuntimeException("Error getting content length", _))
@@ -109,20 +109,18 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
       )(
           requestParams: HttpRequestParams,
           body: Send[InputBody[ET]],
-      ): ZIO[Logger & Telemetry, Error[ET], Receive[OutputBody[ET]]] =
-        ZIO.scoped {
-          for {
-            url <- makeUrl(requestParams.url, requestParams.paths, requestParams.queryParams).orDie
-            _ <- Logger.log.debug(s"Sending HTTP request to: $url")
-            con: HttpURLConnection <- getConnection(url).orDie
-            _ <- setMethod(con, requestParams.method).orDie
-            _ <- ZIO.attempt { con.setDoOutput(true) }.orDie
-            _ <- setHeaders(con, requestParams.headers).orDie
-            _ <- setBody(con, inputBodySchema.out(body)).orDie
-            (responseParams, stream) <- getResponseParamsAndStream(con).orDie
-            result <- readResponseBody[ET](outputBodySchema, errorSchema)(requestParams, responseParams, stream)
-          } yield result
-        }
+      ): ZIO[Scope, Error[ET], Receive[OutputBody[ET]]] =
+        for {
+          url <- makeUrl(requestParams.url, requestParams.paths, requestParams.queryParams).orDie
+          _ <- Logger.log.debug(s"Sending HTTP request to: $url")
+          con: HttpURLConnection <- getConnection(url).orDie
+          _ <- setMethod(con, requestParams.method).orDie
+          _ <- ZIO.attempt { con.setDoOutput(true) }.orDie
+          _ <- setHeaders(con, requestParams.headers).orDie
+          _ <- setBody(con, inputBodySchema.out(body)).orDie
+          (responseParams, stream) <- getResponseParamsAndStream(con).orDie
+          result <- readResponseBody[ET](outputBodySchema, errorSchema)(requestParams, responseParams, stream)
+        } yield result
 
     }
 

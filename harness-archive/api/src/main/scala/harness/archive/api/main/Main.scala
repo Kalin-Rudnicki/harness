@@ -5,6 +5,7 @@ import harness.docker.sql.DockerPostgres
 import harness.sql.*
 import harness.sql.autoSchema.MigrationRunner
 import harness.zio.*
+import harness.zio.config.HConfig
 import zio.*
 
 object Main extends ExecutableApp {

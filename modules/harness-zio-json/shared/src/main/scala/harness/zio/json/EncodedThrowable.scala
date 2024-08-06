@@ -1,14 +1,16 @@
 package harness.zio.json
 
 import harness.core.*
+import harness.zio.HTag
 import zio.json.*
 
 final case class EncodedThrowable(
-    className: String,
+    classTag: HTag[?],
     message: String,
     cause: Option[EncodedThrowable],
 ) extends Throwable {
   override def getMessage: String = this.toJsonPretty
+  override def getCause: Throwable = cause.orNull
 }
 object EncodedThrowable {
 
@@ -17,7 +19,7 @@ object EncodedThrowable {
       case throwable: EncodedThrowable => throwable
       case _ =>
         EncodedThrowable(
-          throwable.getClass.getName,
+          HTag.fromClass(throwable.getClass),
           throwable.safeGetMessage,
           Option(throwable.getCause).map(EncodedThrowable.fromThrowable),
         )

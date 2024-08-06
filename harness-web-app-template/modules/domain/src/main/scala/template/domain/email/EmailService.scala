@@ -1,7 +1,6 @@
 package template.domain.email
 
 import harness.email.*
-import harness.zio.*
 import template.domain.model.*
 import zio.*
 
@@ -13,6 +12,6 @@ trait EmailService {
   )(
       subject: String,
       body: String,
-  ): ZIO[Logger & Telemetry, DomainError.FailedToSendEmail, Unit]
+  ): IO[DomainError.FailedToSendEmail, Unit]
 
 }

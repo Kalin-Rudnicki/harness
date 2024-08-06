@@ -1,13 +1,12 @@
 package harness.payments
 
 import cats.syntax.option.*
-import harness.http.client.HttpClient
 import harness.payments.facades.*
 import harness.payments.model.Currency
 import harness.payments.model.ids.*
 import harness.webUI.*
 import harness.webUI.error.UIError
-import harness.webUI.vdom.{given, *}
+import harness.webUI.vdom.{*, given}
 import harness.webUI.widgets.*
 import harness.zio.*
 import org.scalajs.dom.{document, window}
@@ -21,7 +20,7 @@ object PaymentsUI {
   private val stripeApiKey: Ref[Option[String]] =
     Unsafe.unsafely { Runtime.default.unsafe.run { Ref.make(Option.empty[String]) }.getOrThrow() }
 
-  def initStripe(apiKey: String): RIO[Logger, Unit] =
+  def initStripe(apiKey: String): Task[Unit] =
     Logger.log.debug("Loading stripe src") *>
       stripeApiKey.set(apiKey.some) *>
       ZIO
@@ -80,7 +79,7 @@ object PaymentsUI {
   }
 
   def paymentForm(
-      createIntent: ZIO[HarnessEnv & HttpClient, UIError.Failure, ClientSecret],
+      createIntent: IO[UIError.Failure, ClientSecret],
       paymentsEnv: PaymentEnv,
       redirectUrl: Url,
   ): CModifier =

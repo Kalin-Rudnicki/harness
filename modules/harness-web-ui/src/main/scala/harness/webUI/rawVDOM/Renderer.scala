@@ -9,7 +9,7 @@ import zio.*
 
 final class Renderer private (ref: Ref.Synchronized[Option[VDom.State]]) {
 
-  def render(title: String, newVDoms: List[Modifier]): RIO[HarnessEnv, Unit] =
+  def render(title: String, newVDoms: List[Modifier]): Task[Unit] =
     ref
       .updateZIO { oldVDomState =>
         val runSetTitle = ZIO.attempt(window.document.title = title)

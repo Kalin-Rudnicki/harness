@@ -10,10 +10,10 @@ object PostgresTestContainer extends ContainerBuilder[PortFinder, DbConfig]("pos
 
   protected final case class Internal(host: String, port: Int, database: String, username: String, password: String)
 
-  override protected def makeInternal(metadata: ContainerBuilder.Metadata): RIO[HarnessEnv & PortFinder & Scope, Internal] =
+  override protected def makeInternal(metadata: ContainerBuilder.Metadata): RIO[PortFinder & Scope, Internal] =
     PortFinder.acquirePort("database").map(Internal("localhost", _, "test_container_database", "test-container-user", "test-container-password"))
 
-  override protected def makeContainers(internal: Internal, metadata: ContainerBuilder.Metadata): RIO[HarnessEnv & PortFinder & Scope, List[TestContainer]] =
+  override protected def makeContainers(internal: Internal, metadata: ContainerBuilder.Metadata): RIO[PortFinder & Scope, List[TestContainer]] =
     ZIO.succeed {
       metadata
         .makeContainer("database", "postgres", "latest") {
@@ -30,7 +30,7 @@ object PostgresTestContainer extends ContainerBuilder[PortFinder, DbConfig]("pos
         :: Nil
     }
 
-  override protected def makeEnv(internal: Internal, metadata: ContainerBuilder.Metadata): RIO[HarnessEnv & PortFinder & Scope, ZEnvironment[DbConfig]] =
+  override protected def makeEnv(internal: Internal, metadata: ContainerBuilder.Metadata): RIO[PortFinder & Scope, ZEnvironment[DbConfig]] =
     ZIO.attempt {
       ZEnvironment {
         DbConfig
@@ -38,6 +38,7 @@ object PostgresTestContainer extends ContainerBuilder[PortFinder, DbConfig]("pos
             target = DbConfig.Target(internal.database, internal.host.some, internal.port.some),
             credentials = DbConfig.Credentials(internal.username, internal.password),
             pool = DbConfig.PoolConfig(1, 16, 1.minute),
+            logging = DbConfig.Logging(true, true),
           )
           .toConfigUnsafe
       }

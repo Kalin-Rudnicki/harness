@@ -1,17 +1,18 @@
 package harness.sql.query
 
-import harness.sql.JDBCConnection
+import harness.sql.Database
 import harness.sql.error.QueryError
 import harness.zio.*
 import zio.*
 
-final class BatchQueryResult private[query] (queryName: String, @scala.annotation.unused fragment: Fragment, effect: ZIO[JDBCConnection & Logger, QueryError, Chunk[Int]]) {
+final class BatchQueryResult private[query] (queryName: String, @scala.annotation.unused fragment: Fragment, effect: ZIO[Database, QueryError, Chunk[Int]]) {
 
-  def execute: ZIO[JDBCConnection & Logger & Telemetry, QueryError, Chunk[Int]] =
+  def execute: ZIO[Database, QueryError, Chunk[Int]] =
     effect.telemetrize("Executed SQL query", "query-name" -> queryName)
 
-  inline def unit: ZIO[JDBCConnection & Logger & Telemetry, QueryError, Unit] = execute.unit
+  inline def unit: ZIO[Database, QueryError, Unit] = execute.unit
 
+  // TODO (KR) : remove or use
   /*
   inline private def withSizeCheck(
       inline check: Chunk[Int] => Boolean,

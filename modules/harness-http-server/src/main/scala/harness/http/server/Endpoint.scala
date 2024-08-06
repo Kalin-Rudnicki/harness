@@ -27,28 +27,28 @@ final case class Endpoint[-R, ET <: EndpointType.Any](
   def handleScoped(
       request: HttpRequest,
       parsedPath: Path[ET],
-  ): ZIO[HarnessEnv & Scope & R, implementation.DomainError, HttpResponse[Send[OutputBody[ET]]]] =
+  ): ZIO[Scope & R, implementation.DomainError, HttpResponse[Send[OutputBody[ET]]]] =
     Logger.log.debug(s"Headers:${request.headers.keySet.toSeq.sorted.map(h => s"\n  - $h").mkString}") *>
       decode(request)
         .mapError(errorHandler.convertDecodingFailure)
         .flatMap { implementation.impl(parsedPath, _, _, _, _) }
-        .provideSomeEnvironment[HarnessEnv & Scope & R](_ ++ ZEnvironment(request))
+        .provideSomeEnvironment[Scope & R](_ ++ ZEnvironment(request))
 
   def handle(
       request: HttpRequest,
       parsedPath: Path[ET],
-  ): ZIO[HarnessEnv & R, implementation.DomainError, HttpResponse[Send[OutputBody[ET]]]] =
+  ): ZIO[R, implementation.DomainError, HttpResponse[Send[OutputBody[ET]]]] =
     ZIO.scoped { handleScoped(request, parsedPath) }
 
   def handleRaw(
       request: HttpRequest,
       parsedPath: Path[ET],
-  ): ZIO[HarnessEnv & R, implementation.DomainError, HttpResponse[OutputStream]] =
+  ): ZIO[R, implementation.DomainError, HttpResponse[OutputStream]] =
     handle(request, parsedPath).map { result => result.copy(body = spec.outputBodyCodec.out(result.body)) }
 
   def parseAndHandle(
       request: HttpRequest,
-  ): ZIO[HarnessEnv & R, implementation.DomainError, Option[HttpResponse[Send[OutputBody[ET]]]]] =
+  ): ZIO[R, implementation.DomainError, Option[HttpResponse[Send[OutputBody[ET]]]]] =
     spec.pathCodec.decodePath(request.path) match {
       case Some(parsedPath) => handle(request, parsedPath).asSome
       case None             => ZIO.none
@@ -57,7 +57,7 @@ final case class Endpoint[-R, ET <: EndpointType.Any](
 }
 object Endpoint {
 
-  type Projection[R] = [ET <: EndpointType.Any] =>> Endpoint[R, ET]
+  type Projection[-R] = [ET <: EndpointType.Any] =>> Endpoint[R, ET]
 
   def make[R, T[_[_ <: EndpointType.Any]]](
       spec: T[EndpointSpec],

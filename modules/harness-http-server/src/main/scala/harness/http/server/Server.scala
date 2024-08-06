@@ -6,7 +6,7 @@ import harness.endpoint.typeclass.Flatten
 import harness.endpoint.types.EndpointType
 import harness.schema.*
 import harness.zio.*
-import java.io.{ByteArrayInputStream, InputStream}
+import harness.zio.config.*
 import java.net.InetSocketAddress
 import java.security.{KeyFactory, KeyStore, SecureRandom}
 import java.security.cert.CertificateFactory
@@ -25,45 +25,40 @@ object Server {
       ssl: Option[Config.SslConfig],
       debugErrorHeader: Boolean,
       // TODO (KR) : Options relating to logging requests
-  )
+  ) derives JsonSchema
   object Config {
 
     final case class SslConfig(
         // certificate
-        certificateRef: String,
-        certificateRefType: SslConfig.RefType,
+        certificate: ConfigSource,
         certificatePassword: Option[String],
         // private key
-        privateKeyRef: String,
-        privateKeyRefType: SslConfig.RefType,
-    )
+        privateKey: ConfigSource,
+    ) derives JsonCodec
     object SslConfig {
 
-      enum RefType extends Enum[RefType] { case Str, Jar, File }
-      object RefType extends Enum.Companion[RefType]
+      private implicit val configSourceJsonSchema: JsonSchema[ConfigSource] = JsonSchema.derived
 
-      implicit val jsonCodec: JsonSchema[SslConfig] = JsonSchema.derived
+      implicit val jsonSchema: JsonSchema[SslConfig] = JsonSchema.derived
 
     }
-
-    implicit val jsonCodec: JsonSchema[Config] = JsonSchema.derived
 
   }
 
   def start[ServerEnv, ReqEnv: EnvironmentTag, T[_[_ <: EndpointType.Any]], ImplR >: ServerEnv & ReqEnv](
-      reqLayer: RLayer[HarnessEnv & ServerEnv & Scope, ReqEnv],
+      reqLayer: RLayer[ServerEnv & Scope, ReqEnv],
       endpoints: T[Endpoint.Projection[ImplR]],
       // TODO (KR) : docs
   )(implicit
       flatten: Flatten[T],
-  ): RIO[HarnessEnv & ServerEnv & Config, Nothing] =
+  ): RIO[ServerEnv & Config, Nothing] =
     for {
       config <- ZIO.service[Config]
       port = config.port.getOrElse(if (config.ssl.nonEmpty) 443 else 8080)
       _ <- Logger.log.info(s"Starting server on port $port")
       inet <- ZIO.attempt(InetSocketAddress(port))
       server <- createHttpServer(config, inet)
-      runtime <- ZIO.runtime[HarnessEnv & ServerEnv]
+      runtime <- ZIO.runtime[ServerEnv]
 
       endpointList = flatten.flatten(endpoints)
       handler = Handler(runtime, reqLayer, endpointList, config.debugErrorHeader)
@@ -74,7 +69,7 @@ object Server {
       nothing <- ZIO.never // TODO (KR) : do this or "press any key to continue"?
     } yield nothing
 
-  private def createHttpServer(config: Config, inet: InetSocketAddress): RIO[HarnessEnv, HttpServer] =
+  private def createHttpServer(config: Config, inet: InetSocketAddress): Task[HttpServer] =
     config.ssl match {
       case Some(sslConfig) =>
         for {
@@ -89,23 +84,16 @@ object Server {
 
   // TODO (KR) : fix bug where only first request fails to load
   //           : NOTE - it is not "failing to load", it is just very slow
-  private def configureSSL(server: HttpsServer, sslConfig: Config.SslConfig): RIO[FileSystem & Logger, Unit] = {
+  private def configureSSL(server: HttpsServer, sslConfig: Config.SslConfig): Task[Unit] = {
     def wrapUnsafe[A](hint: String)(thunk: => A): Task[A] =
       ZIO.attempt { thunk }.mapError(new RuntimeException(s"Error during SSL configuration: $hint", _))
-
-    def getInputStream(refType: Config.SslConfig.RefType, ref: String): RIO[FileSystem & Scope, InputStream] =
-      refType match {
-        case Config.SslConfig.RefType.Str  => ZIO.succeed(new ByteArrayInputStream(ref.getBytes))
-        case Config.SslConfig.RefType.Jar  => JarUtils.getInputStream(ref)
-        case Config.SslConfig.RefType.File => Path(ref).flatMap(_.inputStream)
-      }
 
     val keyStorePassword = sslConfig.certificatePassword.map(_.toCharArray).orNull
 
     ZIO.scoped {
       for {
         // Load certificate chain
-        certificateStream <- getInputStream(sslConfig.certificateRefType, sslConfig.certificateRef)
+        certificateStream <- sslConfig.certificate.readInputStream
         certificate <- wrapUnsafe("CertificateFactory.getInstance") { CertificateFactory.getInstance("X.509").generateCertificate(certificateStream) }
 
         // Load certificate into keystore
@@ -114,7 +102,7 @@ object Server {
         _ <- wrapUnsafe("keyStore.setCertificateEntry") { keyStore.setCertificateEntry("cert", certificate) }
 
         // Load private key into keystore
-        privateKeyStream <- getInputStream(sslConfig.privateKeyRefType, sslConfig.privateKeyRef)
+        privateKeyStream <- sslConfig.privateKey.readInputStream
         privateKeyBytes <- wrapUnsafe("privateKeyStream.readAllBytes") { privateKeyStream.readAllBytes() }
         privateKeyPEM = new String(privateKeyBytes)
         privateKeyPEMContent =

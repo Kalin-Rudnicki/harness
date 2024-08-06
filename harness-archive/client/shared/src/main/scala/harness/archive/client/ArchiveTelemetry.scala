@@ -3,6 +3,7 @@ package harness.archive.client
 import harness.archive.model as D
 import harness.http.client.*
 import harness.zio.*
+import harness.zio.config.{HConfig, TelemetryConfig}
 import zio.*
 import zio.json.*
 

@@ -5,7 +5,9 @@ import harness.core.*
 import izumi.reflect.macrortti.*
 import scala.annotation.tailrec
 import scala.reflect.ClassTag
+import scala.util.Try
 import zio.Tag
+import zio.json.JsonCodec
 
 final case class HTag[A](
     packagePrefix: List[String],
@@ -190,13 +192,40 @@ object HTag {
   def fromClassTag[A](tag: ClassTag[A]): HTag[A] = fromClass(tag.runtimeClass).withType[A]
   def usingClassTag[A](implicit tag: ClassTag[A]): HTag[A] = fromClassTag(tag)
 
-}
+  // =====| Encoded |=====
 
-// TODO (KR) : REMOVE!!!
-object TmpMain extends scala.App {
+  private final case class Encoded(
+      packagePrefix: List[String],
+      objectPrefix: List[String],
+      typeName: String,
+      typeArgs: List[HTag.Encoded],
+      klass: String,
+  ) derives JsonCodec {
 
-  enum MyEnum { case A, B, C }
+    def toHTag: HTag[?] =
+      HTag(
+        packagePrefix = packagePrefix,
+        objectPrefix = objectPrefix,
+        typeName = typeName,
+        typeArgs = typeArgs.map(_.toHTag),
+        klass = Try { Class.forName(klass) }.getOrElse(classOf[Any]),
+      )
 
-  println(List[HTag[?]](HTag[MyEnum], HTag[Option[MyEnum]], HTag[List[MyEnum]]).sorted.map(t => s"- ${t.prefixAll}").mkString("\n"))
+  }
+  private object Encoded {
+
+    def fromHTag(hTag: HTag[?]): HTag.Encoded =
+      HTag.Encoded(
+        packagePrefix = hTag.packagePrefix,
+        objectPrefix = hTag.objectPrefix,
+        typeName = hTag.typeName,
+        typeArgs = hTag.typeArgs.map(HTag.Encoded.fromHTag),
+        klass = hTag.klass.getName,
+      )
+
+  }
+
+  implicit val jsonCodec: JsonCodec[HTag[?]] =
+    JsonCodec[HTag.Encoded].transform(_.toHTag, HTag.Encoded.fromHTag)
 
 }

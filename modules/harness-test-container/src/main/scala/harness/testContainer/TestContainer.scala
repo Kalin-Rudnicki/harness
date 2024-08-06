@@ -1,13 +1,12 @@
 package harness.testContainer
 
-import harness.zio.*
 import zio.*
 
 final case class TestContainer(
     name: String,
     imageName: String,
     imageVersion: String,
-    healthCheck: RIO[HarnessEnv, Boolean],
+    healthCheck: Task[Boolean],
     envVars: List[TestContainer.Var],
     ports: List[TestContainer.PortMapping],
     labels: List[TestContainer.Var],

@@ -41,10 +41,10 @@ object MockSpec extends DefaultHarnessSpec {
 
   }
 
-  private def makeTest(name: String)(mocked: Mocked[ExService])(testF: => ZIO[HarnessEnv & ExService & Proxy, Any, TestResult]): TestSpec =
-    test(name) { testF.provideSomeLayer[HarnessEnv](Proxy.layer >+> mocked.toLayer) }
+  private def makeTest(name: String)(mocked: Mocked[ExService])(testF: => ZIO[ExService & Proxy, Any, TestResult]): TestSpec =
+    test(name) { testF.provideLayer(Proxy.layer >+> mocked.toLayer) }
 
-  private def makeSeedTest(name: String)(testF: => ZIO[HarnessEnv & ExService & Proxy, Any, TestResult]): Spec[HarnessEnv & ExService & Proxy, Any] =
+  private def makeSeedTest(name: String)(testF: => ZIO[ExService & Proxy, Any, TestResult]): Spec[ExService & Proxy, Any] =
     test(name) { testF }
 
   private val positiveImplSpec: TestSpec =
@@ -129,7 +129,7 @@ object MockSpec extends DefaultHarnessSpec {
           res4 == 125,
         )
       },
-    ).provideSomeLayer[HarnessEnv](Proxy.layer >+> ExServiceMock.empty.toLayer)
+    ).provideLayer(Proxy.layer >+> ExServiceMock.empty.toLayer)
 
   private val negativeSeedSpec: TestSpec =
     suite("negative")(
@@ -218,7 +218,7 @@ object MockSpec extends DefaultHarnessSpec {
           res4 == 4,
         )
       },
-    ).provideSomeLayer[HarnessEnv](Proxy.layer >+> ExServiceMock.empty.toLayer)
+    ).provideLayer(Proxy.layer >+> ExServiceMock.empty.toLayer)
 
   override def testSpec: TestSpec =
     suite("ExServiceSpec")(

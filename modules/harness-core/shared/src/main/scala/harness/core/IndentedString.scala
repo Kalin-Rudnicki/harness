@@ -43,13 +43,13 @@ sealed trait IndentedString {
     stringBuilder.toString
   }
 
-  def nonInlines: List[IndentedString.NonInline] = this match
-    case self: IndentedString.NonInline  => self :: Nil
+  def nonInlines: Seq[IndentedString.NonInline] = this match
+    case self: IndentedString.NonInline  => Seq(self)
     case IndentedString.Inline(children) => children
 
   def withoutInlineWrapper: IndentedString = this match
-    case IndentedString.Inline(self :: Nil) => self
-    case _                                  => this
+    case IndentedString.Inline(Seq(self)) => self
+    case _                                => this
 
   override def toString: String = toString("    ")
 
@@ -68,21 +68,21 @@ object IndentedString {
   // TODO (KR) : final case class JoinString(str: String) extends IndentedString.NonInline
   final case class StrWithJoin(str: String, joinUsing: String) extends IndentedString.NonInline
 
-  final case class Inline(children: List[IndentedString.NonInline]) extends IndentedString
+  final case class Inline(children: Seq[IndentedString.NonInline]) extends IndentedString
 
-  final case class Indented(children: List[IndentedString.NonInline]) extends IndentedString.NonInline
+  final case class Indented(children: Seq[IndentedString.NonInline]) extends IndentedString.NonInline
 
   // Public Helpers
 
   def inline(children: IndentedString*): IndentedString =
-    Inline(children.toList.flatMap(_.nonInlines))
+    Inline(children.flatMap(_.nonInlines))
 
   def indented(children: IndentedString*): IndentedString =
-    Indented(children.toList.flatMap(_.nonInlines))
+    Indented(children.flatMap(_.nonInlines))
 
   def section(header: String)(body: IndentedString*): IndentedString =
     IndentedString.inline(header, IndentedString.indented(body*))
-  
+
   def fromAny(any: Any)(show: PartialFunction[Matchable, IndentedString]): IndentedString = fromAny(any, show.lift)
   def fromAny(any: Any): IndentedString = fromAny(any, _ => None)
 
@@ -111,7 +111,7 @@ object IndentedString {
 
   implicit def seqToIndentedString[T: ToIndentedString]: ToIndentedString[Seq[? <: T]] = { seq =>
     val toIdtStr = implicitly[ToIndentedString[T]]
-    Inline(seq.toList.map(toIdtStr.convert).flatMap(_.nonInlines)).withoutInlineWrapper
+    Inline(seq.map(toIdtStr.convert).flatMap(_.nonInlines)).withoutInlineWrapper
   }
 
   // Private Helpers
@@ -122,13 +122,13 @@ object IndentedString {
       IndentedString.indented(
         product.productElementNames
           .zip(product.productIterator)
-          .toList
+          .toSeq
           .flatMap { case (key, value) =>
             List(
               IndentedString.StrWithJoin(s"$key:", " "),
               fromAny(value, show),
             )
-          } *,
+          }*,
       ),
     )
 
@@ -149,7 +149,7 @@ object IndentedString {
     }
   }
 
-  private def collapseStringsList(iss: List[IndentedString.NonInline]): List[IndentedString.NonInline] = {
+  private def collapseStringsList(iss: Seq[IndentedString.NonInline]): List[IndentedString.NonInline] = {
     def prependHeldString(heldString: Option[IndentedString.StrWithJoin], rFinalized: List[IndentedString.NonInline]): List[IndentedString.NonInline] =
       heldString match {
         case None        => rFinalized
@@ -184,7 +184,7 @@ object IndentedString {
           prependHeldString(heldString, rFinalized).reverse
       }
 
-    loop(iss, None, Nil)
+    loop(iss.toList, None, Nil)
   }
 
   private def collapseStrings(is: IndentedString): IndentedString = is match

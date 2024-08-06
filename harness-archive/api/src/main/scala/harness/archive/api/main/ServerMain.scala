@@ -13,6 +13,7 @@ import harness.sql.autoSchema.*
 import harness.sql.query.Transaction
 import harness.web.*
 import harness.zio.*
+import harness.zio.config.HConfig
 import zio.*
 import zio.json.*
 

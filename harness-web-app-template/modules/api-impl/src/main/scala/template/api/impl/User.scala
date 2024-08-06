@@ -1,9 +1,10 @@
 package template.api.impl
 
 import harness.http.server.*
-import harness.sql.query.Transaction
+import harness.sql.Atomically
 import template.api.service.*
 import template.api.spec as Spec
+import template.domain.model.DomainError
 import template.domain.session.SessionService
 import zio.*
 
@@ -15,14 +16,13 @@ object User {
         ZIO.serviceWithZIO[UserApi](_.get(token)).map(_.toApi).toHttpResponse
       },
       login = Implementation[Spec.User.Login].implement { login =>
-        Transaction.inTransaction {
-          for {
-            (user, token) <- ZIO.serviceWithZIO[UserApi](_.login(login))
-            isSecure <- ZIO.serviceWithZIO[SessionService](_.isSecure)
-            tokenKey <- ZIO.serviceWithZIO[SessionService](_.tokenKey)
-            cookie = SetCookie(tokenKey, token.value).rootPath.secure(isSecure)
-          } yield HttpResponse(user.toApi).withHeader(tokenKey, token.value).withCookie(cookie)
-        }
+        for {
+          _ <- Atomically.atomicScope[DomainError]
+          (user, token) <- ZIO.serviceWithZIO[UserApi](_.login(login))
+          isSecure <- ZIO.serviceWithZIO[SessionService](_.isSecure)
+          tokenKey <- ZIO.serviceWithZIO[SessionService](_.tokenKey)
+          cookie = SetCookie(tokenKey, token.value).rootPath.secure(isSecure)
+        } yield HttpResponse(user.toApi).withHeader(tokenKey, token.value).withCookie(cookie)
       },
       logOut = Implementation[Spec.User.LogOut].implement { token =>
         for {
@@ -33,14 +33,13 @@ object User {
         } yield HttpResponse(()).withCookie(cookie)
       },
       signUp = Implementation[Spec.User.SignUp].implement { signUp =>
-        Transaction.inTransaction {
-          for {
-            (user, token) <- ZIO.serviceWithZIO[UserApi](_.signUp(signUp))
-            isSecure <- ZIO.serviceWithZIO[SessionService](_.isSecure)
-            tokenKey <- ZIO.serviceWithZIO[SessionService](_.tokenKey)
-            cookie = SetCookie(tokenKey, token.value).rootPath.secure(isSecure)
-          } yield HttpResponse(user.toApi).withHeader(tokenKey, token.value).withCookie(cookie)
-        }
+        for {
+          _ <- Atomically.atomicScope[DomainError]
+          (user, token) <- ZIO.serviceWithZIO[UserApi](_.signUp(signUp))
+          isSecure <- ZIO.serviceWithZIO[SessionService](_.isSecure)
+          tokenKey <- ZIO.serviceWithZIO[SessionService](_.tokenKey)
+          cookie = SetCookie(tokenKey, token.value).rootPath.secure(isSecure)
+        } yield HttpResponse(user.toApi).withHeader(tokenKey, token.value).withCookie(cookie)
       },
       verifyEmail = Implementation[Spec.User.VerifyEmail].implement { (code, token) =>
         ZIO.serviceWithZIO[UserApi](_.verifyEmail(token, code)).toHttpResponse

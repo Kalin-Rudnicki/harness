@@ -1,7 +1,7 @@
 package harness.sql
 
 import cats.syntax.option.*
-import harness.core.{given, *}
+import harness.core.{*, given}
 import harness.pk.*
 import harness.sql.autoSchema.*
 import harness.sql.query.*
@@ -15,7 +15,7 @@ import zio.*
 import zio.test.*
 import zio.test.Assertion.*
 
-object SqlISpec extends DefaultHarnessSpec {
+object SqlISpec extends HarnessSpec[Database] {
 
   // =====| Models |=====
 
@@ -142,7 +142,20 @@ object SqlISpec extends DefaultHarnessSpec {
       )
     } yield (row1, row2)
 
-  private val innerSpec: Spec[HarnessEnv & JDBCConnection, Any] =
+  override def layerProvider: LayerProvider[R] =
+    LayerProvider
+      .provideShared[Database](
+        PortFinder.layer(),
+        PostgresTestContainer.layer,
+        Database.poolLayerWithMigrations(
+          InMemoryMigration.auto(Version.parseUnsafe("v0.0.1"), Tables.fromCompanions(TestTable1, TestTable2)),
+        ),
+      )
+
+  override def testAspects: Chunk[TestSpecAspect] =
+    Chunk(TestAspect.withLiveClock, TestAspect.withLiveRandom)
+
+  override def testSpec: TestSpec =
     suite("SqlISpec")(
       suite("crud")(
         test("can insert") {
@@ -256,20 +269,5 @@ object SqlISpec extends DefaultHarnessSpec {
         },
       ),
     )
-
-  override def testSpec: TestSpec =
-    innerSpec
-      .provideSomeLayer[HarnessEnv & JDBCConnectionPool & Scope](
-        JDBCConnection.poolLayer,
-      )
-      .provideSomeShared[HarnessEnv & Scope](
-        PortFinder.layer(),
-        PostgresTestContainer.layer,
-        JDBCConnectionPool.configLayerWithMigrations(
-          PlannedMigrations(
-            InMemoryMigration.auto(Version.parseUnsafe("v0.0.1"), Tables.fromCompanions(TestTable1, TestTable2)),
-          ),
-        ),
-      ) @@ TestAspect.withLiveClock @@ TestAspect.withLiveRandom
 
 }

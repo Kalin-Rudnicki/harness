@@ -27,16 +27,16 @@ abstract class MockTable[V, T <: MockTable[V, T]](final val tableName: String, f
         case (k, _)        => throw MockError.ConstraintViolationError(tableName, indexName, k)
       }
 
-    final def find(k: K): Option[V] =
+    def find(k: K): Option[V] =
       indexMap.get(k)
 
-    final def get(k: K): IO[MockError.MissingExpectedKeyError, V] =
+    def get(k: K): IO[MockError.MissingExpectedKeyError, V] =
       ZIO.getOrFailWith(MockError.MissingExpectedKeyError(tableName, k))(find(k))
 
-    final def updated(k: K)(update: V => V): IO[MockError, T] =
+    def updated(k: K)(update: V => V): IO[MockError, T] =
       get(k) *> table.updatedWith(key(_) == k)(update)
 
-    final def removed(k: K): IO[MockError, T] =
+    def removed(k: K): IO[MockError, T] =
       get(k) *> builder.safeBuild(table.values.filterNot(key(_) == k))
 
   }
@@ -48,7 +48,7 @@ abstract class MockTable[V, T <: MockTable[V, T]](final val tableName: String, f
     private val indexMap: Map[K, Chunk[V]] =
       values.groupBy(key)
 
-    final def find(k: K): Chunk[V] =
+    def find(k: K): Chunk[V] =
       indexMap.getOrElse(k, Chunk.empty)
 
   }

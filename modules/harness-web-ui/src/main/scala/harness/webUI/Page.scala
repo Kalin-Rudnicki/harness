@@ -1,7 +1,6 @@
 package harness.webUI
 
 import cats.syntax.either.*
-import harness.http.client.HttpClient
 import harness.webUI.error.UIError
 import harness.webUI.vdom.*
 import harness.zio.*
@@ -24,7 +23,7 @@ sealed trait Page {
 
   private final def renderAnd(
       renderer: rawVDOM.Renderer,
-      runtime: Runtime[HarnessEnv & HttpClient],
+      runtime: Runtime[Any],
       urlToPage: Url => Page,
       url: Url,
   )(actionWithTitle: String => Task[Unit]): PageTask[Unit] =
@@ -49,17 +48,17 @@ sealed trait Page {
         },
       )
 
-  private[webUI] final def push(renderer: rawVDOM.Renderer, runtime: Runtime[HarnessEnv & HttpClient], urlToPage: Url => Page, url: Url): PageTask[Unit] =
+  private[webUI] final def push(renderer: rawVDOM.Renderer, runtime: Runtime[Any], urlToPage: Url => Page, url: Url): PageTask[Unit] =
     renderAnd(renderer, runtime, urlToPage, url) { title =>
       ZIO.attempt(window.history.pushState(null, title, url.toString))
     }
 
-  private[webUI] final def replace(renderer: rawVDOM.Renderer, runtime: Runtime[HarnessEnv & HttpClient], urlToPage: Url => Page, url: Url): PageTask[Unit] =
+  private[webUI] final def replace(renderer: rawVDOM.Renderer, runtime: Runtime[Any], urlToPage: Url => Page, url: Url): PageTask[Unit] =
     renderAnd(renderer, runtime, urlToPage, url) { title =>
       ZIO.attempt(window.history.replaceState(null, title, url.toString))
     }
 
-  private[webUI] final def replaceNoTrace(renderer: rawVDOM.Renderer, runtime: Runtime[HarnessEnv & HttpClient], urlToPage: Url => Page, url: Url): PageTask[Unit] =
+  private[webUI] final def replaceNoTrace(renderer: rawVDOM.Renderer, runtime: Runtime[Any], urlToPage: Url => Page, url: Url): PageTask[Unit] =
     renderAnd(renderer, runtime, urlToPage, url) { _ => ZIO.unit }
 
   override final def toString: String = s"Page(title = ${titleF.fold(s => s"'$s'", _ => "_ => ???")})"

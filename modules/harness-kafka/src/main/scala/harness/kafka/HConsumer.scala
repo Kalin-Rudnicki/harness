@@ -50,14 +50,14 @@ object HConsumer {
         (for {
           _ <- Logger.log.debug(s"Consuming kafka record: $record")
           _ <- use(record)
-        } yield ()).telemetrize(
+        } yield ()).telemetrize.detailed(
           "kafka-consumer",
           "kafka-topic" -> record.topic,
           "kafka-partition" -> record.partition,
           "kafka-offset" -> record.offset,
           "value-class" -> record.value.getClass.getNameWithoutPackage,
         ) @@
-          Logger.context("record-key" -> record.key)
+          Logger.addContext("record-key" -> record.key).aspect
       }
 
   }

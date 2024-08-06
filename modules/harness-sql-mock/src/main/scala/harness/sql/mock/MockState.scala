@@ -5,7 +5,7 @@ import monocle.Lens
 import monocle.macros.GenLens
 import zio.*
 
-final class MockState[E, A](private[mock] val ref: Ref.Synchronized[A])(implicit errorMapper: ErrorMapper[Throwable, E]) {
+final class MockState[E, A](private[mock] val ref: Ref.Synchronized[A])(implicit val errorMapper: ErrorMapper[Throwable, E]) {
 
   val get: UIO[A] = ref.get
 

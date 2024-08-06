@@ -1,37 +1,60 @@
 package harness.zio
 
-import cats.syntax.either.*
-import harness.cli.Parser
+import java.util.UUID
 import zio.*
-import zio.json.*
 
 object TestMain extends ExecutableApp {
 
-  sealed trait Ex
-  object Ex {
-    final case class A(a: Int) extends Ex
-    final case class B(b: String) extends Ex
+  final case class MyThing private (id: UUID) {
 
-    implicit val jsonCodec: JsonCodec[Ex] = DeriveJsonCodec.gen
+    def use: UIO[Unit] = Logger.log.trace("use", "id" -> id)
+
+    def close: UIO[Unit] = Logger.log.trace("--- close ---", "id" -> id)
+
+  }
+  object MyThing {
+
+    def make(counter: Ref[Int]): URIO[Scope, MyThing] =
+      for {
+        _ <- counter.update(_ + 1)
+        id <- Random.nextUUID
+        myThing <- ZIO.succeed { new MyThing(id) }.withFinalizer(_.close)
+        _ <- Logger.log.trace("make", "id" -> id)
+      } yield myThing
+
+  }
+
+  final class WrappedZPool[+E, A](wrapped: ZPool[E, A], show: A => String) {
+
+    def get: ZIO[Scope, E, A] =
+      for {
+        a <- wrapped.get
+        _ <- Logger.log.trace(s"Acquiring: ${show(a)}")
+        _ <- ZIO.addFinalizer(Logger.log.trace(s"Releasing: ${show(a)}"))
+      } yield a
 
   }
 
   override val executable: Executable =
-    Executable
-      .withParser(Parser.unit)
-      .withThrowableEffect {
-        for {
-          _ <- Logger.log.info("=====| TestMain |=====")
-          jsonStrings = List(
-            """{}""",
-            """{"A":{"a":1}}""",
-            """{"B":{"b":"str"}}""",
-            """{"C":{}}""",
-          )
-          _ <- ZIO.foreachDiscard(jsonStrings) { jsonString => Logger.log.info(s"$jsonString\n${jsonString.fromJson[Ex]}") }
-          path <- Path("abc/def.ghi")
-          _ <- path.ensureIsFile
-        } yield ()
-      }
+    Executable.implement {
+      for {
+        counter <- Ref.make(0)
+        _ <- Logger.log.info("Starting...")
+        rawPool <- ZPool.make(MyThing.make(counter), 0 to 4, 1.second)
+        pool = new WrappedZPool[Nothing, MyThing](rawPool, _.id.toString)
+
+        effect = ZIO.scoped { (pool.get <* Clock.sleep(100.millis)).flatMap(_.use) *> Clock.sleep(100.millis) }
+
+        _ <- ZIO.collectAllParDiscard(Chunk.fill(10)(effect))
+        _ <- Clock.sleep(5.seconds)
+        _ <- ZIO.collectAllParDiscard(Chunk.fill(10)(effect))
+
+        count <- counter.get
+        _ <- Logger.log.info(s"count = $count")
+
+        path <- Path("abc.scala")
+        _ <- path.writeString("hello file")
+      } yield ()
+    }
 
 }

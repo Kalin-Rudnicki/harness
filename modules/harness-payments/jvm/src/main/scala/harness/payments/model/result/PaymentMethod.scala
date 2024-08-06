@@ -20,7 +20,7 @@ object PaymentMethod {
 
   }
 
-  def fromStripe(paymentMethod: StripePaymentMethod): ZIO[Logger, PaymentError.InternalDefect, PaymentMethod] =
+  def fromStripe(paymentMethod: StripePaymentMethod): IO[PaymentError.InternalDefect, PaymentMethod] =
     for {
       pmType <- paymentMethod.requireField("type")(_.getType)
       typeDetails <- pmType match {

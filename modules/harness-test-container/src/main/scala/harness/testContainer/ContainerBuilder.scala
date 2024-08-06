@@ -10,11 +10,11 @@ abstract class ContainerBuilder[RIn, ROut](final val containerType: String) { se
 
   protected type Internal
 
-  protected def makeInternal(metadata: ContainerBuilder.Metadata): RIO[HarnessEnv & RIn & Scope, Internal]
-  protected def makeContainers(internal: Internal, metadata: ContainerBuilder.Metadata): RIO[HarnessEnv & RIn & Scope, List[TestContainer]]
-  protected def makeEnv(internal: Internal, metadata: ContainerBuilder.Metadata): RIO[HarnessEnv & RIn & Scope, ZEnvironment[ROut]]
+  protected def makeInternal(metadata: ContainerBuilder.Metadata): RIO[RIn & Scope, Internal]
+  protected def makeContainers(internal: Internal, metadata: ContainerBuilder.Metadata): RIO[RIn & Scope, List[TestContainer]]
+  protected def makeEnv(internal: Internal, metadata: ContainerBuilder.Metadata): RIO[RIn & Scope, ZEnvironment[ROut]]
 
-  private def startContainer(container: TestContainer): RIO[HarnessEnv & Scope, Unit] = {
+  private def startContainer(container: TestContainer): RIO[Scope, Unit] = {
     val runCommand = Sys.Command(
       "docker",
       List("run", "-d", "--name", container.name).some,
@@ -23,11 +23,11 @@ abstract class ContainerBuilder[RIn, ROut](final val containerType: String) { se
       container.labels.flatMap(l => List("-l", l.toString)).some,
       List(s"${container.imageName}:${container.imageVersion}").some,
     )
-    val runEffect: RIO[Sys & Logger, Unit] =
+    val runEffect: Task[Unit] =
       Logger.log.detailed(s"Starting container '${container.name}'") *>
         runCommand.execute0(outLevel = Logger.LogLevel.Detailed)
 
-    val closeEffect: RIO[Sys & Logger, Unit] =
+    val closeEffect: Task[Unit] =
       Logger.log.detailed(s"Stopping container '${container.name}'") *>
         Sys.Command("docker", "stop", container.name).execute0(outLevel = Logger.LogLevel.Trace) *>
         Sys.Command("docker", "rm", container.name).execute0(outLevel = Logger.LogLevel.Trace)
@@ -35,7 +35,7 @@ abstract class ContainerBuilder[RIn, ROut](final val containerType: String) { se
     runEffect.withFinalizer { _ => closeEffect.orDie }
   }
 
-  private def awaitContainers(containers: List[TestContainer], waitIncrement: Duration, waited: Duration, maxWait: Duration): RIO[HarnessEnv, Unit] =
+  private def awaitContainers(containers: List[TestContainer], waitIncrement: Duration, waited: Duration, maxWait: Duration): Task[Unit] =
     for {
       _ <- ZIO.fail(new RuntimeException("Timed out waiting for containers")).when(waited >= maxWait)
       awaiting <- ZIO.filterNot(containers) { _.healthCheck.orElseSucceed(false) }
@@ -46,7 +46,7 @@ abstract class ContainerBuilder[RIn, ROut](final val containerType: String) { se
       }
     } yield ()
 
-  final def layer(implicit loc: SourceLocation): RLayer[HarnessEnv & RIn, ROut] =
+  final def layer(implicit loc: SourceLocation): RLayer[RIn, ROut] =
     ZLayer.scopedEnvironment {
       val metadata = ContainerBuilder.Metadata(containerType, loc, UUID.randomUUID)
 
@@ -67,7 +67,7 @@ object ContainerBuilder {
 
   final case class Metadata(containerType: String, loc: SourceLocation, layerId: UUID) {
 
-    def makeContainer(containerName: String, imageName: String, imageVersion: String)(healthCheck: RIO[HarnessEnv, Boolean]): TestContainer =
+    def makeContainer(containerName: String, imageName: String, imageVersion: String)(healthCheck: Task[Boolean]): TestContainer =
       TestContainer(
         name = s"$containerType--$containerName--$layerId",
         imageName = imageName,

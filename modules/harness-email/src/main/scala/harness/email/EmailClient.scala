@@ -1,5 +1,7 @@
 package harness.email
 
+import cats.syntax.either.*
+import cats.syntax.option.*
 import harness.zio.*
 import java.util.Properties
 import javax.mail.*
@@ -8,16 +10,16 @@ import zio.*
 import zio.json.*
 
 trait EmailClient {
-  def sendEmail(email: SendEmail): RIO[Logger & Telemetry, Unit]
+  def sendEmail(email: SendEmail): Task[Unit]
 }
 object EmailClient {
 
-  def sendEmail(email: SendEmail): RIO[EmailClient & Logger & Telemetry, Unit] =
+  def sendEmail(email: SendEmail): RIO[EmailClient, Unit] =
     ZIO.serviceWithZIO[EmailClient](_.sendEmail(email))
 
   // =====| Live |=====
 
-  val liveLayer: URLayer[EmailConfig & Logger, EmailClient] =
+  val liveLayer: URLayer[EmailConfig, EmailClient] =
     ZLayer.fromZIO {
       ZIO.serviceWithZIO[EmailConfig] { config =>
         Logger.log.warning("Email config does not have auth enabled").when(config.passwordMap.isEmpty) *>
@@ -45,7 +47,7 @@ object EmailClient {
       props
     }
 
-    override def sendEmail(email: SendEmail): RIO[Logger & Telemetry, Unit] =
+    override def sendEmail(email: SendEmail): Task[Unit] =
       for {
         _ <- Logger.log.debug(s"EmailClient.Live.sendEmail: ${email.toJson}")
         authenticator <- makeAuthenticator(email)
@@ -103,9 +105,43 @@ object EmailClient {
 
   object Log extends EmailClient {
 
-    override def sendEmail(email: SendEmail): RIO[Logger & Telemetry, Unit] =
+    override def sendEmail(email: SendEmail): Task[Unit] =
       Logger.log.info(s"EmailClient.Log.sendEmail: ${email.toJson}")
 
   }
+
+  // =====| Live Or Logged |=====
+
+  sealed trait LiveOrLoggedConfig
+  object LiveOrLoggedConfig {
+
+    case object Logged extends LiveOrLoggedConfig
+    final case class Live(config: EmailConfig) extends LiveOrLoggedConfig
+
+    private final case class Raw(
+        live: Option[EmailConfig],
+        logged: Option[Boolean],
+    ) derives JsonCodec
+
+    implicit val jsonCodec: JsonCodec[LiveOrLoggedConfig] =
+      JsonCodec[Raw].transformOrFail(
+        {
+          case Raw(_, Some(true)) => LiveOrLoggedConfig.Logged.asRight
+          case Raw(Some(live), _) => LiveOrLoggedConfig.Live(live).asRight
+          case _                  => "You must provide either `live` or `logged`".asLeft
+        },
+        {
+          case LiveOrLoggedConfig.Logged       => Raw(None, true.some)
+          case LiveOrLoggedConfig.Live(config) => Raw(config.some, None)
+        },
+      )
+
+  }
+
+  val liveOrLoggedLayer: URLayer[LiveOrLoggedConfig, EmailClient] =
+    ZLayer.service[LiveOrLoggedConfig].project {
+      case LiveOrLoggedConfig.Logged       => EmailClient.Log
+      case LiveOrLoggedConfig.Live(config) => EmailClient.Live(config)
+    }
 
 }

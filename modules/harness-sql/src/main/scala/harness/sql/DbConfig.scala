@@ -1,8 +1,6 @@
 package harness.sql
 
 import cats.syntax.either.*
-import harness.zio.*
-import harness.zio.error.ConfigError
 import zio.*
 import zio.json.*
 
@@ -13,11 +11,12 @@ final case class DbConfig private (
   def target: DbConfig.Target = raw.target
   def credentials: DbConfig.Credentials = raw.credentials
   def pool: DbConfig.PoolConfig = raw.pool
+  def logging: DbConfig.Logging = raw.logging
 }
 object DbConfig {
 
   implicit val jsonCodec: JsonCodec[DbConfig] =
-    DbConfig.Raw.jsonCodec.transformOrFail(
+    JsonCodec[DbConfig.Raw].transformOrFail(
       _.toConfig,
       _.raw,
     )
@@ -26,33 +25,30 @@ object DbConfig {
       minConnections: Int,
       maxConnections: Int,
       duration: Duration,
-  )
-  object PoolConfig {
-    implicit val jsonCodec: JsonCodec[PoolConfig] = DeriveJsonCodec.gen
-  }
+  ) derives JsonCodec
 
   final case class Credentials(
       username: String,
       password: String,
-  )
-  object Credentials {
-    implicit val jsonCodec: JsonCodec[Credentials] = DeriveJsonCodec.gen
-  }
+  ) derives JsonCodec
 
   final case class Target(
       database: String,
       host: Option[String],
       port: Option[Int],
-  )
-  object Target {
-    implicit val jsonCodec: JsonCodec[Target] = DeriveJsonCodec.gen
-  }
+  ) derives JsonCodec
+
+  final case class Logging(
+      addConnectionContext: Boolean,
+      addTransactionContext: Boolean,
+  ) derives JsonCodec
 
   final case class Raw(
       target: Target,
       credentials: Credentials,
       pool: PoolConfig,
-  ) { raw =>
+      logging: Logging,
+  ) derives JsonCodec { raw =>
 
     def toConfig: Either[String, DbConfig] = {
       val database = raw.target.database
@@ -72,11 +68,5 @@ object DbConfig {
       raw.toConfig.fold(err => throw new RuntimeException(s"Error creating db config: $err"), identity)
 
   }
-  object Raw {
-    implicit val jsonCodec: JsonCodec[Raw] = DeriveJsonCodec.gen
-  }
-
-  def configLayer: ZLayer[HConfig, ConfigError.ReadError, DbConfig] =
-    HConfig.readLayer[DbConfig]("db")
 
 }

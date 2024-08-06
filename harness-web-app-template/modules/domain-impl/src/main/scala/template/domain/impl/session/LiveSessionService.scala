@@ -1,6 +1,5 @@
 package template.domain.impl.session
 
-import harness.zio.*
 import template.api.model as Api
 import template.domain.model.{DomainError, Session, User}
 import template.domain.session.SessionService
@@ -16,16 +15,16 @@ final case class LiveSessionService(
 
   override def tokenKey: UIO[String] = ZIO.succeed(config.tokenKey)
 
-  override def getUserAllowUnverifiedEmail(token: Api.user.UserToken): ZIO[Logger & Telemetry, DomainError, User] =
+  override def getUserAllowUnverifiedEmail(token: Api.user.UserToken): IO[DomainError, User] =
     storage
       .userFromSessionToken(token)
       .someOrFail(DomainError.InvalidSessionToken)
 
-  override def getUser(token: Api.user.UserToken): ZIO[Logger & Telemetry, DomainError, User] =
+  override def getUser(token: Api.user.UserToken): IO[DomainError, User] =
     getUserAllowUnverifiedEmail(token)
       .tap { user => ZIO.fail(DomainError.EmailNotVerified).when(user.verificationEmailCodes.nonEmpty) }
 
-  override def getSession(token: Api.user.UserToken): ZIO[Logger & Telemetry, DomainError, Session] =
+  override def getSession(token: Api.user.UserToken): IO[DomainError, Session] =
     storage
       .sessionFromSessionToken(token)
       .someOrFail(DomainError.InvalidSessionToken)

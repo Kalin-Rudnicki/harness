@@ -1,13 +1,12 @@
 package template.domain.storage
 
-import harness.zio.*
 import template.api.model as Api
 import template.domain.model.*
 import zio.*
 
 trait SessionStorage {
-  def insert(session: Session): ZIO[Logger & Telemetry, DomainError, Unit]
-  def sessionFromSessionToken(token: Api.user.UserToken): ZIO[Logger & Telemetry, DomainError, Option[Session]]
-  def userFromSessionToken(token: Api.user.UserToken): ZIO[Logger & Telemetry, DomainError, Option[User]]
-  def deleteById(id: Api.user.SessionId): ZIO[Logger & Telemetry, DomainError, Unit]
+  def insert(session: Session): IO[DomainError, Unit]
+  def sessionFromSessionToken(token: Api.user.UserToken): IO[DomainError, Option[Session]]
+  def userFromSessionToken(token: Api.user.UserToken): IO[DomainError, Option[User]]
+  def deleteById(id: Api.user.SessionId): IO[DomainError, Unit]
 }

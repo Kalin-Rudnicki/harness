@@ -64,7 +64,7 @@ implicit class StandardPatternCompanionOps(self: StandardPattern.type) {
            |</html>""".stripMargin,
       )
 
-    def getResFile(path: List[String]): ZIO[FileSystem & Scope, DomainError, OutputStream] = {
+    def getResFile(path: List[String]): ZIO[Scope, DomainError, OutputStream] = {
       val reprPath = ("res" :: path).mkString("/", "/", "")
       val actualPath = (serverConfig.resDir :: path).mkString("/")
 

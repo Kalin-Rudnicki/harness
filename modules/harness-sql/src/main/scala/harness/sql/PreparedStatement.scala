@@ -18,7 +18,7 @@ final class PreparedStatement private (
   def writeSingle[I, V](
       i: I,
       input: Input[I, V],
-  ): ZIO[Logger, QueryError, Unit] =
+  ): IO[QueryError, Unit] =
     for {
       unmappedInputs <- attemptGeneric("Unable to create unmapped inputs") { input.buildUnmappedInputs(i) }
       encodedInputs <- attemptGeneric("Unable to encode inputs") { fragment.qim.prepare(unmappedInputs) }
@@ -33,15 +33,16 @@ final class PreparedStatement private (
   def writeBatched[I](
       is: Chunk[I],
       input: Input[I, ?],
-  ): ZIO[Logger, QueryError, Unit] =
+  ): IO[QueryError, Unit] =
     ZIO.foreachDiscard(is) { i =>
       writeSingle(i, input) *>
         attemptGeneric("Unable to add batch") { ps.addBatch(); ps.clearParameters() }
     }
 
   def executeQuery[O](decoder: QueryDecoderMany[O]): ZIO[Scope, QueryError, ResultSet[O]] =
-    ZIO
-      .acquireAutoClosable(QueryError.attempt(queryName, fragment.sql) { ps.executeQuery() }(QueryError.Cause.UnableToExecuteQuery(_)))
+    QueryError
+      .attempt(queryName, fragment.sql) { ps.executeQuery() }(QueryError.Cause.UnableToExecuteQuery(_))
+      .autoClose
       .map(new ResultSet(queryName, fragment, _, decoder))
 
   def executeUpdate: IO[QueryError, Int] =
@@ -53,15 +54,10 @@ final class PreparedStatement private (
 }
 object PreparedStatement {
 
-  def make(queryName: String, fragment: Fragment): ZIO[JDBCConnection & Scope, QueryError, PreparedStatement] =
-    ZIO
-      .acquireAutoClosable[JDBCConnection, QueryError, java.sql.PreparedStatement] {
-        ZIO.serviceWithZIO[JDBCConnection] { con =>
-          QueryError.attempt(queryName, fragment.sql) {
-            con.jdbcConnection.prepareStatement(fragment.sql)
-          }(QueryError.Cause.Generic("Unable to create prepared statement", _))
-        }
-      }
-      .map(PreparedStatement(queryName, fragment, _))
+  def make(queryName: String, fragment: Fragment): ZIO[Database & Scope, QueryError, PreparedStatement] =
+    for {
+      con <- Database.getConnection.mapError(e => QueryError(queryName, fragment.sql, QueryError.Cause.ErrorGettingConnection(e)))
+      ps <- QueryError.attempt(queryName, fragment.sql) { con.jdbcConnection.prepareStatement(fragment.sql) }(QueryError.Cause.Generic("Unable to create prepared statement", _)).autoClose
+    } yield PreparedStatement(queryName, fragment, ps)
 
 }

@@ -18,7 +18,7 @@ final case class PaymentApi(
     paymentProcessor: PaymentProcessor,
 ) {
 
-  private def getOrCreateStripeCustomer(user: User): ZIO[Logger & Telemetry, DomainError, CustomerId] =
+  private def getOrCreateStripeCustomer(user: User): IO[DomainError, CustomerId] =
     ZIO.succeed(user.stripeCustomerId).someOrElseZIO {
       Logger.log.info(s"Creating stripe customer", "userId" -> user.id.toUUID) *>
         paymentProcessor
@@ -27,7 +27,7 @@ final case class PaymentApi(
           .tap(customerId => userStorage.setStripeCustomerId(user.id, customerId.some))
     }
 
-  def createIntent(token: Api.user.UserToken): ZIO[HarnessEnv, DomainError, ClientSecret] =
+  def createIntent(token: Api.user.UserToken): IO[DomainError, ClientSecret] =
     for {
       user <- sessionService.getUser(token)
       _ <- Logger.log.info("Attempting to create setup intent", "userId" -> user.id.toUUID)
@@ -35,7 +35,7 @@ final case class PaymentApi(
       setupIntent <- paymentProcessor.createSetupIntent(PM.create.SetupIntent(customerId, None)).mapError(DomainError.UnexpectedPaymentError(_))
     } yield setupIntent.clientSecret
 
-  def acceptIntent(token: Api.user.UserToken, setupIntentId: SetupIntentId): ZIO[HarnessEnv, DomainError, Unit] =
+  def acceptIntent(token: Api.user.UserToken, setupIntentId: SetupIntentId): IO[DomainError, Unit] =
     for {
       user <- sessionService.getUser(token)
       _ <- Logger.log.info("Attempting to accept setup intent", "userId" -> user.id.toUUID)
@@ -46,7 +46,7 @@ final case class PaymentApi(
       _ <- Logger.log.info("Successfully created payment method", "paymentMethodId" -> domainPaymentMethod.id)
     } yield ()
 
-  def paymentMethods(token: Api.user.UserToken): ZIO[HarnessEnv, DomainError, Chunk[PaymentMethod]] =
+  def paymentMethods(token: Api.user.UserToken): IO[DomainError, Chunk[PaymentMethod]] =
     for {
       user <- sessionService.getUser(token)
       _ <- Logger.log.info("Attempting to get payment methods", "userId" -> user.id.toUUID)

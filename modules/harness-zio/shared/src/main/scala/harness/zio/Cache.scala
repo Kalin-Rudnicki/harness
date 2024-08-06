@@ -50,12 +50,12 @@ final class Cache[K, V] private (
     }
   inline def apply[R, E](k: K)(_get: K => ZIO[R, E, V]): ZIO[R, E, V] = get(k)(_get)
 
-  def getLogged[R, E](k: K, logLevel: Logger.LogLevel = Logger.LogLevel.Detailed)(_get: K => ZIO[R, E, V]): ZIO[Logger & R, E, V] =
+  def getLogged[R, E](k: K, logLevel: Logger.LogLevel = Logger.LogLevel.Detailed)(_get: K => ZIO[R, E, V]): ZIO[R, E, V] =
     Clock.instant.flatMap { now =>
       ref.modifyZIO { cached =>
         cached.getValid(k, now) match {
-          case Some(v) => Logger.log(logLevel, s"hit cache '$name' for key: $k").as((v, cached))
-          case None    => Logger.log(logLevel, s"missed cache '$name' for key: $k") *> _get(k).map { v => (v, cached.updated(k, (now.toExpiry, v))) }
+          case Some(v) => Logger.log(logLevel)(s"hit cache '$name' for key: $k").as((v, cached))
+          case None    => Logger.log(logLevel)(s"missed cache '$name' for key: $k") *> _get(k).map { v => (v, cached.updated(k, (now.toExpiry, v))) }
         }
       }
     }

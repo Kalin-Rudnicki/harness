@@ -2,8 +2,7 @@ package harness.sql.autoSchema
 
 import cats.data.NonEmptyList
 import harness.core.Version
-import harness.sql.JDBCConnection
-import harness.zio.*
+import harness.sql.Database
 import zio.*
 
 final case class InMemoryMigration(version: Version, tables: Tables, steps: NonEmptyList[InMemoryMigration.Step])
@@ -36,9 +35,9 @@ object InMemoryMigration {
 
     def apply(step: MigrationStep.InMemory): InMemoryMigration.Step =
       InMemoryMigration.Step.Manual(step)
-    def code(name: String)(up: RIO[HarnessEnv & JDBCConnection, Unit]): InMemoryMigration.Step =
+    def code(name: String)(up: RIO[Database, Unit]): InMemoryMigration.Step =
       InMemoryMigration.Step.Manual(MigrationStep.InMemory.Code(name, up, None))
-    def code(name: String)(up: RIO[HarnessEnv & JDBCConnection, Unit], down: RIO[HarnessEnv & JDBCConnection, Unit]): InMemoryMigration.Step =
+    def code(name: String)(up: RIO[Database, Unit], down: RIO[Database, Unit]): InMemoryMigration.Step =
       InMemoryMigration.Step.Manual(MigrationStep.InMemory.Code(name, up, Some(down)))
   }
 

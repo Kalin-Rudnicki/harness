@@ -1,18 +1,108 @@
 package harness.cli
 
-import scala.annotation.tailrec
+import cats.data.NonEmptyList
+import harness.core.{given, *}
 
 sealed trait HelpMessage {
 
-  final def format(config: HelpMessage.Config = HelpMessage.Config.default): String =
-    HelpMessage
-      .lines(
-        " " * config.leftPadding,
-        this,
-        config,
-        if (config.tightenLeft) config.leftWidth.min(HelpMessage.minLeftWidth(this, config)) else config.leftWidth,
-      )
-      .mkString("\n")
+  def addHints(messages: List[HelpHint]): HelpMessage
+
+  private[cli] def isEmpty: Boolean = this match
+    case HelpMessage.RootMessage.Empty              => true
+    case HelpMessage.ValueMessage.Empty             => true
+    case HelpMessage.ParamMessage.Empty             => true
+    case HelpMessage.RootMessage.Or(left, right)    => left.isEmpty && right.isEmpty
+    case HelpMessage.ValueMessage.Or(left, right)   => left.isEmpty && right.isEmpty
+    case HelpMessage.ParamMessage.Or(left, right)   => left.isEmpty && right.isEmpty
+    case HelpMessage.RootMessage.And(left, right)   => left.isEmpty && right.isEmpty
+    case HelpMessage.ValueMessage.Then(left, right) => left.isEmpty && right.isEmpty
+    case HelpMessage.ParamMessage.And(left, right)  => left.isEmpty && right.isEmpty
+    case _                                          => false
+
+  private[cli] def removeEmpties: HelpMessage = this match
+    case HelpMessage.RootMessage.Or(left, right) if left.isEmpty     => right.removeEmpties
+    case HelpMessage.RootMessage.Or(left, right) if right.isEmpty    => left.removeEmpties
+    case HelpMessage.RootMessage.Or(left, right)                     => HelpMessage.RootMessage.Or(left.removeEmpties, right.removeEmpties)
+    case HelpMessage.ValueMessage.Or(left, right) if left.isEmpty    => right.removeEmpties
+    case HelpMessage.ValueMessage.Or(left, right) if right.isEmpty   => left.removeEmpties
+    case HelpMessage.ValueMessage.Or(left, right)                    => HelpMessage.ValueMessage.Or(left.removeEmpties.asInstanceOf, right.removeEmpties.asInstanceOf)
+    case HelpMessage.ParamMessage.Or(left, right) if left.isEmpty    => right.removeEmpties
+    case HelpMessage.ParamMessage.Or(left, right) if right.isEmpty   => left.removeEmpties
+    case HelpMessage.ParamMessage.Or(left, right)                    => HelpMessage.ParamMessage.Or(left.removeEmpties.asInstanceOf, right.removeEmpties.asInstanceOf)
+    case HelpMessage.RootMessage.And(left, right) if left.isEmpty    => right.removeEmpties
+    case HelpMessage.RootMessage.And(left, right) if right.isEmpty   => left.removeEmpties
+    case HelpMessage.RootMessage.And(left, right)                    => HelpMessage.RootMessage.And(left.removeEmpties, right.removeEmpties)
+    case HelpMessage.ValueMessage.Then(left, right) if left.isEmpty  => right.removeEmpties
+    case HelpMessage.ValueMessage.Then(left, right) if right.isEmpty => left.removeEmpties
+    case HelpMessage.ValueMessage.Then(left, right)                  => HelpMessage.ValueMessage.Then(left.removeEmpties.asInstanceOf, right.removeEmpties.asInstanceOf)
+    case HelpMessage.ParamMessage.And(left, right) if left.isEmpty   => right.removeEmpties
+    case HelpMessage.ParamMessage.And(left, right) if right.isEmpty  => left.removeEmpties
+    case HelpMessage.ParamMessage.And(left, right)                   => HelpMessage.ParamMessage.And(left.removeEmpties.asInstanceOf, right.removeEmpties.asInstanceOf)
+    case _                                                           => this
+
+  private[cli] def flattenOrs: List[HelpMessage] = this.removeEmpties match
+    case HelpMessage.RootMessage.Or(left, right)  => left.flattenOrs ::: right.flattenOrs
+    case HelpMessage.ValueMessage.Or(left, right) => left.flattenOrs ::: right.flattenOrs
+    case HelpMessage.ParamMessage.Or(left, right) => left.flattenOrs ::: right.flattenOrs
+    case HelpMessage.RootMessage.Empty            => Nil
+    case HelpMessage.ValueMessage.Empty           => Nil
+    case HelpMessage.ParamMessage.Empty           => Nil
+    case self                                     => self :: Nil
+
+  private[cli] def orToRepr: List[HelpMessage.Repr] = this.flattenOrs match
+    case head :: Nil => head.toRepr(Nil)
+    case Nil         => Nil
+    case ors         => ors.map(_.toRepr(Nil).map(_.scoped)).intersperse(HelpMessage.Repr(color"OR" :: Nil, Nil, color"") :: Nil).flatten
+
+  private[cli] def toRepr(hints: List[HelpHint]): List[HelpMessage.Repr] =
+    this match {
+
+      // --- Empty ---
+      case HelpMessage.RootMessage.Empty  => Nil
+      case HelpMessage.ValueMessage.Empty => Nil
+      case HelpMessage.ParamMessage.Empty => Nil
+
+      // --- Special ---
+
+      case HelpMessage.ValueMessage.Raw(name) =>
+        HelpMessage.Repr(color"[${name.showValue}] (raw value)" :: Nil, hints.map(HelpMessage.Repr.hintToColorString), color"|    ") :: Nil
+      case HelpMessage.ValueMessage.Value(name) =>
+        HelpMessage.Repr(color"[${name.showValue}] (value)" :: Nil, hints.map(HelpMessage.Repr.hintToColorString), color"|    ") :: Nil
+      case HelpMessage.ValueMessage.Bracketed(name, child) =>
+        HelpMessage.Repr(color"[${name.showValue}] (bracketed)" :: Nil, hints.map(HelpMessage.Repr.hintToColorString), color"|    ") ::
+          child.removeEmpties.toRepr(Nil).map(_.scoped)
+      case HelpMessage.ParamMessage.Raw(name) =>
+        HelpMessage.Repr(color"${name.showParamRaw} (raw param)" :: Nil, hints.map(HelpMessage.Repr.hintToColorString), color"|    ") :: Nil
+      case HelpMessage.ParamMessage.Param(longReference, shortReference, aliases, valueMessage) =>
+        val mainLine: ColorString = shortReference.fold(longReference.showParam)(s => color"${longReference.showParam}, ${s.showParam}")
+        val aliasesLine: Option[ColorString] = Option.when(aliases.nonEmpty)(aliases.map(_.showParam).csMkString(", "))
+        HelpMessage.Repr(mainLine :: aliasesLine.toList, hints.map(HelpMessage.Repr.hintToColorString), color"|    ") :: valueMessage.removeEmpties.toRepr(Nil).map(_.scoped)
+
+      case _ if hints.nonEmpty =>
+        HelpMessage.Repr.fromHints(NonEmptyList.fromListUnsafe(hints)) :: this.toRepr(Nil).map(_.scoped)
+
+      // --- Base ---
+      case HelpMessage.RootMessage.And(left, right) => left.toRepr(Nil) ::: right.toRepr(Nil)
+      case or @ HelpMessage.RootMessage.Or(_, _)    => or.flattenOrs.map(_.toRepr(Nil)).intersperse(HelpMessage.Repr(color"" :: color"OR" :: color"" :: Nil, Nil, color"") :: Nil).flatten
+
+      case or @ HelpMessage.ValueMessage.Or(_, _)     => or.orToRepr
+      case HelpMessage.ValueMessage.Then(left, right) => left.toRepr(Nil) ::: right.toRepr(Nil)
+
+      case or @ HelpMessage.ParamMessage.Or(_, _)    => or.orToRepr
+      case HelpMessage.ParamMessage.And(left, right) => left.toRepr(Nil) ::: right.toRepr(Nil)
+
+      // --- With Hints ---
+      case HelpMessage.RootMessage.WithHints(annotated, messages)  => annotated.toRepr(messages.toList)
+      case HelpMessage.ValueMessage.WithHints(annotated, messages) => annotated.toRepr(messages.toList)
+      case HelpMessage.ParamMessage.WithHints(annotated, messages) => annotated.toRepr(messages.toList)
+
+      // --- Unparsed ---
+      case HelpMessage.ValueMessage.UnparsedArgs(args) => HelpMessage.Repr.fromUnparsed(args) :: Nil
+      case HelpMessage.ParamMessage.UnparsedArgs(args) => HelpMessage.Repr.fromUnparsed(args) :: Nil
+
+    }
+
+  override def toString: String = HelpMessage.Repr.format(this.removeEmpties.toRepr(Nil))
 
 }
 object HelpMessage {
@@ -22,7 +112,7 @@ object HelpMessage {
       leftPadding: Int,
       leftWidth: Int,
       centerPadding: Int,
-      // TODO (KR) : rightWidth
+      rightWidth: Int,
       indent: Int,
   )
   object Config {
@@ -33,122 +123,141 @@ object HelpMessage {
         leftPadding = 2,
         leftWidth = 75,
         centerPadding = 4,
+        rightWidth = 75,
         indent = 2,
       )
 
   }
 
-  def apply(helpMessages: HelpMessage*): HelpMessage =
-    helpMessages.toList.flatMap(HelpMessage.toSimpleList) match {
-      case head :: Nil => head
-      case messages    => HelpMessage.Joined(messages)
+  sealed trait Repr {
+
+    final def prefixLeft(prefix: ColorString): Repr = Repr.PrefixLeft(prefix, this)
+
+    final def scoped: Repr = prefixLeft(color"|   ")
+
+    final def withHints(hints: NonEmptyList[HelpHint]): Repr = this match
+      case Repr.Simple(left, right, defaultLeft) => Repr.Simple(left, right ::: hints.toList.map(Repr.hintToColorString), defaultLeft)
+      case Repr.PrefixLeft(prefix, child)        => Repr.PrefixLeft(prefix, child.withHints(hints))
+
+    final def normalize(prefix: ColorString): (List[ColorString], List[ColorString]) = this match {
+      case Repr.Simple(left, right, defaultLeft) =>
+        val newLeft = left.map(prefix + _)
+        val leftSize = newLeft.size
+        val rightSize = right.size
+
+        if (leftSize < rightSize) (newLeft ::: List.fill(rightSize - leftSize)(prefix + defaultLeft), right)
+        else if (leftSize > rightSize) (newLeft, right ::: List.fill(leftSize - rightSize)(color""))
+        else (newLeft, right)
+      case Repr.PrefixLeft(_prefix, child) => child.normalize(prefix + _prefix)
     }
 
-  // =====| Types |=====
+  }
+  object Repr {
 
-  sealed trait Simple extends HelpMessage
-  final case class Joined(children: List[HelpMessage.Simple]) extends HelpMessage
+    final case class Simple(left: List[ColorString], right: List[ColorString], defaultLeft: ColorString) extends Repr
+    final case class PrefixLeft(prefix: ColorString, child: Repr) extends Repr
 
-  final case class Text(leftLines: List[String], rightLines: List[String]) extends HelpMessage.Simple
-  final case class Indent(child: HelpMessage) extends HelpMessage.Simple
+    export Simple.apply
 
-  // =====| Helpers |=====
+    val break: Repr = Repr("" :: Nil, Nil, color"")
 
-  def toSimpleList(helpMessage: HelpMessage): List[HelpMessage.Simple] =
-    helpMessage match {
-      case simple: Simple   => simple :: Nil
-      case Joined(children) => children
+    def fromHints(hints: NonEmptyList[HelpHint]): Repr =
+      Repr(hints.toList.map(hintToColorString), Nil, color"")
+
+    def fromUnparsed(args: NonEmptyList[Arg]): Repr =
+      Repr(args.toList.map(unparsedArgToColorString), Nil, color"")
+
+    private[HelpMessage] def hintToColorString(hint: HelpHint): ColorString = hint match
+      case HelpHint.Help(message)      => message
+      case HelpHint.HelpExtra(message) => message
+      case HelpHint.EnumValues(values) => s"Enum: ${values.mkString(", ")}"
+      case HelpHint.Default(value)     => s"Default: $value"
+      case HelpHint.Optional           => "(Optional)"
+      case HelpHint.Repeated           => "(Repeated)"
+      case HelpHint.RepeatedNel        => "(Repeated - Non Empty)"
+      case HelpHint.Error(message)     => message.red
+
+    private def unparsedArgToColorString(arg: Arg): ColorString = arg match
+      case Arg.Value(index, value)             => color"Unparsed value ${value.unesc.yellow} at index ${index.toString.yellow}".red
+      case Arg.Bracketed(index, _, _)          => color"Unparsed bracket value at index ${index.toString.yellow}".red
+      case Arg.ShortParamMulti(index, _, name) => color"Unparsed param ${name.showParam.yellow} at index ${index.toString.yellow}".red
+      case Arg.ScopedParam(index, name, _)     => color"Unparsed param ${name.showParam.yellow} at index ${index.toString.yellow}".red
+
+    def format(reprs: List[Repr]): String = {
+      val normalized = reprs.map(_.normalize(color""))
+      val lefts = normalized.flatMap(_._1)
+      val rights = normalized.flatMap(_._2)
+
+      val tmpLefts = lefts.map { s => (s, s.toRawString.length) }
+      val maxLeft = tmpLefts.map(_._2).maxOption.getOrElse(0)
+
+      tmpLefts.map { case (str, len) => str + (" " * (maxLeft - len)) }.zip(rights).map { case (left, right) => color"$left    $right" }.csMkString("\n").toString
     }
 
-  def duplicateParam(name: Name): HelpMessage =
-    HelpMessage.Text(s"Unable to build parser due to duplicate param '$name'" :: Nil, Nil)
-
-  def optional(helpMessage: HelpMessage): HelpMessage =
-    helpMessage match {
-      case Text(left, right) => Text(left, right :+ "<optional>")
-      case _                 => HelpMessage(Text("Optional:" :: Nil, Nil), Indent(helpMessage))
-    }
-
-  def defaultable(helpMessage: HelpMessage, showDefault: Option[String]): HelpMessage = {
-    val dflt: String =
-      showDefault match {
-        case Some(value) => s" ($value)"
-        case None        => ""
-      }
-
-    helpMessage match {
-      case Text(left, right) => Text(left, right :+ s"<defaultable>$dflt")
-      case _                 => HelpMessage(Text(s"Defaultable$dflt:" :: Nil, Nil), Indent(helpMessage))
-    }
   }
 
-  private final def minLeftWidth(helpMessage: HelpMessage, config: HelpMessage.Config): Int =
-    helpMessage match {
-      case HelpMessage.Text(leftLines, _) => leftLines.flatMap(_.split("\n").toList).map(_.length).maxOption.getOrElse(0)
-      case HelpMessage.Indent(child)      => minLeftWidth(child, config) + config.indent
-      case HelpMessage.Joined(children)   => children.map(minLeftWidth(_, config)).maxOption.getOrElse(0)
-    }
+  sealed trait RootMessage extends HelpMessage {
 
-  // NOTE : At the moment, I believe this will infinite loop if there is a single word that is longer than `remainingLeftWidth`
-  @tailrec
-  private def alignLeftLine(
-      config: HelpMessage.Config,
-      queue: List[String],
-      current: List[String],
-      stack: List[List[String]],
-      firstLine: Boolean,
-      startOfLine: Boolean,
-      remainingWidth: Int,
-  ): List[String] =
-    queue match {
-      case head :: tail =>
-        val leftSpaces: Int =
-          (startOfLine, firstLine) match {
-            case (false, _)    => 1
-            case (true, true)  => 0
-            case (true, false) => config.indent
-          }
+    final override def addHints(messages: List[HelpHint]): RootMessage = (messages, this) match
+      case (h :: t, self: RootMessage.Base)                 => RootMessage.WithHints(self, NonEmptyList(h, t))
+      case (_ :: _, RootMessage.WithHints(annotated, msgs)) => RootMessage.WithHints(annotated, msgs ++ messages)
+      case _                                                => this
 
-        val rw: Int = remainingWidth - head.length - leftSpaces
-        if (rw >= 0)
-          alignLeftLine(
-            config,
-            tail,
-            (if (startOfLine) (" " * leftSpaces) + head else head) :: current,
-            stack,
-            firstLine,
-            false,
-            rw,
-          )
-        else
-          alignLeftLine(
-            config,
-            queue,
-            Nil,
-            current :: stack,
-            false,
-            true,
-            remainingWidth,
-          )
-      case Nil =>
-        (current :: stack).reverseIterator.map(_.reverse.mkString(" ")).toList
-    }
+  }
+  object RootMessage {
 
-  private final def lines(idt: String, helpMessage: HelpMessage, config: HelpMessage.Config, leftWidth: Int): List[String] =
-    helpMessage match {
-      case HelpMessage.Text(_leftLines, _rightLines) =>
-        val remainingLeftWidth: Int = leftWidth + config.leftPadding - idt.length
-        val leftLines = _leftLines.flatMap(_.split("\n").toList)
-        val rightLines = _rightLines.flatMap(_.split("\n").toList)
+    sealed trait Base extends RootMessage
+    final case class And(left: HelpMessage, right: HelpMessage) extends RootMessage.Base
+    final case class Or(left: HelpMessage, right: HelpMessage) extends RootMessage.Base
 
-        val alignedLeftLines: List[String] =
-          leftLines.flatMap(line => alignLeftLine(config, line.split(" ").toList, Nil, Nil, true, true, remainingLeftWidth))
+    case object Empty extends RootMessage
+    final case class WithHints(annotated: RootMessage.Base, messages: NonEmptyList[HelpHint]) extends RootMessage
 
-        alignedLeftLines.zipAll(rightLines, "", "").map { (left, right) =>
-          s"$idt$left${" " * (remainingLeftWidth - left.length + config.centerPadding)}$right"
-        }
-      case HelpMessage.Indent(child)    => lines(idt + (" " * config.indent), child, config, leftWidth)
-      case HelpMessage.Joined(children) => children.flatMap(lines(idt, _, config, leftWidth))
-    }
+  }
+
+  sealed trait ValueMessage extends HelpMessage {
+
+    final override def addHints(messages: List[HelpHint]): ValueMessage = (messages, this) match
+      case (h :: t, self: ValueMessage.Base)                 => ValueMessage.WithHints(self, NonEmptyList(h, t))
+      case (_ :: _, ValueMessage.WithHints(annotated, msgs)) => ValueMessage.WithHints(annotated, msgs ++ messages)
+      case _                                                 => this
+
+  }
+  object ValueMessage {
+
+    sealed trait Base extends ValueMessage
+    final case class Raw(name: LongName) extends ValueMessage.Base
+    final case class Value(name: LongName) extends ValueMessage.Base
+    final case class Bracketed(name: LongName, child: HelpMessage) extends ValueMessage.Base
+    final case class Or(left: ValueMessage, right: ValueMessage) extends ValueMessage.Base
+    final case class Then(left: ValueMessage, right: ValueMessage) extends ValueMessage.Base
+
+    case object Empty extends ValueMessage
+    final case class UnparsedArgs(args: NonEmptyList[Arg.ValueLike]) extends ValueMessage
+    final case class WithHints(annotated: ValueMessage.Base, messages: NonEmptyList[HelpHint]) extends ValueMessage
+
+  }
+
+  sealed trait ParamMessage extends HelpMessage {
+
+    final override def addHints(messages: List[HelpHint]): ParamMessage = (messages, this) match
+      case (h :: t, self: ParamMessage.Base)                 => ParamMessage.WithHints(self, NonEmptyList(h, t))
+      case (_ :: _, ParamMessage.WithHints(annotated, msgs)) => ParamMessage.WithHints(annotated, msgs ++ messages)
+      case _                                                 => this
+
+  }
+  object ParamMessage {
+
+    sealed trait Base extends ParamMessage
+    final case class Raw(name: LongName) extends ParamMessage.Base
+    final case class Param(longReference: LongReference, shortReference: Option[ShortReference], aliases: List[Name], valueMessage: ValueMessage) extends ParamMessage.Base
+    final case class Or(left: ParamMessage, right: ParamMessage) extends ParamMessage.Base
+    final case class And(left: ParamMessage, right: ParamMessage) extends ParamMessage.Base
+
+    case object Empty extends ParamMessage
+    final case class UnparsedArgs(args: NonEmptyList[Arg.ParamLike]) extends ParamMessage
+    final case class WithHints(annotated: ParamMessage.Base, messages: NonEmptyList[HelpHint]) extends ParamMessage
+
+  }
 
 }

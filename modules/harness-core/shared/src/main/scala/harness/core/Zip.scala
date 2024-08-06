@@ -12,23 +12,24 @@ object Zip extends ZipLowPriority1 {
 
   def apply[In1, In2](implicit zip: Zip[In1, In2]): Zip[In1, In2] = zip
 
-  implicit def zipLeftId[_1]: Zip.Out[Unit, _1, _1] =
-    new Zip[Unit, _1] {
-      override type Out = _1
-      override def zip(in1: Unit, in2: _1): _1 = in2
-      override def unzip(out: _1): (Unit, _1) = ((), out)
-    }
+  final class ZipRightId[A] extends Zip[A, Unit] {
+    override type Out = A
+    override def zip(in1: A, in2: Unit): A = in1
+    override def unzip(out: A): (A, Unit) = (out, ())
+  }
+  final class ZipLeftId[A] extends Zip[Unit, A] {
+    override type Out = A
+    override def zip(in1: Unit, in2: A): A = in2
+    override def unzip(out: A): (Unit, A) = ((), out)
+  }
+
+  implicit def zipLeftId[_1]: Zip.Out[Unit, _1, _1] = new Zip.ZipLeftId[_1]
 
 }
 
 trait ZipLowPriority1 extends ZipLowPriority2 {
 
-  implicit def zipRightId[_1]: Zip.Out[_1, Unit, _1] =
-    new Zip[_1, Unit] {
-      override type Out = _1
-      override def zip(in1: _1, in2: Unit): _1 = in1
-      override def unzip(out: _1): (_1, Unit) = (out, ())
-    }
+  implicit def zipRightId[_1]: Zip.Out[_1, Unit, _1] = new Zip.ZipRightId[_1]
 
 }
 

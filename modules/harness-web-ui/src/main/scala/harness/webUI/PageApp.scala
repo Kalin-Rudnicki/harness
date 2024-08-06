@@ -1,59 +1,23 @@
 package harness.webUI
 
-import cats.syntax.option.*
 import harness.core.*
-import harness.http.client.HttpClient
 import harness.web.*
 import harness.webUI.error.UIError
 import harness.webUI.facades.ConfigGlobals
 import harness.webUI.rawVDOM.Renderer
 import harness.webUI.style.{CssClassMap, StyleSheet}
-import harness.webUI.vdom.{given, *}
+import harness.webUI.vdom.{*, given}
 import harness.zio.*
+import harness.zio.ErrorLogger.ThrowableInstances.*
 import harness.zio.error.ConfigError
 import org.scalajs.dom.{console, document, window}
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.tailrec
 import zio.*
 import zio.json.*
 
-trait PageApp[EnvFromServer <: HasStdClientConfig: Tag: JsonDecoder] extends ZIOApp {
+trait PageApp[EnvFromServer <: HasStdClientConfig: Tag: JsonDecoder] extends ZIOAppDefault {
 
-  override type Environment = HarnessEnv & HttpClient & EnvFromServer
-
-  @nowarn
-  override implicit def environmentTag: EnvironmentTag[HarnessEnv & HttpClient & EnvFromServer] = EnvironmentTag[HarnessEnv & HttpClient & EnvFromServer]
-
-  override def bootstrap: TaskLayer[HarnessEnv & HttpClient & EnvFromServer] = {
-    val configLayer: TaskLayer[HConfig] =
-      ZLayer.fromZIO {
-        for {
-          cfgStr <- ZIO.attempt { ConfigGlobals.harnessUiConfig }
-          hConfig <- HConfig.fromJsonString(cfgStr, ConfigError.ConfigTarget.RawString)
-        } yield hConfig
-      }
-
-    val loggerLayer: URLayer[StdClientConfig, Logger] =
-      ZLayer.fromZIO {
-        ZIO.serviceWith[StdClientConfig] { cfg =>
-          val target: Logger.Target =
-            new Logger.Target {
-              override def log(event: Logger.ExecutedEvent): UIO[Unit] = ZIO.attempt { console.log(event.formatted(ColorMode.Extended)) }.orDie
-            }
-
-          Logger.default(sources = Logger.Source.const(target, None) :: Nil, defaultMinLogTolerance = cfg.logTolerance)
-        }
-      }
-
-    configLayer >+> HConfig.readLayer[EnvFromServer]() >+> ZLayer.service[EnvFromServer].project(_.stdClientConfig) >+> {
-      loggerLayer ++
-        ZLayer.succeed(Telemetry.log) ++
-        FileSystem.unimplementedLayer ++
-        Sys.unimplementedLayer ++
-        HttpClient.defaultLayer
-    }
-  }
-
-  protected val preload: RIO[Environment, Unit] = ZIO.unit
+  protected val preload: RIO[EnvFromServer, Unit] = ZIO.unit
 
   // TODO (KR) : Make this prettier
   /**
@@ -93,8 +57,37 @@ trait PageApp[EnvFromServer <: HasStdClientConfig: Tag: JsonDecoder] extends ZIO
   val routeMatcher: RouteMatcher.Root
   val styleSheets: List[StyleSheet]
 
+  override final def run: UIO[Unit] =
+    (for {
+      cfg <- readConfig
+      _ <- Logger.withLogger(loggerFromConfig(cfg)).set
+      _ <- loadUI.provideLayer(ZLayer.succeed(cfg))
+    } yield ()).logErrorDiscard.simpleCause(Logger.LogLevel.Error).unit
+
+  // =====| Helpers |=====
+
+  private def readConfig: IO[ConfigError, EnvFromServer] =
+    for {
+      cfgStr <- ZIO.attempt { ConfigGlobals.harnessUiConfig }.mapError(ConfigError.LoadError.Generic(ConfigError.ConfigTarget.RawString, _))
+      cfg <- ZIO.fromEither(cfgStr.fromJson[EnvFromServer]).mapError(ConfigError.ReadError.DecodingFailure(Nil, _))
+    } yield cfg
+
+  private val loggerTarget: Logger.Target =
+    event => ZIO.succeed { console.log(event.formatted(ColorMode.Extended, true, true, true)) }
+
+  private val loggerSource: Logger.Source =
+    Logger.Source.const("console", loggerTarget, None)
+
+  private def loggerFromConfig(cfg: EnvFromServer): Logger =
+    Logger(
+      sources = Chunk(loggerSource),
+      context = Chunk.empty,
+      defaultMinLogTolerance = cfg.stdClientConfig.logLevel,
+      forwardToZio = false,
+    )
+
   @tailrec
-  private def urlToPageBuilder(runtime: Runtime[HarnessEnv & HttpClient & EnvFromServer])(url: Url): Page =
+  private def urlToPageBuilder(runtime: Runtime[EnvFromServer])(url: Url): Page =
     routeMatcher(url) match {
       case RouteMatcher.Result.Success(page) => page
       case RouteMatcher.Result.Fail(error) =>
@@ -105,11 +98,11 @@ trait PageApp[EnvFromServer <: HasStdClientConfig: Tag: JsonDecoder] extends ZIO
       case RouteMatcher.Result.NotFound => `404Page`(url)
     }
 
-  override def run: URIO[HarnessEnv & HttpClient & EnvFromServer & Scope, Any] =
-    (for {
-      _ <- Logger.log.info("Starting page load")
+  private val loadUI: RIO[EnvFromServer, Unit] =
+    for {
+      _ <- Logger.log.info("Welcome to harness-web-ui!") // TODO (KR) : lower this?
       _ <- preload
-      runtime <- bootstrap.toRuntime
+      runtime <- ZIO.runtime[EnvFromServer]
       renderer <- Renderer.Initial
       urlToPage = urlToPageBuilder(runtime)(_)
       attemptToLoadPage =
@@ -118,9 +111,7 @@ trait PageApp[EnvFromServer <: HasStdClientConfig: Tag: JsonDecoder] extends ZIO
             .succeed(urlToPage(url))
             .flatMap(_.replaceNoTrace(renderer, runtime, urlToPage, url))
             .telemetrize("Load Page", Logger.LogLevel.Debug, "url" -> url.path.mkString("/", "/", ""), "stage" -> "attempt-to-load-page")
-            .catchAll {
-              errorPage(_).replaceNoTrace(renderer, runtime, urlToPage, url).mapError { e => new RuntimeException(s"Failed to load error page...\n$e") }
-            }
+            .catchAll { errorPage(_).replaceNoTrace(renderer, runtime, urlToPage, url).mapError { e => new RuntimeException(s"Failed to load error page...\n$e") } }
         }
       cssClassMap = CssClassMap.mergeAll(styleSheets.map(_.toCssClassMap))
       _ <- ZIO.foreachDiscard(cssClassMap.renderOpt) { renderedCss =>
@@ -141,18 +132,18 @@ trait PageApp[EnvFromServer <: HasStdClientConfig: Tag: JsonDecoder] extends ZIO
             )
           }
         }
-    } yield ()).logErrorCauseSimpleAndContinue(Logger.LogLevel.Error, Logger.LogLevel.Debug.some)(using ErrorLogger.ThrowableInstances.jsonErrorLogger)
+    } yield ()
 
 }
 object PageApp {
 
-  private[webUI] def runZIO(
-      runtime: Runtime[HarnessEnv & HttpClient],
-      effect: RIO[HarnessEnv & HttpClient, Any],
+  private[webUI] def runZIO[R](
+      runtime: Runtime[R],
+      effect: RIO[R, Any],
   ): Unit =
     Unsafe.unsafe { implicit unsafe =>
       runtime.unsafe.runToFuture {
-        effect.logErrorCauseSimpleAndContinue(Logger.LogLevel.Error, Logger.LogLevel.Debug.some)(using ErrorLogger.ThrowableInstances.jsonErrorLogger)
+        effect.logErrorDiscard.cause(Logger.LogLevel.Error)
       }
     }
 

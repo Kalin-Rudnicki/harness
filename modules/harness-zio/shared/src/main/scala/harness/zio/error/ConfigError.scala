@@ -33,7 +33,9 @@ sealed trait ConfigError extends Throwable {
 }
 object ConfigError {
 
-  sealed trait LoadError extends ConfigError
+  sealed trait LoadError extends ConfigError {
+    val target: ConfigTarget
+  }
   object LoadError {
     final case class ConfigTargetDNE(target: ConfigTarget) extends ConfigError.LoadError
     final case class FailedToDecode(target: ConfigTarget, error: String) extends ConfigError.LoadError
