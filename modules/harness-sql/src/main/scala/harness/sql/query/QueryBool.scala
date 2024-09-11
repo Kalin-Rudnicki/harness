@@ -29,6 +29,9 @@ final case class QueryBool private[sql] (
       true,
     )
 
+}
+object QueryBool {
+
   def raw(fragment: Fragment): QueryBool = QueryBool(fragment, true, true)
 
 }
