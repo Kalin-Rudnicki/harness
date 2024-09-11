@@ -29,6 +29,8 @@ final case class QueryBool private[sql] (
       true,
     )
 
+  def raw(fragment: Fragment): QueryBool = QueryBool(fragment, true, true)
+
 }
 
 given Conversion[AppliedCol[Boolean], QueryBool] = a => QueryBool(fr"$a", false, false)
