@@ -5,6 +5,7 @@ import harness.sql.error.*
 import harness.zio.*
 import java.util.UUID
 import zio.*
+import zio.stream.*
 
 /**
   * This represents access to an SQL database.
@@ -29,6 +30,9 @@ import zio.*
 final class Database private (ref: FiberRef[Database.Current]) {
 
   def use[R, E, A](zio: ZIO[R & Database, E, A]): ZIO[R, E, A] =
+    zio.provideSomeEnvironment[R](_.add(this))
+
+  def use[R, E, A](zio: ZStream[R & Database, E, A]): ZStream[R, E, A] =
     zio.provideSomeEnvironment[R](_.add(this))
 
   private[sql] def getConnection: ZIO[Scope, ConnectionError, JDBCConnection] =
