@@ -8,7 +8,6 @@ import harness.cli.Parser.FinalParseResult
 import harness.core.*
 import harness.zio.config.{EncodedConfigSource, LoggerConfig, TelemetryConfig}
 import harness.zio.error.ExecutableError
-
 import scala.annotation.tailrec
 import zio.*
 import zio.json.*
@@ -157,7 +156,7 @@ object Executable extends ExecutableBuilders.Builder1 {
                   Defaultable.None,
                   hints = List("Log timestamp in std-out"),
                 )
-                .withDefault(true) &&
+                .withDefault(false) &&
               Params.toggle
                 .prefixFalse(
                   "no",
@@ -165,7 +164,7 @@ object Executable extends ExecutableBuilders.Builder1 {
                   Defaultable.None,
                   hints = List("Log trace location in std-out"),
                 )
-                .withDefault(true) &&
+                .withDefault(false) &&
               Params.toggle
                 .prefixFalse(
                   "no",
@@ -223,7 +222,7 @@ object Executable extends ExecutableBuilders.Builder1 {
 
     def parser(
         logLevelDefault: Option[Logger.LogLevel] = Logger.LogLevel.Info.some,
-        logTypeDefault: Option[LogType] = LogType.StdOut(ColorMode.Extended, true, true, true).some,
+        logTypeDefault: Option[LogType] = LogType.StdOut(ColorMode.Extended, false, false, true).some,
     ): Params[CommandLineLoggerConfig] =
       (
         Params
@@ -303,7 +302,7 @@ object ExecutableBuilders {
     }
 
   // Needs Error
-  class Builder1 extends Builder2[Throwable](ErrorLogger.forThrowable[Throwable].atLevel.fatal) {
+  class Builder1 extends Builder2[Throwable](ErrorLogger.throwableGetMessage[Throwable].atLevel.fatal) {
 
     final def withThrowableError: Builder2[Throwable] = this
 

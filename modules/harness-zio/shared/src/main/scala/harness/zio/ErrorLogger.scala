@@ -35,7 +35,8 @@ object ErrorLogger {
   def withJsonShow[E](f: E => Json): ErrorLogger.Builder[E] = Builder.json[E](f)
 
   def withToString[E]: ErrorLogger.Builder[E] = Builder.string[E](_.toString)
-  def forThrowable[E <: Throwable]: ErrorLogger.Builder[E] = Builder.json[E](EncodedThrowable.fromThrowable(_).safeToJsonAST)
+  def encodedThrowable[E <: Throwable]: ErrorLogger.Builder[E] = Builder.json[E](EncodedThrowable.fromThrowable(_).safeToJsonAST)
+  def throwableGetMessage[E <: Throwable]: ErrorLogger.Builder[E] = Builder.string[E](_.safeGetMessage)
 
   // =====|  |=====
 
@@ -57,7 +58,7 @@ object ErrorLogger {
   object ThrowableInstances {
 
     def throwableErrorLogger(level: Logger.LogLevel): ErrorLogger[Throwable] =
-      ErrorLogger.forThrowable[Throwable].atLevel(level)
+      ErrorLogger.encodedThrowable[Throwable].atLevel(level)
     implicit def throwableErrorLogger: ErrorLogger[Throwable] =
       throwableErrorLogger(Logger.LogLevel.Error)
 
