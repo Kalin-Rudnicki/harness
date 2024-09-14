@@ -10,104 +10,107 @@ sealed trait ColorString {
 
   def copy(cpF: ColorString.Color => ColorString.Color): ColorString
 
-  def overwrite(color: ColorString.Color): ColorString =
+  final def overwrite(color: ColorString.Color): ColorString =
     this.copy(_.overwrite(color))
 
-  def underwrite(color: ColorString.Color): ColorString =
+  final def underwrite(color: ColorString.Color): ColorString =
     this.copy(_.underwrite(color))
 
   // =====| Foreground |=====
 
-  def black: ColorString =
+  final def black: ColorString =
     this.copy(_.copy(fg = Color.Named.Black.some))
 
-  def red: ColorString =
+  final def red: ColorString =
     this.copy(_.copy(fg = Color.Named.Red.some))
 
-  def green: ColorString =
+  final def green: ColorString =
     this.copy(_.copy(fg = Color.Named.Green.some))
 
-  def yellow: ColorString =
+  final def yellow: ColorString =
     this.copy(_.copy(fg = Color.Named.Yellow.some))
 
-  def blue: ColorString =
+  final def blue: ColorString =
     this.copy(_.copy(fg = Color.Named.Blue.some))
 
-  def magenta: ColorString =
+  final def magenta: ColorString =
     this.copy(_.copy(fg = Color.Named.Magenta.some))
 
-  def cyan: ColorString =
+  final def cyan: ColorString =
     this.copy(_.copy(fg = Color.Named.Cyan.some))
 
-  def white: ColorString =
+  final def white: ColorString =
     this.copy(_.copy(fg = Color.Named.White.some))
 
-  def rgb(r: Int, g: Int, b: Int): ColorString =
+  final def rgb(r: Int, g: Int, b: Int): ColorString =
     this.copy(_.copy(fg = Color.RGB(r, g, b).some))
 
-  def dflt: ColorString =
+  inline final def hex(inline hexStr: String): ColorString =
+    this.copy(_.copy(fg = Color.RGB.hex(hexStr).some))
+
+  final def dflt: ColorString =
     this.copy(_.copy(fg = Color.Default.some))
 
-  def noFg: ColorString =
+  final def fg(color: Color): ColorString =
+    this.copy(_.copy(fg = color.some))
+
+  final def noFg: ColorString =
     this.copy(_.copy(fg = None))
 
   // =====| Background |=====
 
-  def blackBg: ColorString =
+  final def blackBg: ColorString =
     this.copy(_.copy(bg = Color.Named.Black.some))
 
-  def redBg: ColorString =
+  final def redBg: ColorString =
     this.copy(_.copy(bg = Color.Named.Red.some))
 
-  def greenBg: ColorString =
+  final def greenBg: ColorString =
     this.copy(_.copy(bg = Color.Named.Green.some))
 
-  def yellowBg: ColorString =
+  final def yellowBg: ColorString =
     this.copy(_.copy(bg = Color.Named.Yellow.some))
 
-  def blueBg: ColorString =
+  final def blueBg: ColorString =
     this.copy(_.copy(bg = Color.Named.Blue.some))
 
-  def magentaBg: ColorString =
+  final def magentaBg: ColorString =
     this.copy(_.copy(bg = Color.Named.Magenta.some))
 
-  def cyanBg: ColorString =
+  final def cyanBg: ColorString =
     this.copy(_.copy(bg = Color.Named.Cyan.some))
 
-  def whiteBg: ColorString =
+  final def whiteBg: ColorString =
     this.copy(_.copy(bg = Color.Named.White.some))
 
-  def rgbBg(r: Int, g: Int, b: Int): ColorString =
+  final def rgbBg(r: Int, g: Int, b: Int): ColorString =
     this.copy(_.copy(bg = Color.RGB(r, g, b).some))
 
-  def dfltBg: ColorString =
+  inline final def hexBg(inline hexStr: String): ColorString =
+    this.copy(_.copy(bg = Color.RGB.hex(hexStr).some))
+
+  final def dfltBg: ColorString =
     this.copy(_.copy(bg = Color.Default.some))
 
-  def noBg: ColorString =
+  final def bg(color: Color): ColorString =
+    this.copy(_.copy(bg = color.some))
+
+  final def noBg: ColorString =
     this.copy(_.copy(bg = None))
 
   // =====| ... |=====
 
-  def toColorString: ColorString =
-    this
+  final def toColorString: ColorString = this
 
-  def +(other: ColorString): ColorString =
-    this match {
-      case ColorString.Simple(color, str) =>
-        ColorString.Complex(color, (str.some, other) :: Nil, None)
-      case ColorString.Complex(color, pairs, tail) =>
-        ColorString.Complex(color, pairs :+ (tail, other), None)
-    }
+  final def +(other: ColorString): ColorString = this match
+    case ColorString.Simple(color, str)          => ColorString.Complex(color, (str.some, other) :: Nil, None)
+    case ColorString.Complex(color, pairs, tail) => ColorString.Complex(color, pairs :+ (tail, other), None)
 
-  def +(otherStr: String): ColorString =
-    this match {
-      case ColorString.Simple(color, str) =>
-        ColorString.Simple(color, str + otherStr)
-      case ColorString.Complex(color, pairs, tail) =>
-        ColorString.Complex(color, pairs, tail.fold(otherStr)(_ + otherStr).some)
-    }
+  final def +(otherStr: String): ColorString = this match
+    case ColorString.Simple(color, str)          => ColorString.Simple(color, str + otherStr)
+    case ColorString.Complex(color, pairs, tail) => ColorString.Complex(color, pairs, tail.fold(otherStr)(_ + otherStr).some)
 
-  def split(splitStr: String): List[ColorString] = {
+  final def split(splitStr: String): List[ColorString] = {
     val res =
       this match {
         case ColorString.Simple(color, str) =>
@@ -131,7 +134,7 @@ sealed trait ColorString {
     res
   }
 
-  def show: String =
+  final def show: String =
     this match {
       case ColorString.Simple(color, str) =>
         s"Simple($color: ${str.unesc})"
@@ -145,7 +148,7 @@ sealed trait ColorString {
         s"Complex($color: ${allElems.mkString(", ")})"
     }
 
-  def length: Int =
+  final def length: Int =
     this match {
       case ColorString.Simple(_, str) =>
         str.length
@@ -155,7 +158,7 @@ sealed trait ColorString {
         }.sum + tail.fold(0)(_.length)
     }
 
-  def toRawString: String = {
+  final def toRawString: String = {
     val stringBuilder: StringBuilder = new StringBuilder
 
     def rec(
@@ -176,8 +179,8 @@ sealed trait ColorString {
     stringBuilder.toString
   }
 
-  override def toString: String = toString(ColorMode.Extended)
-  def toString(colorMode: ColorMode): String = {
+  override final def toString: String = toString(ColorMode.Extended)
+  final def toString(colorMode: ColorMode): String = {
     val stringBuilder: mutable.StringBuilder = new mutable.StringBuilder
 
     def append(
@@ -234,7 +237,6 @@ sealed trait ColorString {
   }
 
 }
-
 object ColorString {
   import harness.core.Color as RawColor
 
@@ -262,18 +264,11 @@ object ColorString {
       )
 
     override def toString: String =
-      bg match {
-        case Some(bg) =>
-          fg match {
-            case Some(fg) => s"$fg.fg + $bg.bg"
-            case None     => s"$bg.bg"
-          }
-        case None =>
-          fg match {
-            case Some(fg) => s"$fg.fg"
-            case None     => "NoColor"
-          }
-      }
+      (fg, bg) match
+        case (Some(fg), None)     => s"$fg.fg"
+        case (Some(fg), Some(bg)) => s"$fg.fg + $bg.bg"
+        case (None, Some(bg))     => s"$bg.bg"
+        case (None, None)         => "NoColor"
 
   }
   object Color {

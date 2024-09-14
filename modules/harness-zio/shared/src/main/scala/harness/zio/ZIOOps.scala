@@ -2,6 +2,7 @@ package harness.zio
 
 import cats.data.NonEmptyList
 import cats.syntax.list.*
+import java.time.OffsetDateTime
 import scala.annotation.tailrec
 import zio.*
 
@@ -201,5 +202,82 @@ implicit class ZIOLogTelemetryOps[R, E, A](self: ZIO[R, E, A]) {
 
   object logErrorDiscard extends ErrorLogOps((causeLevel, cause, context, trace, errorLogger) => Logger.logCause(causeLevel)(cause, context*)(using trace, errorLogger))
   object logErrorStackDiscard extends ErrorLogOps((causeLevel, cause, context, trace, errorLogger) => Logger.logCauseStack(causeLevel)(cause, context*)(using trace, errorLogger))
+
+}
+
+// =====| Schedule |=====
+
+implicit class ScheduleOps[State0, Env, In, Out](self: Schedule.WithState[State0, Env, In, Out]) {
+
+  // ---  ---
+
+  def withMax(max: Out)(implicit ord: Ordering[Out]): Schedule.WithState[State0, Env, In, Out] =
+    self.map(ord.min(_, max))
+
+  def resetUnless(f: Out => Boolean): Schedule.WithState[State0, Env, In, Out] =
+    self.resetWhen(!f(_))
+
+  def resetWhenI[In2 <: In](f: In2 => Boolean): Schedule.WithState[(State0, Unit), Env, In2, Out] =
+    (self <*> Schedule.identity[In2])
+      .resetWhen { case (_, i) => f(i) }
+      .map(_._1)
+
+  def resetUnlessI[In2 <: In](f: In2 => Boolean): Schedule.WithState[(State0, Unit), Env, In2, Out] =
+    resetWhenI(!f(_))
+
+  // ---  ---
+
+  def withMaxDelay(max: Duration): Schedule.WithState[State0, Env, In, Out] =
+    self.modifyDelay { (_, delay) => delay.min(max) }
+
+  def removeDelays: Schedule.WithState[State0, Env, In, Out] =
+    new Schedule[Env, In, Out] {
+      override type State = State0
+      override def initial: State0 = self.initial
+      override def step(now: OffsetDateTime, in: In, state: State0)(implicit trace: Trace): ZIO[Env, Nothing, (State0, Out, Schedule.Decision)] =
+        self.step(now, in, state).map {
+          case res @ (_, _, Schedule.Decision.Done)        => res
+          case (state, out, Schedule.Decision.Continue(_)) => (state, out, Schedule.Decision.Continue(Schedule.Interval.after(now)))
+        }
+    }
+
+}
+
+implicit class ScheduleDurationOps[State0, Env, In](self: Schedule.WithState[State0, Env, In, Duration]) {
+
+  def delayed0: Schedule.WithState[State0, Env, In, Duration] = Schedule.delayed(self)
+
+}
+
+implicit class ScheduleCompanionOps(self: Schedule.type) {
+
+  def fibonacciNoWait(one: Duration): Schedule.WithState[(Duration, Duration), Any, Any, Duration] =
+    Schedule
+      .unfold[(Duration, Duration)]((one, one)) { case (a1, a2) => (a2, a1 + a2) }
+      .map(_._1)
+
+  def fibonacciMax(one: Duration, max: Duration): Schedule.WithState[(Duration, Duration), Any, Any, Duration] =
+    Schedule.fibonacciNoWait(one).withMax(max).delayed0
+
+  /**
+    * Similar to [[Schedule.fromDurations]], except instead of finishing when `durations` runs out, it will stay forever on the last duration.
+    */
+  def fromDurationsForever(duration: Duration, durations: Duration*): Schedule.WithState[::[Duration], Any, Any, Duration] =
+    new Schedule[Any, Any, Duration] {
+      override type State = ::[Duration]
+      override final val initial: State = ::(duration, durations.toList)
+      override final def step(now: OffsetDateTime, in: Any, state: State)(implicit trace: Trace): ZIO[Any, Nothing, (State, Duration, Schedule.Decision)] =
+        ZIO.succeed {
+          val h :: r = state
+          (
+            r match {
+              case h2 :: r2 => ::(h2, r2)
+              case Nil      => state
+            },
+            h,
+            Schedule.Decision.Continue(Schedule.Interval.after(now.plusNanos(h.toNanos))),
+          )
+        }
+    }
 
 }

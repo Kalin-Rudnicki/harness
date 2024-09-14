@@ -679,7 +679,7 @@ object Logger {
           rawDisplayName = "TRACE",
           tolerancePriority = 1,
           logPriority = 1,
-          extendedColor = Color(0x30f2c2),
+          extendedColor = Color.RGB.hex("#30f2c2"),
           simpleColor = Color.Named.Cyan,
           zioLogLevel = zio.LogLevel.Trace,
         )
@@ -689,7 +689,7 @@ object Logger {
           rawDisplayName = "DEBUG",
           tolerancePriority = 2,
           logPriority = 2,
-          extendedColor = Color(0x0277bd),
+          extendedColor = Color.RGB.hex("#0277bd"),
           simpleColor = Color.Named.Cyan,
           zioLogLevel = zio.LogLevel.Debug,
         )
@@ -699,7 +699,7 @@ object Logger {
           rawDisplayName = "DETLD",
           tolerancePriority = 3,
           logPriority = 3,
-          extendedColor = Color(0x66bb6a),
+          extendedColor = Color.RGB.hex("#66bb6a"),
           simpleColor = Color.Named.Blue,
           zioLogLevel = zioLevelBetween("DETAILED", zio.LogLevel.Debug, zio.LogLevel.Info),
         )
@@ -709,7 +709,7 @@ object Logger {
           rawDisplayName = "INFO",
           tolerancePriority = 4,
           logPriority = 4,
-          extendedColor = Color(0x1b5e20),
+          extendedColor = Color.RGB.hex("#1b5e20"),
           simpleColor = Color.Named.Green,
           zioLogLevel = zio.LogLevel.Info,
         )
@@ -719,7 +719,7 @@ object Logger {
           rawDisplayName = "IMPRT",
           tolerancePriority = 5,
           logPriority = 5,
-          extendedColor = Color(0x880e4f),
+          extendedColor = Color.RGB.hex("#880e4f"),
           simpleColor = Color.Named.Yellow,
           zioLogLevel = zioLevelBetween("IMPORTANT", zio.LogLevel.Info, zio.LogLevel.Warning),
         )
@@ -729,7 +729,7 @@ object Logger {
           rawDisplayName = "WARN",
           tolerancePriority = 6,
           logPriority = 6,
-          extendedColor = Color(0xffff00),
+          extendedColor = Color.RGB.hex("#ffff00"),
           simpleColor = Color.Named.Yellow,
           zioLogLevel = zio.LogLevel.Warning,
         )
@@ -739,7 +739,7 @@ object Logger {
           rawDisplayName = "ERROR",
           tolerancePriority = 7,
           logPriority = 7,
-          extendedColor = Color(0xff3d00),
+          extendedColor = Color.RGB.hex("#ff3d00"),
           simpleColor = Color.Named.Red,
           zioLogLevel = zio.LogLevel.Error,
         )
@@ -749,7 +749,7 @@ object Logger {
           rawDisplayName = "FATAL",
           tolerancePriority = 8,
           logPriority = 8,
-          extendedColor = Color(0xd50000),
+          extendedColor = Color.RGB.hex("#d50000"),
           simpleColor = Color.Named.Red,
           zioLogLevel = zio.LogLevel.Fatal,
         )
