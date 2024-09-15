@@ -1,6 +1,7 @@
 package harness.sql.query
 
 import cats.syntax.option.*
+import harness.serviceTracer.*
 import harness.sql.*
 import harness.sql.error.QueryError
 import harness.sql.typeclass.*
@@ -28,15 +29,19 @@ final class QueryResult[O] private (queryName: String, fragment: Fragment, _stre
 
   inline def list: ZIO[Database, QueryError, List[O]] = chunk.map(_.toList)
 
-  inline def chunk: ZIO[Database, QueryError, Chunk[O]] = ZIO.scoped { _stream.runCollect }.telemetrize("Executed SQL query", "query-name" -> queryName)
+  inline def chunk: ZIO[Database, QueryError, Chunk[O]] =
+    ZIO.scoped { _stream.runCollect } @@
+      Telemetry.telemetrize("Executed SQL query", Logger.LogLevel.Trace, "query-name" -> queryName) @@
+      ServiceTracer.trace(TraceClosure("Database", "Live", "read"), "query-name" -> queryName)
 
-  def stream: ZStream[Database & Scope, QueryError, O] = _stream
+  def stream: ZStream[Database & Scope, QueryError, O] =
+    ZStream.fromZIO { ServiceTracer.traceScoped(TraceClosure("Database", "Live", "read-stream"), "query-name" -> queryName) } *> _stream
 
   // =====|  |=====
 
   // NOTE : Make sure results are ordered by `K`
   def groupBy[K, V](kf: O => K)(vf: O => V): ZStream[Database & Scope, QueryError, (K, NonEmptyChunk[V])] =
-    _stream.groupAdjacentBy(kf).map { (k, os) => (k, os.map(vf)) }
+    stream.groupAdjacentBy(kf).map { (k, os) => (k, os.map(vf)) }
 
   // NOTE : Make sure results are ordered by `K`
   def groupByLeft[K, V](kf: O => K)(vf: O => Option[V]): QueryResult[(K, Chunk[V])] =

@@ -187,11 +187,10 @@ object K0 extends K0T[Any] {
 
     protected inline def foldUnion[A, B](ta: T[A], tb: T[B]): T[A | B]
 
-    final inline def deriveUnion[A](implicit ev: UnionGeneric[A]): T[A] = {
+    final inline def deriveUnion[A](implicit ev: UnionGeneric[A]): T[A] =
       summonFlatFieldInstances[ev.ElementTypes, T]
         .reduceLeft { (a, b) => foldUnion(a.asInstanceOf[T[Any]], b.asInstanceOf[T[Any]]) }
         .asInstanceOf[T[A]]
-    }
 
   }
   object DerivableUnion {
@@ -206,11 +205,10 @@ object K0 extends K0T[Any] {
 
     protected inline def foldIntersection[A, B](ta: T[A], tb: T[B]): T[A & B]
 
-    final inline def deriveIntersection[A](implicit ev: IntersectionGeneric[A]): T[A] = {
+    final inline def deriveIntersection[A](implicit ev: IntersectionGeneric[A]): T[A] =
       summonFlatFieldInstances[ev.ElementTypes, T]
         .reduceLeft { (a, b) => foldIntersection(a.asInstanceOf[T[Any]], b.asInstanceOf[T[Any]]) }
         .asInstanceOf[T[A]]
-    }
 
   }
   object DerivableIntersection {

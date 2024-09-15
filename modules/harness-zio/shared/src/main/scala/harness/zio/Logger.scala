@@ -41,6 +41,9 @@ final case class Logger(
       fiberId <- ZIO.fiberId
       loggers <- ZIO.loggers
 
+      zioLogAnnotations <- ZIO.logAnnotations
+      zioLogSpans <- ZIO.logSpans
+
       _ <- ZIO.foreachParDiscard(loggers) { logger =>
         logger(
           e.trace.toZio,
@@ -49,8 +52,8 @@ final case class Logger(
           e._message,
           e.cause.toZio,
           runtime.fiberRefs,
-          Nil, // TODO (KR) :
-          e.context.toMap,
+          zioLogSpans,
+          zioLogAnnotations ++ (this.context ++ e.context).toMap,
         )
 
         ZIO.unit
@@ -67,7 +70,7 @@ final case class Logger(
       case Logger.Event(Some(logLevel), _, _, _, _, _) if logLevel.logPriority < sourceMinLogTolerance.tolerancePriority =>
         ZIO.unit
       case _ =>
-        target.log(Logger.ExecutedEvent(e.level, e.message, e.context, e.cause, e.trace, e.stackTrace, now))
+        target.log(Logger.ExecutedEvent(e.level, e.message, this.context ++ e.context, e.cause, e.trace, e.stackTrace, now))
     }
 
   private def execOnSource(event: Logger.Event, source: Logger.Source, now: Instant): URIO[Scope, Unit] =

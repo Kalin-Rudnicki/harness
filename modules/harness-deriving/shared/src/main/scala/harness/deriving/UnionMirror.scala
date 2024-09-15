@@ -1,7 +1,6 @@
 package harness.deriving
 
 import scala.quoted.*
-import scala.quoted.Quotes
 
 trait UnionMirror[A] {
   type ElementTypes <: Tuple

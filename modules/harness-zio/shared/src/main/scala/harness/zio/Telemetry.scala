@@ -59,11 +59,11 @@ object Telemetry {
   def telemetrize(
       label: String,
       logLevel: Logger.LogLevel,
-      telemetryContext: Logger.LogContext,
+      telemetryContext: (String, Any)*,
   ): ZIOAspectPoly =
     new ZIOAspectPoly.Impl {
       override def apply[R, E, A](effect: ZIO[R, E, A])(implicit trace: zio.Trace): ZIO[R, E, A] =
-        Telemetry.telemetryRef.getWith(_.telemetrize(effect, label, logLevel, telemetryContext, Logger.Trace.fromZio(trace)))
+        Telemetry.telemetryRef.getWith(_.telemetrize(effect, label, logLevel, Logger.LogContext(telemetryContext), Logger.Trace.fromZio(trace)))
     }
 
   // =====| Types |=====

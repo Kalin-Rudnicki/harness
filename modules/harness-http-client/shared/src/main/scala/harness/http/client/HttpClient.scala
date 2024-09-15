@@ -3,10 +3,11 @@ package harness.http.client
 import harness.endpoint.spec.*
 import harness.endpoint.types.*
 import harness.endpoint.types.Types.*
+import harness.serviceTracer.TracedService
 import harness.zio.*
 import zio.*
 
-trait HttpClient { self =>
+abstract class HttpClient extends TracedService.Auto { self =>
 
   protected def send_internal[ET <: EndpointType.Any](
       inputBodySchema: BodyCodec[InputBody[ET]],
@@ -24,10 +25,12 @@ trait HttpClient { self =>
   )(
       request: HttpRequestParams,
       body: Send[InputBody[ET]],
-  ): ZIO[Scope, Error[ET], Receive[OutputBody[ET]]] =
-    self
-      .send_internal(inputBodySchema, outputBodySchema, errorSchema)(request, body)
-      .telemetrize("HTTP Client Send", "url" -> request.url, "path" -> request.paths.mkString("/", "/", ""))
+  ): ZIO[Scope, Error[ET], Receive[OutputBody[ET]]] = {
+    val pathString = request.paths.mkString("/", "/", "")
+    self.send_internal(inputBodySchema, outputBodySchema, errorSchema)(request, body) @@
+      Telemetry.telemetrize("HTTP Client Send", Logger.LogLevel.Trace, "url" -> request.url, "path" -> pathString) @@
+      trace("url" -> request.url, "path" -> pathString)
+  }
 
 }
 object HttpClient extends HttpClientPlatformSpecific with HttpClientPlatformSpecificImpl {

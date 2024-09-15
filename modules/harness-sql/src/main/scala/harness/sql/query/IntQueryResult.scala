@@ -1,5 +1,6 @@
 package harness.sql.query
 
+import harness.serviceTracer.*
 import harness.sql.Database
 import harness.sql.error.QueryError
 import harness.zio.*
@@ -8,7 +9,9 @@ import zio.*
 final class IntQueryResult private[query] (queryName: String, fragment: Fragment, effect: ZIO[Database, QueryError, Int]) {
 
   def execute: ZIO[Database, QueryError, Int] =
-    effect.telemetrize("Executed SQL query", "query-name" -> queryName)
+    effect @@
+      Telemetry.telemetrize("Executed SQL query", Logger.LogLevel.Trace, "query-name" -> queryName) @@
+      ServiceTracer.trace(TraceClosure("Database", "Live", "write"), "query-name" -> queryName)
 
   inline def unit: ZIO[Database, QueryError, Unit] = execute.unit
 

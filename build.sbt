@@ -94,6 +94,9 @@ lazy val `harness-modules`: Project =
       `harness-pk`.jvm,
       `harness-pk`.native,
       `harness-pk`.js,
+      `harness-service-tracer`.jvm,
+      `harness-service-tracer`.native,
+      `harness-service-tracer`.js,
       `harness-schema`.jvm,
       `harness-schema`.native,
       `harness-schema`.js,
@@ -272,6 +275,22 @@ lazy val `harness-pk`: CrossProject =
     )
     .dependsOn(
       `harness-schema` % testAndCompile,
+    )
+
+lazy val `harness-service-tracer`: CrossProject =
+  crossProject(JSPlatform, JVMPlatform, NativePlatform)
+    .in(file("modules/harness-service-tracer"))
+    .settings(
+      name := "harness-service-tracer",
+      publishSettings,
+      miscSettings,
+      testSettings,
+      libraryDependencies ++= Seq(
+        "dev.zio" %%% "zio" % Versions.zio,
+      ),
+    )
+    .dependsOn(
+      `harness-core`,
     )
 
 lazy val `harness-schema`: CrossProject =
@@ -531,6 +550,7 @@ lazy val `harness-http-client` =
     )
     .dependsOn(
       `harness-endpoint` % testAndCompile,
+      `harness-service-tracer` % testAndCompile,
     )
 
 lazy val `harness-http-server`: Project =
@@ -738,6 +758,7 @@ lazy val `harness-sql`: Project =
       `harness-zio-ut`.jvm % testToTest,
       `harness-pk`.jvm % testAndCompile,
       `harness-deriving`.jvm % testAndCompile,
+      `harness-service-tracer`.jvm % testAndCompile,
     )
 
 lazy val `harness-sql-mock`: Project =

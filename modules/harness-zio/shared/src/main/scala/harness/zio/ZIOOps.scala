@@ -135,7 +135,7 @@ implicit class ZIOLogTelemetryOps[R, E, A](self: ZIO[R, E, A]) {
   object telemetrize {
 
     def apply(label: String, logLevel: Logger.LogLevel, telemetryContext: (String, Any)*)(implicit trace: Trace): ZIO[R, E, A] =
-      self @@ Telemetry.telemetrize(label, logLevel, Logger.LogContext(telemetryContext))
+      self @@ Telemetry.telemetrize(label, logLevel, telemetryContext*)
 
     def apply(label: String, telemetryContext: (String, Any)*)(implicit trace: Trace): ZIO[R, E, A] =
       apply(label, Logger.LogLevel.Trace, telemetryContext*)
