@@ -46,7 +46,8 @@ object HAspects {
                 Logger.Source.const("logCache-default", LogCache.LoggerTarget(logCache, _.addDefault(_)), None),
                 Logger.Source.stdOut(None, ColorMode.Extended, false, true, true),
               )
-              .aspect
+              .aspect @@
+            Logger.withForwardToZio(false).aspect
         }
 
     }
