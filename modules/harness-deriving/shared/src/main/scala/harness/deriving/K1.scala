@@ -44,8 +44,18 @@ abstract class K1T[UB] {
 
     lazy val instances: List[T[[_ <: UB] =>> Any]] = rawInstances.map(_.derived)
 
-    def instantiate[A <: UB](fields: List[m.MirroredType[A]]): F[A] =
-      m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(Tuple.fromArray(fields.toArray[Any]).asInstanceOf).asInstanceOf[F[A]]
+    object instantiate {
+
+      def tuple[A <: UB](tuple: m.MirroredElemTypes[A]): F[A] =
+        m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(tuple.asInstanceOf).asInstanceOf[F[A]]
+
+      def tupleUnsafe[A <: UB](tuple: Tuple): F[A] =
+        m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(tuple.asInstanceOf).asInstanceOf[F[A]]
+
+      def seqUnsafe[A <: UB](seq: Seq[Any]): F[A] =
+        tupleUnsafe(Tuple.fromArray(seq.toArray[Any]))
+
+    }
 
     final case class withInstance[A <: UB](a: F[A]) {
 
@@ -64,10 +74,10 @@ abstract class K1T[UB] {
       object mapInstantiate {
 
         def apply[B <: UB](f: [t[_ <: UB]] => (T[t], t[A]) => t[B]): F[B] =
-          instantiate(map(f).asInstanceOf)
+          instantiate.seqUnsafe(map(f))
 
         def withLabels[B <: UB](labels: Labelling[m.MirroredMonoType])(f: [t[_ <: UB]] => (String, T[t], t[A]) => t[B]): F[B] =
-          instantiate(map.withLabels(labels)(f).asInstanceOf)
+          instantiate.seqUnsafe(map.withLabels(labels)(f))
 
       }
 

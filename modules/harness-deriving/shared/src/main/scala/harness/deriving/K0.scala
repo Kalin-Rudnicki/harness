@@ -43,8 +43,18 @@ abstract class K0T[UB] {
 
     lazy val instances: List[T[UB]] = rawInstances.map(_.derived)
 
-    def instantiate(fields: List[m.MirroredType]): F =
-      m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(Tuple.fromArray(fields.toArray[Any]).asInstanceOf)
+    object instantiate {
+
+      def tuple(tuple: m.MirroredElemTypes): F =
+        m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(tuple.asInstanceOf)
+
+      def tupleUnsafe(tuple: Tuple): F =
+        m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(tuple.asInstanceOf)
+
+      def seqUnsafe(seq: Seq[Any]): F =
+        tupleUnsafe(Tuple.fromArray(seq.toArray[Any]))
+
+    }
 
     final case class withInstance(a: F) {
 
@@ -87,20 +97,20 @@ abstract class K0T[UB] {
       object mapInstantiate {
 
         def apply(f: [t <: UB] => T[t] => t): F =
-          instantiate(instances.map { i => f(i).asInstanceOf[m.MirroredMonoType] })
+          instantiate.seqUnsafe(instances.map { i => f(i) })
 
         def withLabels(labels: Labelling[F])(f: [t <: UB] => (String, T[t]) => t): F =
-          instantiate(labels.elemLabels.zip(instances).map { case (l, i) => f(l, i).asInstanceOf[m.MirroredMonoType] })
+          instantiate.seqUnsafe(labels.elemLabels.zip(instances).map { case (l, i) => f(l, i) })
 
       }
 
       object mapInstantiateEither {
 
         def apply[L](f: [t <: UB] => T[t] => Either[L, t]): Either[L, F] =
-          instances.traverse { i => f(i).asInstanceOf[Either[L, m.MirroredMonoType]] }.map(instantiate)
+          instances.traverse { i => f(i) }.map(instantiate.seqUnsafe)
 
         def withLabels[L](labels: Labelling[F])(f: [t <: UB] => (String, T[t]) => Either[L, t]): Either[L, F] =
-          labels.elemLabels.zip(instances).traverse { case (l, i) => f(l, i).asInstanceOf[Either[L, m.MirroredMonoType]] }.map(instantiate)
+          labels.elemLabels.zip(instances).traverse { case (l, i) => f(l, i) }.map(instantiate.seqUnsafe)
 
       }
 
