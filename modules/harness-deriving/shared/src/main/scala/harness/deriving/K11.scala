@@ -17,6 +17,22 @@ abstract class K11T[UB] {
   type ProductGeneric[O[_[_ <: UB]]] = Kind[Mirror.Product, O]
   type SumGeneric[O[_[_ <: UB]]] = Kind[Mirror.Sum, O]
 
+  implicit class ProductGenericOps[F[_[_ <: UB]]](val m: ProductGeneric[F]) {
+
+    object instantiate {
+
+      def tuple[A[_ <: UB]](tuple: m.MirroredElemTypes[A]): F[A] =
+        m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(tuple.asInstanceOf).asInstanceOf[F[A]]
+
+      def tupleUnsafe[A[_ <: UB]](tuple: Tuple): F[A] =
+        m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(tuple.asInstanceOf).asInstanceOf[F[A]]
+
+      def seqUnsafe[A[_ <: UB]](seq: Seq[Any]): F[A] =
+        tupleUnsafe(Tuple.fromArray(seq.toArray[Any]))
+
+    }
+
+  }
   type Id[t <: UB] = [f[_ <: UB]] =>> f[t]
   type Identity[t <: UB] = t
   type Const[c] = [_ <: UB] =>> c
@@ -60,19 +76,6 @@ abstract class K11T[UB] {
 
     lazy val instances: List[T[[_[_ <: UB]] =>> Any]] = rawInstances.map(_.derived)
 
-    object instantiate {
-
-      def tuple[A[_ <: UB]](tuple: m.MirroredElemTypes[A]): F[A] =
-        m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(tuple.asInstanceOf).asInstanceOf[F[A]]
-
-      def tupleUnsafe[A[_ <: UB]](tuple: Tuple): F[A] =
-        m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(tuple.asInstanceOf).asInstanceOf[F[A]]
-
-      def seqUnsafe[A[_ <: UB]](seq: Seq[Any]): F[A] =
-        tupleUnsafe(Tuple.fromArray(seq.toArray[Any]))
-
-    }
-
     object withoutInstance {
 
       object foldLeft {
@@ -104,10 +107,10 @@ abstract class K11T[UB] {
       object mapInstantiate {
 
         def apply[B[_ <: UB]](f: [t[_[_ <: UB]]] => (T[t], t[A]) => t[B]): F[B] =
-          instantiate.seqUnsafe(map(f))
+          m.instantiate.seqUnsafe(map(f))
 
         def withLabels[B[_ <: UB]](labels: Labelling[m.MirroredMonoType])(f: [t[_[_ <: UB]]] => (String, T[t], t[A]) => t[B]): F[B] =
-          instantiate.seqUnsafe(map.withLabels(labels)(f))
+          m.instantiate.seqUnsafe(map.withLabels(labels)(f))
 
       }
 
@@ -141,10 +144,10 @@ abstract class K11T[UB] {
       object mapInstantiate {
 
         def apply[C[_ <: UB]](f: [t[_[_ <: UB]]] => (T[t], t[A], t[B]) => t[C]): F[C] =
-          instantiate.seqUnsafe(map(f))
+          m.instantiate.seqUnsafe(map(f))
 
         def withLabels[C[_ <: UB]](labels: Labelling[m.MirroredMonoType])(f: [t[_[_ <: UB]]] => (String, T[t], t[A], t[B]) => t[C]): F[C] =
-          instantiate.seqUnsafe(map.withLabels(labels)(f))
+          m.instantiate.seqUnsafe(map.withLabels(labels)(f))
 
       }
 

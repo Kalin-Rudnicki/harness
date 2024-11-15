@@ -17,6 +17,23 @@ abstract class K1T[UB] {
   type ProductGeneric[O[_ <: UB]] = Kind[Mirror.Product, O]
   type SumGeneric[O[_ <: UB]] = Kind[Mirror.Sum, O]
 
+  implicit class ProductGenericOps[F[_ <: UB]](val m: ProductGeneric[F]) {
+
+    object instantiate {
+
+      def tuple[A <: UB](tuple: m.MirroredElemTypes[A]): F[A] =
+        m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(tuple.asInstanceOf).asInstanceOf[F[A]]
+
+      def tupleUnsafe[A <: UB](tuple: Tuple): F[A] =
+        m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(tuple.asInstanceOf).asInstanceOf[F[A]]
+
+      def seqUnsafe[A <: UB](seq: Seq[Any]): F[A] =
+        tupleUnsafe(Tuple.fromArray(seq.toArray[Any]))
+
+    }
+
+  }
+
   type Id[x <: UB] = x
 
   type Head[T <: [_ <: UB] =>> Any, A] =
@@ -44,19 +61,6 @@ abstract class K1T[UB] {
 
     lazy val instances: List[T[[_ <: UB] =>> Any]] = rawInstances.map(_.derived)
 
-    object instantiate {
-
-      def tuple[A <: UB](tuple: m.MirroredElemTypes[A]): F[A] =
-        m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(tuple.asInstanceOf).asInstanceOf[F[A]]
-
-      def tupleUnsafe[A <: UB](tuple: Tuple): F[A] =
-        m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(tuple.asInstanceOf).asInstanceOf[F[A]]
-
-      def seqUnsafe[A <: UB](seq: Seq[Any]): F[A] =
-        tupleUnsafe(Tuple.fromArray(seq.toArray[Any]))
-
-    }
-
     final case class withInstance[A <: UB](a: F[A]) {
 
       private def productElements: List[T[[_ <: UB] =>> Any]] = ev(a.asInstanceOf).productIterator.toList.asInstanceOf[List[T[[_ <: UB] =>> Any]]]
@@ -74,10 +78,10 @@ abstract class K1T[UB] {
       object mapInstantiate {
 
         def apply[B <: UB](f: [t[_ <: UB]] => (T[t], t[A]) => t[B]): F[B] =
-          instantiate.seqUnsafe(map(f))
+          m.instantiate.seqUnsafe(map(f))
 
         def withLabels[B <: UB](labels: Labelling[m.MirroredMonoType])(f: [t[_ <: UB]] => (String, T[t], t[A]) => t[B]): F[B] =
-          instantiate.seqUnsafe(map.withLabels(labels)(f))
+          m.instantiate.seqUnsafe(map.withLabels(labels)(f))
 
       }
 

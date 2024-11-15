@@ -18,6 +18,23 @@ abstract class K0T[UB] {
   type ProductGeneric[O <: UB] = Kind[Mirror.Product, O]
   type SumGeneric[O <: UB] = Kind[Mirror.Sum, O]
 
+  implicit class ProductGenericOps[F <: UB](val m: ProductGeneric[F]) {
+
+    object instantiate {
+
+      def tuple(tuple: m.MirroredElemTypes): F =
+        m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(tuple.asInstanceOf)
+
+      def tupleUnsafe(tuple: Tuple): F =
+        m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(tuple.asInstanceOf)
+
+      def seqUnsafe(seq: Seq[Any]): F =
+        tupleUnsafe(Tuple.fromArray(seq.toArray[Any]))
+
+    }
+
+  }
+
   type FlatFieldInstances[T <: Tuple, F[_ <: UB]] <: Tuple =
     T match {
       case EmptyTuple => EmptyTuple
@@ -42,19 +59,6 @@ abstract class K0T[UB] {
   ) {
 
     lazy val instances: List[T[UB]] = rawInstances.map(_.derived)
-
-    object instantiate {
-
-      def tuple(tuple: m.MirroredElemTypes): F =
-        m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(tuple.asInstanceOf)
-
-      def tupleUnsafe(tuple: Tuple): F =
-        m.asInstanceOf[Mirror.ProductOf[m.MirroredMonoType]].fromTuple(tuple.asInstanceOf)
-
-      def seqUnsafe(seq: Seq[Any]): F =
-        tupleUnsafe(Tuple.fromArray(seq.toArray[Any]))
-
-    }
 
     final case class withInstance(a: F) {
 
@@ -97,20 +101,20 @@ abstract class K0T[UB] {
       object mapInstantiate {
 
         def apply(f: [t <: UB] => T[t] => t): F =
-          instantiate.seqUnsafe(instances.map { i => f(i) })
+          m.instantiate.seqUnsafe(instances.map { i => f(i) })
 
         def withLabels(labels: Labelling[F])(f: [t <: UB] => (String, T[t]) => t): F =
-          instantiate.seqUnsafe(labels.elemLabels.zip(instances).map { case (l, i) => f(l, i) })
+          m.instantiate.seqUnsafe(labels.elemLabels.zip(instances).map { case (l, i) => f(l, i) })
 
       }
 
       object mapInstantiateEither {
 
         def apply[L](f: [t <: UB] => T[t] => Either[L, t]): Either[L, F] =
-          instances.traverse { i => f(i) }.map(instantiate.seqUnsafe)
+          instances.traverse { i => f(i) }.map(m.instantiate.seqUnsafe)
 
         def withLabels[L](labels: Labelling[F])(f: [t <: UB] => (String, T[t]) => Either[L, t]): Either[L, F] =
-          labels.elemLabels.zip(instances).traverse { case (l, i) => f(l, i) }.map(instantiate.seqUnsafe)
+          labels.elemLabels.zip(instances).traverse { case (l, i) => f(l, i) }.map(m.instantiate.seqUnsafe)
 
       }
 
