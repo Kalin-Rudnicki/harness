@@ -61,6 +61,7 @@ object QueryDecoderMany {
 
   def fromCol[T](col: Col[T]): QueryDecoderMany[T] = col.codec.decoder
 
+  @scala.annotation.nowarn
   inline def forTable[T[_[_]] <: Table](cols: T[Col])(implicit gen: K11.ProductGeneric[T]): QueryDecoderMany[T[K11.Identity]] =
     new QueryDecoderMany[T[K11.Identity]] {
       lazy val colsChunk: Chunk[Col[?]] = Chunk.fromArray { gen.toRepr(cols).toArray.map(_.asInstanceOf[Col[?]]) }

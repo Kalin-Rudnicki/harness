@@ -6,10 +6,10 @@ import zio.json.*
 
 trait JWTService {
 
-  def makeJWT[A: JsonEncoder: JWTPayload](payload: A): UIO[JWT[A]]
+  def makeJWT[A: {JsonEncoder, JWTPayload}](payload: A): UIO[JWT[A]]
   def validateJWT[A: JWTPayload](jwt: JWT[A]): IO[JWTError, Unit]
 
-  final def parseAndValidateJWT[A: JsonDecoder: JWTPayload](raw: RawJWT): IO[JWTError, A] =
+  final def parseAndValidateJWT[A: {JsonDecoder, JWTPayload}](raw: RawJWT): IO[JWTError, A] =
     for {
       jwt <- ZIO.fromEither(JWT.fromRaw[A](raw)).mapError(JWTError.UnableToDecodePayload(_))
       _ <- validateJWT(jwt)
@@ -22,7 +22,7 @@ object JWTService {
       config: Live.Config,
   ) extends JWTService {
 
-    override def makeJWT[A: JsonEncoder: JWTPayload](payload: A): UIO[JWT[A]] =
+    override def makeJWT[A: {JsonEncoder, JWTPayload}](payload: A): UIO[JWT[A]] =
       Clock.instant.map { now =>
         JWT.make(config.alg, config.typ, config.key)(JWTPayload[A].updateExpiration(payload, now.plus(config.duration)))
       }

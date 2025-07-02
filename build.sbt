@@ -10,7 +10,7 @@ git.gitTagToVersionNumber := { tag =>
   else None
 }
 
-val Scala_3 = "3.3.0"
+val Scala_3 = "3.6.4"
 
 val MyOrg = "io.github.kalin-rudnicki"
 val githubUsername = "Kalin-Rudnicki"
@@ -70,7 +70,6 @@ lazy val `harness-root`: Project =
     )
     .aggregate(
       `harness-modules`,
-      `harness-web-app-template`,
       // `harness-archive`,
     )
 
@@ -576,8 +575,8 @@ lazy val `harness-web`: CrossProject =
       miscSettings,
       testSettings,
       libraryDependencies ++= Seq(
-        "com.github.julien-truffaut" %%% "monocle-core" % Versions.monocle,
-        "com.github.julien-truffaut" %%% "monocle-macro" % Versions.monocle,
+        "dev.optics" %%% "monocle-core" % Versions.monocle,
+        "dev.optics" %%% "monocle-macro" % Versions.monocle,
       ),
     )
     .jsSettings(
@@ -614,7 +613,7 @@ lazy val `harness-js-plugin`: Project =
     .enablePlugins(SbtPlugin)
     .settings(
       name := "harness-js-plugin",
-      scalaVersion := "2.12.13",
+      scalaVersion := "2.12.19",
       addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.13.2"),
       publishSettings,
       testSettings,
@@ -770,8 +769,8 @@ lazy val `harness-sql-mock`: Project =
       miscSettings,
       testSettings,
       libraryDependencies ++= Seq(
-        "com.github.julien-truffaut" %%% "monocle-core" % Versions.monocle,
-        "com.github.julien-truffaut" %%% "monocle-macro" % Versions.monocle,
+        "dev.optics" %%% "monocle-core" % Versions.monocle,
+        "dev.optics" %%% "monocle-macro" % Versions.monocle,
       ),
       Test / fork := true,
     )
@@ -873,170 +872,5 @@ lazy val `harness-archive-ui-web` =
     )
     .dependsOn(
       `harness-archive-model`.js % testAndCompile,
-      `harness-web-ui` % testAndCompile,
-    )
-
-// =====| Harness Web App Template |=====
-
-lazy val `harness-web-app-template` =
-  project
-    .in(file("harness-web-app-template/modules"))
-    .settings(
-      publish / skip := true,
-    )
-    .aggregate(
-      `harness-web-app-template--api-model`.jvm,
-      `harness-web-app-template--api-model`.js,
-      `harness-web-app-template--api-impl`,
-      `harness-web-app-template--domain-model`,
-      `harness-web-app-template--domain`,
-      `harness-web-app-template--db-model`,
-      `harness-web-app-template--domain-impl`,
-      `harness-web-app-template--web-server`,
-      `harness-web-app-template--ui-web`,
-    )
-
-lazy val `harness-web-app-template--api-model` =
-  crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-web-app-template/modules/api-model"))
-    .settings(
-      name := "harness-web-app-template--api-model",
-      publish / skip := true,
-      miscSettings,
-      testSettings,
-    )
-    .dependsOn(
-      `harness-email-model` % testAndCompile,
-      `harness-endpoint` % testAndCompile,
-      `harness-payments` % testAndCompile,
-      `harness-pk` % testAndCompile,
-      `harness-web` % testAndCompile,
-      `harness-zio-test` % Test,
-    )
-
-lazy val `harness-web-app-template--api` =
-  crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-web-app-template/modules/api"))
-    .settings(
-      name := "harness-web-app-template--api",
-      publish / skip := true,
-      miscSettings,
-      testSettings,
-    )
-    .dependsOn(
-      `harness-web-app-template--api-model` % testAndCompile,
-    )
-
-lazy val `harness-web-app-template--domain-model` =
-  project
-    .in(file("harness-web-app-template/modules/domain-model"))
-    .settings(
-      name := "harness-web-app-template--domain-model",
-      publish / skip := true,
-      miscSettings,
-      testSettings,
-      libraryDependencies ++= Seq(
-        "org.mindrot" % "jbcrypt" % Versions.bcrypt,
-      ),
-    )
-    .dependsOn(
-      `harness-web-app-template--api-model`.jvm % testAndCompile,
-    )
-
-lazy val `harness-web-app-template--domain` =
-  project
-    .in(file("harness-web-app-template/modules/domain"))
-    .settings(
-      name := "harness-web-app-template--domain",
-      publish / skip := true,
-      miscSettings,
-      testSettings,
-    )
-    .dependsOn(
-      `harness-web-app-template--domain-model` % testAndCompile,
-    )
-
-lazy val `harness-web-app-template--db-model` =
-  project
-    .in(file("harness-web-app-template/modules/db-model"))
-    .settings(
-      name := "harness-web-app-template--db-model",
-      publish / skip := true,
-      miscSettings,
-      testSettings,
-    )
-    .dependsOn(
-      `harness-web-app-template--domain-model` % testAndCompile,
-      `harness-sql` % testAndCompile,
-    )
-
-lazy val `harness-web-app-template--domain-impl` =
-  project
-    .in(file("harness-web-app-template/modules/domain-impl"))
-    .settings(
-      name := "harness-web-app-template--domain-impl",
-      publish / skip := true,
-      miscSettings,
-      testSettings,
-    )
-    .dependsOn(
-      `harness-web-app-template--domain` % testAndCompile,
-      `harness-web-app-template--db-model` % testAndCompile,
-      `harness-email` % testAndCompile,
-      `harness-sql-mock` % Test,
-    )
-
-lazy val `harness-web-app-template--api-impl` =
-  project
-    .in(file("harness-web-app-template/modules/api-impl"))
-    .settings(
-      name := "harness-web-app-template--api-impl",
-      publish / skip := true,
-      miscSettings,
-      testSettings,
-    )
-    .dependsOn(
-      `harness-web-app-template--domain` % testAndCompile,
-      `harness-web-app-template--api`.jvm % testAndCompile,
-      `harness-sql` % testAndCompile,
-      `harness-http-server` % testAndCompile,
-    )
-
-lazy val `harness-web-app-template--web-server` =
-  project
-    .in(file("harness-web-app-template/modules/web-server"))
-    .settings(
-      name := "harness-web-app-template--web-server",
-      publish / skip := true,
-      miscSettings,
-      testSettings,
-      assemblyJarName := {
-        val versionEnvVar = "APP_VERSION"
-        val appVersion = scala.sys.env.getOrElse(versionEnvVar, throw new RuntimeException(s"Assembly requires '$versionEnvVar' env var"))
-        s"../artifacts/${name.value}--$appVersion.jar"
-      },
-    )
-    .dependsOn(
-      `harness-web-app-template--api-impl` % testAndCompile,
-      `harness-web-app-template--domain-impl` % testAndCompile,
-    )
-
-lazy val `harness-web-app-template--ui-web` =
-  project
-    .in(file("harness-web-app-template/modules/ui-web"))
-    .enablePlugins(ScalaJSPlugin)
-    .settings(
-      name := "harness-web-app-template--ui-web",
-      publish / skip := true,
-      webCompDirs := Seq(
-        file("harness-web-app-template/modules/web-server/src/main/resources/res/js"),
-        file("harness-web-app-template/res/js"),
-      ),
-      miscSettings,
-      testSettings,
-      scalaJSUseMainModuleInitializer := true,
-    )
-    .dependsOn(
-      `harness-web-app-template--api`.js % testAndCompile,
       `harness-web-ui` % testAndCompile,
     )

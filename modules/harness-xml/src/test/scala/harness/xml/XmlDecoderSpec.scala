@@ -49,38 +49,38 @@ object XmlDecoderSpec extends DefaultHarnessSpec {
     suite("XmlDecoderSpec")(
       suite("passes")(
         makePassingTest("person-1")(
-          <Person>
-            <FirstName>F</FirstName>
-            <LastName>L</LastName>
-            <Age>25</Age>
-          </Person>.toString,
+          """<Person>
+            |  <FirstName>F</FirstName>
+            |  <LastName>L</LastName>
+            |  <Age>25</Age>
+            |</Person>""".stripMargin,
           Person.xmlDecoder,
           Person("F", "L", 25.some),
         ),
         makePassingTest("person-2")(
-          <Person>
-            <FirstName>F</FirstName>
-            <LastName>L</LastName>
-          </Person>.toString,
+          """<Person>
+            |  <FirstName>F</FirstName>
+            |  <LastName>L</LastName>
+            |</Person>""".stripMargin,
           Person.xmlDecoder,
           Person("F", "L", None),
         ),
         makePassingTest("company-1")(
-          <Company>
-            <Name>C</Name>
-            <FoundedYear>2000</FoundedYear>
-            <Employees>
-              <Person>
-                <FirstName>F1</FirstName>
-                <LastName>L1</LastName>
-                <Age>25</Age>
-              </Person>
-              <Person>
-                <FirstName>F2</FirstName>
-                <LastName>L2</LastName>
-              </Person>
-            </Employees>
-          </Company>.toString,
+          """<Company>
+            |  <Name>C</Name>
+            |  <FoundedYear>2000</FoundedYear>
+            |  <Employees>
+            |    <Person>
+            |      <FirstName>F1</FirstName>
+            |      <LastName>L1</LastName>
+            |      <Age>25</Age>
+            |    </Person>
+            |    <Person>
+            |      <FirstName>F2</FirstName>
+            |      <LastName>L2</LastName>
+            |    </Person>
+            |  </Employees>
+            |</Company>""".stripMargin,
           Company.xmlDecoder,
           Company("C", 2000, List(Person("F1", "L1", 25.some), Person("F2", "L2", None))),
         ),

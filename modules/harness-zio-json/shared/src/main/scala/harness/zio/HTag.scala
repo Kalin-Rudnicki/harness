@@ -60,12 +60,6 @@ final case class HTag[A](
   def canonicalName: String =
     s"${(packagePrefix ::: objectPrefix.map(s => s"$s$$")).map(s => s"$s.").mkString}$typeName"
 
-  def toTag: Tag[A] =
-    new zio.Tag[A] {
-      override val tag: LightTypeTag = toLightTypeTag
-      override def closestClass: Class[?] = klass
-    }
-
   def toAbstractReference: LightTypeTagRef.AbstractReference =
     LightTypeTagRef.FullReference(
       symName = LightTypeTagRef.SymName.SymTypeName(canonicalName),

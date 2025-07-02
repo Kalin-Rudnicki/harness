@@ -2,7 +2,6 @@ package template.domain.impl.storage
 
 import cats.syntax.option.*
 import harness.payments.model.ids.CustomerId
-import harness.zio.{test as _, *}
 import harness.zio.test.*
 import template.api.model as Api
 import template.domain.model.*

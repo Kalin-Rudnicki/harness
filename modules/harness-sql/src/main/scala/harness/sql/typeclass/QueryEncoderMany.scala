@@ -2,7 +2,6 @@ package harness.sql.typeclass
 
 import harness.core.Zip
 import harness.deriving.*
-import harness.deriving.K11.*
 import harness.sql.*
 import harness.sql.typeclass.*
 import zio.Chunk
@@ -45,6 +44,7 @@ object QueryEncoderMany {
       override def encodeMany(t: T): Chunk[Object] = Chunk.single(encoder.encodeSingle(t))
     }
 
+  @scala.annotation.nowarn
   inline def forTable[T[_[_]] <: Table](encoders: T[QueryEncoderSingle])(implicit flatten: Flatten[T]): QueryEncoderMany[T[K11.Identity]] =
     new QueryEncoderMany[T[K11.Identity]] {
       lazy val encodersChunk: Chunk[QueryEncoderSingle[?]] = flatten(encoders)
@@ -52,6 +52,7 @@ object QueryEncoderMany {
       override def encodeMany(t: T[K11.Identity]): Chunk[Object] = flatten(t).zipWith(encodersChunk) { (t, i) => i.encodeSingle(t.asInstanceOf) }
     }
 
+  @scala.annotation.nowarn
   inline def forTableFiltered[T[_[_]] <: Table](encoders: T[QueryEncoderSingle], filter: T[K11.Const[Boolean]])(implicit flatten: Flatten[T]): QueryEncoderMany[T[K11.Identity]] =
     new QueryEncoderMany[T[K11.Identity]] {
       lazy val encodersChunk: Chunk[QueryEncoderSingle[?]] = flatten(encoders)

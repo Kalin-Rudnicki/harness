@@ -122,7 +122,7 @@ abstract class K0T[UB] {
 
   }
   object ProductInstances {
-    inline given of[F <: UB, T[_ <: UB]](using m: ProductGeneric[F]): ProductInstances[F, T] =
+    inline given of: [F <: UB, T[_ <: UB]] => (m: ProductGeneric[F]) => ProductInstances[F, T] =
       new ProductInstances[F, T](m)(
         summonInline[m.MirroredMonoType <:< Product],
         summonFieldInstances[m.MirroredElemTypes, LazyDerived, T],
@@ -164,7 +164,7 @@ abstract class K0T[UB] {
 
   }
   object SumInstances {
-    inline given of[A <: UB, F[_ <: UB]](using m: SumGeneric[A]): SumInstances[A, F] =
+    inline given of: [A <: UB, F[_ <: UB]] => (m: SumGeneric[A]) => SumInstances[A, F] =
       new SumInstances[A, F](m)(
         summonFieldInstances[m.MirroredElemTypes, Derived, F].map(_.derived),
       )

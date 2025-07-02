@@ -7,6 +7,6 @@ object Derived {
 
   type K0[F[_]] = [a] =>> Derived[F[a]]
 
-  given inst[A](using a: A): Derived[A] = Derived(a)
+  given inst: [A] => (a: A) => Derived[A] = Derived(a)
 
 }

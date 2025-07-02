@@ -70,7 +70,7 @@ object Main extends ExecutableApp {
     )
 
   val serverLayer: RLayer[Config & Scope, ServerEnv] =
-    ZLayer.makeSome[Config & Scope, ServerEnv](
+    ZLayer.makeSome[Config, ServerEnv](
       // config
       ZLayer.service[Config].project(_.db),
       ZLayer.service[Config].project(_.email.client),

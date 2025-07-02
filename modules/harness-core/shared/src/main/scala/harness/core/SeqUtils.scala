@@ -1,7 +1,6 @@
 package harness.core
 
 import cats.Monoid
-import cats.syntax.either.*
 
 object SeqUtils {
 

@@ -3,7 +3,6 @@ package harness.webUI.vdom.widgetModifierFunctions
 import cats.data.EitherNel
 import harness.webUI.*
 import harness.webUI.error.UIError
-import harness.webUI.rawVDOM
 import harness.webUI.vdom.*
 import zio.*
 

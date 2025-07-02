@@ -11,14 +11,13 @@ object UnionMirror {
     override type ElementTypes = T
   }
 
-  transparent inline given derived[A]: UnionMirror[A] = ${ derivedImpl[A] }
+  transparent inline given derived: [A] => UnionMirror[A] = ${ derivedImpl[A] }
 
   private def derivedImpl[A](using quotes: Quotes, tpe: Type[A]): Expr[UnionMirror[A]] = {
     import quotes.reflect.*
 
     type Elems <: Tuple
 
-    @scala.annotation.nowarn
     def expandTypes(repr: TypeRepr): List[TypeRepr] =
       repr.dealias match {
         case OrType(left, right) => expandTypes(left) ::: expandTypes(right)

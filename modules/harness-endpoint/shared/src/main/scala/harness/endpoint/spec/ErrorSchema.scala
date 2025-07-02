@@ -58,7 +58,7 @@ object ErrorSchema extends K0.Derivable[ErrorSchema] {
   override inline implicit def genProduct[A](implicit m: K0.ProductGeneric[A]): Derived[ErrorSchema[A]] =
     Derived {
       ErrorSchema.ForProduct[A](
-        zio.Tag[A],
+        scala.compiletime.summonInline[zio.Tag[A]],
         RequiredAnnotation[A, errorCode].annotation.code,
         JsonSchema.genProduct[A].derived,
         RequiredAnnotation[A, errorExamples[A]].annotation.toNel,

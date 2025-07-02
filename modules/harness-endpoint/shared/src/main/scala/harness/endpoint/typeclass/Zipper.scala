@@ -17,6 +17,7 @@ object Zipper {
         (a, b)
     }
 
+  @scala.annotation.nowarn
   inline implicit def genProduct[T[_[_ <: EndpointType.Any]]](implicit m: K11ET.ProductGeneric[T]): Zipper[T] = {
     val inst = K11ET.ProductInstances.of[T, Zipper]
 

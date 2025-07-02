@@ -7,6 +7,7 @@ import zio.*
 
 object InMemoryPaymentMethodStorageSpec extends ContractHarnessSpec[UserStorage & PaymentMethodStorage]("InMemoryPaymentMethodStorage", PaymentMethodStorageContract) {
 
+  @scala.annotation.nowarn
   override def layerProvider: LayerProvider[R] =
     LayerProvider
       .providePerTest(

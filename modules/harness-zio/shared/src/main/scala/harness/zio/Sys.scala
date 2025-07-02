@@ -3,7 +3,7 @@ package harness.zio
 import cats.syntax.option.*
 import harness.core.*
 import harness.zio.error.SysError
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.tailrec
 import scala.sys.process.*
 import zio.*
 import zio.json.*
@@ -75,7 +75,6 @@ object Sys {
     type Arg = String | Seq[String] | Option[Seq[String]]
     object Arg {
 
-      @nowarn
       def toSeq(arg: Arg): Seq[String] = arg match
         case str: String            => str :: Nil
         case None                   => Nil
@@ -118,8 +117,7 @@ object Sys {
             attempt(cmd) { withoutLogger(cmd.toProcess) }
         }
 
-      if (addCommandLogContext) Logger.addContext("cmd" -> cmd.cmd) { base }
-      else base
+      if (addCommandLogContext) Logger.addContext("cmd" -> cmd.cmd) { base } else base
     }
 
     override def execute(cmd: Command, logLevels: Option[LogLevels]): IO[SysError, Int] =

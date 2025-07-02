@@ -17,6 +17,7 @@ object MapK {
       override def mapK[A[_ <: EndpointType.Any], B[_ <: EndpointType.Any]](a: K11ET.Id[ET][A])(f: A ~> B): K11ET.Id[ET][B] = f(a)
     }
 
+  @scala.annotation.nowarn
   inline implicit def genProduct[T[_[_ <: EndpointType.Any]]](implicit m: K11ET.ProductGeneric[T]): MapK[T] = {
     val inst = K11ET.ProductInstances.of[T, MapK]
 

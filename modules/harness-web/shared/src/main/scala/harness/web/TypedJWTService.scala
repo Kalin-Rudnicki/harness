@@ -17,7 +17,7 @@ final class TypedJWTService[A](
 }
 object TypedJWTService {
 
-  def layer[A: JsonEncoder: JsonDecoder: JWTPayload: Tag]: URLayer[JWTService, TypedJWTService[A]] =
+  def layer[A: {JsonEncoder, JsonDecoder, JWTPayload, Tag}]: URLayer[JWTService, TypedJWTService[A]] =
     ZLayer.service[JWTService].project(new TypedJWTService[A](_))
 
 }

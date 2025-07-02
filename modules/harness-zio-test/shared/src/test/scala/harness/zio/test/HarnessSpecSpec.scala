@@ -11,6 +11,7 @@ object HarnessSpecSpec extends HarnessSpec[HarnessSpecSpec.Register] {
     def get: UIO[Set[String]] = ref.get
   }
 
+  @scala.annotation.nowarn
   override def layerProvider: LayerProvider[R] =
     LayerProvider.provideShared(
       ZLayer.fromZIO { Ref.make(Set.empty[String]).map(Register(_)) },

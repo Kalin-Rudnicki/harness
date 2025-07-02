@@ -53,7 +53,7 @@ object Enum {
 
     inline def apply[E <: Enum[E], Enc](implicit ewe: Enum.WithEnc[E, Enc]): WithEnc[E, Enc] = ewe
 
-    given [E <: Enum[E], Enc](using hc: HasCompanion[E], em: Enum.Companion[E]#EnumMap[Enc]): WithEnc[E, Enc] =
+    given [E <: Enum[E], Enc] => (hc: HasCompanion[E], em: Enum.Companion[E]#EnumMap[Enc]) => WithEnc[E, Enc] =
       new WithEnc[E, Enc] {
         override def values: Seq[E] = hc.companion.enumValues
         override def encodedValues: Seq[Enc] = em.encodedValues

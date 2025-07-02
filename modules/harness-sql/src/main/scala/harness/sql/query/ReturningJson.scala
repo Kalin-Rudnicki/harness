@@ -41,7 +41,7 @@ object ReturningJson {
   }
   object Single {
 
-    given [T]: Conversion[AppliedCol[T], ReturningJson.Single[T]] = c => Single(c.ref.colName, c.ref.toString, c.col.codec.decoder.jsonDecoder)
+    given [T] => Conversion[AppliedCol[T], ReturningJson.Single[T]] = c => Single(c.ref.colName, c.ref.toString, c.col.codec.decoder.jsonDecoder)
 
   }
 

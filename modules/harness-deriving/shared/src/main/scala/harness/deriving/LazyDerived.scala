@@ -13,6 +13,6 @@ object LazyDerived {
 
   type K0[F[_]] = [a] =>> LazyDerived[F[a]]
 
-  given inst[A](using a: => A): LazyDerived[A] = LazyDerived(a)
+  given inst: [A] => (a: => A) => LazyDerived[A] = LazyDerived(a)
 
 }

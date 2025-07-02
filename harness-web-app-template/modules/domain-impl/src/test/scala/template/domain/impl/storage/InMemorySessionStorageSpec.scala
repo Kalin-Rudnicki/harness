@@ -7,6 +7,7 @@ import zio.*
 
 object InMemorySessionStorageSpec extends ContractHarnessSpec[UserStorage & SessionStorage]("InMemorySessionStorage", SessionStorageContract) {
 
+  @scala.annotation.nowarn
   override def layerProvider: LayerProvider[R] =
     LayerProvider
       .providePerTest(

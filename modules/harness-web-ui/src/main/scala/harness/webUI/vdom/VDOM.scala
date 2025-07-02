@@ -3,7 +3,6 @@ package harness.webUI.vdom
 import cats.data.EitherNel
 import cats.syntax.either.*
 import harness.webUI.*
-import harness.webUI.rawVDOM
 import harness.webUI.vdom.widgetModifierFunctions.*
 import monocle.Lens
 import monocle.macros.GenLens
@@ -243,9 +242,9 @@ object PModifier {
   }
   object Simple {
 
-    inline def apply[Action, StateGet, StateSet <: StateGet, Value](
-        inline _build: (RaiseHandler[Action, StateSet], StateGet) => List[rawVDOM.VDom.Modifier],
-        inline _value: StateGet => EitherNel[String, Value],
+    def apply[Action, StateGet, StateSet <: StateGet, Value](
+        _build: (RaiseHandler[Action, StateSet], StateGet) => List[rawVDOM.VDom.Modifier],
+        _value: StateGet => EitherNel[String, Value],
     ): Simple[Action, StateGet, StateSet, Value] =
       new Simple[Action, StateGet, StateSet, Value] {
         override def build(rh: RaiseHandler[Action, StateSet], state: StateGet): List[rawVDOM.VDom.Modifier] = _build(rh, state)
@@ -253,7 +252,7 @@ object PModifier {
       }
 
     inline def unit[Action, StateGet, StateSet <: StateGet](
-        inline _build: (RaiseHandler[Action, StateSet], StateGet) => List[rawVDOM.VDom.Modifier],
+        _build: (RaiseHandler[Action, StateSet], StateGet) => List[rawVDOM.VDom.Modifier],
     ): Simple[Action, StateGet, StateSet, Unit] =
       Simple[Action, StateGet, StateSet, Unit](_build, _ => ().asRight)
 

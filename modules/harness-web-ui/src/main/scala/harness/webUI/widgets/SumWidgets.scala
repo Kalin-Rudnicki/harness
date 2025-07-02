@@ -79,6 +79,7 @@ object SumWidgets {
       inline def filter[InnerState <: OuterState](get: PartialFunction[OuterState, InnerState]): SubTypeBuilder2[OuterState, InnerState] =
         SubTypeBuilder2(Optional(get.lift) { v => _ => v })
 
+      @scala.annotation.nowarn
       inline def filterType[InnerState <: OuterState](implicit ct: ClassTag[InnerState]): SubTypeBuilder2[OuterState, InnerState] =
         filter { case ct(is) => is }
 

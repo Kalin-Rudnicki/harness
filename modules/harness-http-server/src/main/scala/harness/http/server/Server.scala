@@ -84,6 +84,7 @@ object Server {
 
   // TODO (KR) : fix bug where only first request fails to load
   //           : NOTE - it is not "failing to load", it is just very slow
+  @scala.annotation.nowarn
   private def configureSSL(server: HttpsServer, sslConfig: Config.SslConfig): Task[Unit] = {
     def wrapUnsafe[A](hint: String)(thunk: => A): Task[A] =
       ZIO.attempt { thunk }.mapError(new RuntimeException(s"Error during SSL configuration: $hint", _))

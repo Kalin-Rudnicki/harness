@@ -10,6 +10,7 @@ trait Flatten[T[_[_]] <: Table] {
 }
 object Flatten {
 
+  @scala.annotation.nowarn
   inline def derive[T[_[_]] <: Table](implicit gen: K11.ProductGeneric[T]): Flatten[T] =
     new Flatten[T] {
       override def apply[A[_]](t: T[A]): Chunk[A[Any]] = Chunk.fromArray { gen.toRepr(t).toArray.map(_.asInstanceOf[A[Any]]) }

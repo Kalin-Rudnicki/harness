@@ -23,6 +23,6 @@ object FieldAnnotations {
 
   inline def mkAnnotations[Annotated, Annotation] = ${ AnnotationMacros.mkFieldAnnotations[Annotated, Annotation] }
 
-  inline given [Annotated, Annotation]: FieldAnnotations[Annotated, Annotation] = mkAnnotations[Annotated, Annotation]
+  inline given [Annotated, Annotation] => FieldAnnotations[Annotated, Annotation] = mkAnnotations[Annotated, Annotation]
 
 }

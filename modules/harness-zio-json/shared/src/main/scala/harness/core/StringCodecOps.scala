@@ -2,7 +2,6 @@ package harness.core
 
 import cats.data.NonEmptyList
 import cats.syntax.either.*
-import harness.core.*
 import zio.json.*
 
 implicit class StringEncoderOps(self: StringEncoder.type) {

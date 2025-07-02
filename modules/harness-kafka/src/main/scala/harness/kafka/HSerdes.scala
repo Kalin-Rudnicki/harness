@@ -9,13 +9,13 @@ import zio.kafka.serde.*
 
 object HSerdes {
 
-  def stringEncoded[A: StringEncoder: StringDecoder]: Serde[Any, A] =
-    Serde.string.inmapM { string =>
+  def stringEncoded[A: {StringEncoder, StringDecoder}]: Serde[Any, A] =
+    Serde.string.inmapZIO { string =>
       ZIO.fromEither(StringDecoder[A].decodeAccumulating(string)).mapError(DecodingFailure(_))
     } { a => ZIO.succeed(StringEncoder[A].encode(a)) }
 
-  def jsonEncoded[A: JsonEncoder: JsonDecoder]: Serde[Any, A] =
-    Serde.string.inmapM { string =>
+  def jsonEncoded[A: {JsonEncoder, JsonDecoder}]: Serde[Any, A] =
+    Serde.string.inmapZIO { string =>
       ZIO.fromEither(string.fromJson[A]).mapError(e => DecodingFailure(NonEmptyList.one(e)))
     } { a => ZIO.succeed(a.toJson) }
 

@@ -15,7 +15,7 @@ import scala.annotation.tailrec
 import zio.*
 import zio.json.*
 
-trait PageApp[EnvFromServer <: HasStdClientConfig: Tag: JsonDecoder] extends ZIOAppDefault {
+trait PageApp[EnvFromServer <: HasStdClientConfig: {Tag, JsonDecoder}] extends ZIOAppDefault {
 
   protected val preload: RIO[EnvFromServer, Unit] = ZIO.unit
 

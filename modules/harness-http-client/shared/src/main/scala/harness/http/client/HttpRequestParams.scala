@@ -1,6 +1,5 @@
 package harness.http.client
 
-import harness.endpoint.types.*
 import harness.endpoint.types.Types.*
 import harness.web.HttpMethod
 

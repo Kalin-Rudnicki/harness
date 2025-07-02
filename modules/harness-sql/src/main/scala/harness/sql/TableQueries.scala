@@ -25,6 +25,7 @@ abstract class TableQueries[Id <: TableKey#Id, T[F[_]] <: Table.WithId[F, Id]](i
         .returning { t => t }
     }
 
+  @scala.annotation.nowarn
   protected inline def makeUpdate(queryName: String)(set: T[K11.Const[Boolean]])(implicit gen: K11.ProductGeneric[T]): QueryI[T[K11.Identity]] = {
     val name = "t"
     val setCols = ti.flatten(set).zip(ti.colChunk).collect { case (true, col) => col }

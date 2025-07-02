@@ -15,6 +15,7 @@ object PathPrepend {
         t.copy(pathCodec = PathCodec.Const(path) / t.pathCodec)
     }
 
+  @scala.annotation.nowarn
   inline implicit def genProduct[T[_[_ <: EndpointType.Any]]](implicit m: K11ET.ProductGeneric[T]): PathPrepend[T] = {
     val inst = K11ET.ProductInstances.of[T, PathPrepend]
 

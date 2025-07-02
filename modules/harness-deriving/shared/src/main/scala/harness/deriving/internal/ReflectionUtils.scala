@@ -1,7 +1,6 @@
 package harness.deriving.internal
 
 import scala.annotation.tailrec
-import scala.deriving.*
 import scala.quoted.*
 
 @scala.annotation.nowarn

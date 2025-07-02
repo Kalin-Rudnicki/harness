@@ -11,14 +11,13 @@ object IntersectionMirror {
     override type ElementTypes = T
   }
 
-  transparent inline given derived[A]: IntersectionMirror[A] = ${ derivedImpl[A] }
+  transparent inline given derived: [A] => IntersectionMirror[A] = ${ derivedImpl[A] }
 
   private def derivedImpl[A](using quotes: Quotes, tpe: Type[A]): Expr[IntersectionMirror[A]] = {
     import quotes.reflect.*
 
     type Elems <: Tuple
 
-    @scala.annotation.nowarn
     def expandTypes(repr: TypeRepr): List[TypeRepr] =
       repr.dealias match {
         case AndType(left, right) => expandTypes(left) ::: expandTypes(right)

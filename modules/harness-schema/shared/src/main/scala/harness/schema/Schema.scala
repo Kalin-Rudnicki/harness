@@ -62,10 +62,10 @@ object RawSchema {
 
   // =====| Instances |=====
 
-  implicit def encodedStringSchema[A: StringEncoder: StringDecoder: Tag]: RawSchema[A] =
+  implicit def encodedStringSchema[A: {StringEncoder, StringDecoder, Tag}]: RawSchema[A] =
     Str(HTag[A], StringCodec(StringEncoder[A], StringDecoder[A]), None)
 
-  implicit def enumSchema[E <: Enum[E]: Tag: ClassTag](implicit ewe: Enum.WithEnc[E, String]): RawSchema[E] =
+  implicit def enumSchema[E <: Enum[E]: {Tag, ClassTag}](implicit ewe: Enum.WithEnc[E, String]): RawSchema[E] =
     Str(HTag[E], StringCodec(StringEncoder.`enum`[E, String], StringDecoder.`enum`[E, String]), ewe.values.toList.map(ewe.encode).some)
 
 }
@@ -170,11 +170,11 @@ object JsonSchema extends K0.Derivable[JsonSchema] {
   implicit val charSchema: JsonSchema[Char] = JsonStr(HTag[Char], JsonCodec.char, None)
   implicit val stringSchema: JsonSchema[String] = JsonStr(HTag[String], JsonCodec.string, None)
 
-  implicit def enumSchema[E <: Enum[E]: Tag: ClassTag](implicit ewe: Enum.WithEnc[E, String]): JsonSchema[E] =
+  implicit def enumSchema[E <: Enum[E]: {Tag, ClassTag}](implicit ewe: Enum.WithEnc[E, String]): JsonSchema[E] =
     JsonStr(HTag[E], JsonCodec.`enum`[E, String], ewe.values.toList.map(ewe.encode).some)
 
   // TODO (KR) : add specific instances
-  implicit def encodedStringSchema[A: StringEncoder: StringDecoder: Tag]: JsonSchema[A] =
+  implicit def encodedStringSchema[A: {StringEncoder, StringDecoder, Tag}]: JsonSchema[A] =
     stringSchema.tiemap(StringDecoder[A].decode, StringEncoder[A].encode)
 
   // --- Arr ---

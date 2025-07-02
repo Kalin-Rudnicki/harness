@@ -7,7 +7,7 @@ object MaybeGiven {
 
   inline def apply[T](implicit maybeGiven: MaybeGiven[T]): MaybeGiven[T] = maybeGiven
 
-  inline given inst[T]: MaybeGiven[T] =
+  inline given inst: [T] => MaybeGiven[T] =
     compiletime.summonFrom {
       case t: T => MaybeGiven(t.some)
       case _    => MaybeGiven(None)

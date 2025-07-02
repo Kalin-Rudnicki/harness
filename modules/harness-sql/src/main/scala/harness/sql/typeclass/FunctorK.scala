@@ -15,6 +15,7 @@ object FunctorK {
       override def mapK[A[_], B[_]](t: K11.Id[T][A])(f: A ~> B): K11.Id[T][B] = f(t)
     }
 
+  @scala.annotation.nowarn
   inline def derive[T[_[_]]](implicit inst: K11.ProductGeneric[T]): FunctorK[T] = {
     val insts = K11.ProductInstances.of[T, FunctorK]
 

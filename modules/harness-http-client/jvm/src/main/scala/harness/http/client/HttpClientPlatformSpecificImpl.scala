@@ -7,7 +7,7 @@ import harness.endpoint.types.*
 import harness.endpoint.types.Types.*
 import harness.web.*
 import harness.zio.*
-import java.net.{HttpURLConnection, URL, URLEncoder}
+import java.net.{HttpURLConnection, URI, URL, URLEncoder}
 import scala.jdk.CollectionConverters.*
 import zio.*
 
@@ -24,7 +24,7 @@ trait HttpClientPlatformSpecificImpl { self: HttpClientPlatformSpecific =>
         else queryParams.map(encodeQueryParam(_, _)).mkString("?", "&", "")
 
       private inline def makeUrl(url: String, paths: List[String], queryParams: List[(String, String)]): Task[URL] =
-        ZIO.attempt { new URL(s"$url${paths.map(p => s"/${URLEncoder.encode(p, "UTF-8")}").mkString}${encodeQueryParams(queryParams)}") }
+        ZIO.attempt { new URI(s"$url${paths.map(p => s"/${URLEncoder.encode(p, "UTF-8")}").mkString}${encodeQueryParams(queryParams)}").toURL }
 
       private inline def getConnection(url: URL): RIO[Scope, HttpURLConnection] =
         ZIO.attempt { url.openConnection() }.mapError(new RuntimeException(s"Error opening URL connection for: $url", _)).flatMap {

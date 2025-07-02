@@ -40,12 +40,12 @@ object JWTPayload {
       override def updateExpiration(payload: A, exp: Instant): A = payload
     }
 
-  inline def make[A](inline exp: A => Instant): JWTPayload[A] =
-    new JWTPayload[A] {
-      private val expirationLens: Lens[A, Instant] = GenLens[A](exp).asInstanceOf[Lens[A, Instant]]
-      override def getExpiration(payload: A): Instant = expirationLens.get(payload)
-      override def updateExpiration(payload: A, exp: Instant): A = expirationLens.replace(exp)(payload)
-    }
+  final case class FromLens[A](expirationLens: Lens[A, Instant]) extends JWTPayload[A] {
+    override def getExpiration(payload: A): Instant = expirationLens.get(payload)
+    override def updateExpiration(payload: A, exp: Instant): A = expirationLens.replace(exp)(payload)
+  }
+
+  inline def make[A](inline exp: A => Instant): JWTPayload[A] = FromLens(GenLens[A](exp).asInstanceOf[Lens[A, Instant]])
 
 }
 
@@ -140,7 +140,7 @@ object JWT {
 
   implicit def stringDecoder[A: JsonDecoder]: StringDecoder[JWT[A]] = RawJWT.stringDecoder.flatMap(JWT.fromRaw[A](_).leftMap(NonEmptyList.one))
 
-  implicit def schema[A: JsonSchema: Tag]: RawSchema[JWT[A]] =
+  implicit def schema[A: {JsonSchema, Tag}]: RawSchema[JWT[A]] =
     RawSchema.JWT(HTag[JWT[A]], StringCodec.fromParts[JWT[A]], JsonSchema[A])
 
 }

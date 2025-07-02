@@ -111,7 +111,7 @@ object Select {
       Select
         .Query(
           fr"COALESCE((SELECT json_agg($select) FROM $query), '[]' :: JSON)",
-          QueryDecoderMany.fromSingle(QueryDecoderSingle.encodedJson[Chunk[O]](JsonDecoder.chunk[O](decoder))),
+          QueryDecoderMany.fromSingle(QueryDecoderSingle.encodedJson[Chunk[O]](JsonDecoder.chunk[O](using decoder))),
         )
         .asInstanceOf[Select.Query[Chunk[O]] & JsonReturn]
 

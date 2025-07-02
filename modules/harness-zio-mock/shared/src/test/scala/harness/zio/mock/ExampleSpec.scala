@@ -1,7 +1,6 @@
 package harness.zio.mock
 
 import harness.zio.*
-import harness.zio.mock.*
 import harness.zio.test.*
 import java.util.UUID
 import zio.*
@@ -78,6 +77,7 @@ object ExampleSpec extends HarnessSpec[ExampleSpec.Service1 & ExampleSpec.Servic
 
   // =====| Tests |=====
 
+  @scala.annotation.nowarn
   override def layerProvider: LayerProvider[R] =
     LayerProvider.providePerTest(
       Proxy.layer,

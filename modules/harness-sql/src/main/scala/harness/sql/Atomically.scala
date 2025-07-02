@@ -1,6 +1,5 @@
 package harness.sql
 
-import harness.sql.*
 import harness.sql.error.*
 import harness.sql.query.*
 import harness.zio.*

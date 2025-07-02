@@ -1,6 +1,5 @@
 package harness.zio.mock
 
-import harness.zio.mock.Types.*
 import zio.*
 
 final class Mocked[Z](

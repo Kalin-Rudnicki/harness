@@ -1,7 +1,6 @@
 package template.ui.web.pages
 
 import cats.data.EitherNel
-import cats.syntax.either.*
 import harness.webUI.*
 import harness.webUI.vdom.{given, *}
 import harness.webUI.widgets.*

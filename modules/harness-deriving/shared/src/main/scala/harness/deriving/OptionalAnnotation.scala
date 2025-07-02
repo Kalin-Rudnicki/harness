@@ -22,6 +22,6 @@ object OptionalAnnotation {
 
   inline def mkAnnotation[Annotated, Annotation] = ${ AnnotationMacros.mkOptionalAnnotation[Annotated, Annotation] }
 
-  inline given [Annotated, Annotation]: OptionalAnnotation[Annotated, Annotation] = mkAnnotation[Annotated, Annotation]
+  inline given [Annotated, Annotation] => OptionalAnnotation[Annotated, Annotation] = mkAnnotation[Annotated, Annotation]
 
 }

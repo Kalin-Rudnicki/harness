@@ -17,6 +17,6 @@ object RequiredAnnotation {
 
   inline def mkAnnotation[Annotated, Annotation] = ${ AnnotationMacros.mkRequiredAnnotation[Annotated, Annotation] }
 
-  inline given [Annotated, Annotation]: RequiredAnnotation[Annotated, Annotation] = mkAnnotation[Annotated, Annotation]
+  inline given [Annotated, Annotation] => RequiredAnnotation[Annotated, Annotation] = mkAnnotation[Annotated, Annotation]
 
 }

@@ -20,5 +20,5 @@ object TypeAnnotations:
       override def annotations: Out = _annotations
     }
 
-  transparent inline given mkAnnotations[Annotated, Annotation]: TypeAnnotations[Annotated, Annotation] =
+  transparent inline given mkAnnotations: [Annotated, Annotation] => TypeAnnotations[Annotated, Annotation] =
     ${ AnnotationMacros.mkTypeAnnotations[Annotated, Annotation] }

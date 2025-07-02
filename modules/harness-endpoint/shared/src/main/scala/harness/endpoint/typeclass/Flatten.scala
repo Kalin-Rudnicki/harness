@@ -17,6 +17,7 @@ object Flatten {
         t.asInstanceOf[F[EndpointType.Any]] :: Nil
     }
 
+  @scala.annotation.nowarn
   inline implicit def genProduct[T[_[_ <: EndpointType.Any]]](implicit m: K11ET.ProductGeneric[T]): Flatten[T] = {
     val inst = K11ET.ProductInstances.of[T, Flatten]
 

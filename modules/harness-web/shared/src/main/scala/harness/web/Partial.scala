@@ -25,7 +25,7 @@ object Partial {
 
   // =====| Helpers |=====
 
-  given convertToSpecified[T]: Conversion[T, Partial.Specified[T]] = Partial.Specified(_)
+  given convertToSpecified: [T] => Conversion[T, Partial.Specified[T]] = Partial.Specified(_)
 
   // =====| Json Encoder/Decoder/Codec |=====
 
@@ -60,14 +60,14 @@ object Partial {
           Partial.Specified(tDecoder.unsafeDecode(trace, in))
       }
 
-    implicit def jsonCodec[T: JsonEncoder: JsonDecoder]: JsonCodec[Partial[T]] = JsonCodec(jsonEncoder[T], jsonDecoder[T])
+    implicit def jsonCodec[T: {JsonEncoder, JsonDecoder}]: JsonCodec[Partial[T]] = JsonCodec(jsonEncoder[T], jsonDecoder[T])
 
   }
 
   object auto {
     implicit def jsonEncoder[T: JsonEncoder]: JsonEncoder[Partial[T]] = DeriveJsonEncoder.gen[Partial[T]]
     implicit def jsonDecoder[T: JsonDecoder]: JsonDecoder[Partial[T]] = DeriveJsonDecoder.gen[Partial[T]]
-    implicit def jsonCodec[T: JsonEncoder: JsonDecoder]: JsonCodec[Partial[T]] = JsonCodec(jsonEncoder[T], jsonDecoder[T])
+    implicit def jsonCodec[T: {JsonEncoder, JsonDecoder}]: JsonCodec[Partial[T]] = JsonCodec(jsonEncoder[T], jsonDecoder[T])
   }
 
   // TODO (KR) : If `zio-json` changes to defer `unsafeDecodeMissing` on `orElse`, then this can be simplified to just `flat.jsonDecoder[T] <> auto.jsonDecoder[T]`
@@ -83,13 +83,13 @@ object Partial {
   object `flat / flatOrAuto` {
     export flat.jsonEncoder
     implicit def jsonDecoder[T: JsonDecoder]: JsonDecoder[Partial[T]] = flatOrAutoDecoder[T]
-    implicit def jsonCodec[T: JsonEncoder: JsonDecoder]: JsonCodec[Partial[T]] = JsonCodec(jsonEncoder[T], jsonDecoder[T])
+    implicit def jsonCodec[T: {JsonEncoder, JsonDecoder}]: JsonCodec[Partial[T]] = JsonCodec(jsonEncoder[T], jsonDecoder[T])
   }
 
   object `auto / flatOrAuto` {
     export auto.jsonEncoder
     implicit def jsonDecoder[T: JsonDecoder]: JsonDecoder[Partial[T]] = flatOrAutoDecoder[T]
-    implicit def jsonCodec[T: JsonEncoder: JsonDecoder]: JsonCodec[Partial[T]] = JsonCodec(jsonEncoder[T], jsonDecoder[T])
+    implicit def jsonCodec[T: {JsonEncoder, JsonDecoder}]: JsonCodec[Partial[T]] = JsonCodec(jsonEncoder[T], jsonDecoder[T])
   }
 
 }
