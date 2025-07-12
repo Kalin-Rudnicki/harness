@@ -18,7 +18,7 @@ val githubProject = "harness"
 
 ThisBuild / watchBeforeCommand := Watch.clearScreen
 
-ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
+ThisBuild / sonatypeCredentialHost := "central.sonatype.com"
 ThisBuild / sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
 
 lazy val testAndCompile = "test->test;compile->compile"
@@ -48,7 +48,7 @@ lazy val publishSettings =
         url = url(s"https://github.com/$githubUsername"),
       ),
     ),
-    sonatypeCredentialHost := "s01.oss.sonatype.org",
+    sonatypeCredentialHost := "central.sonatype.com",
     sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
   )
 
@@ -65,7 +65,7 @@ lazy val `harness-root`: Project =
     .settings(
       publish / skip := true,
       organization := MyOrg,
-      sonatypeCredentialHost := "s01.oss.sonatype.org",
+      sonatypeCredentialHost := "central.sonatype.com",
       sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
     )
     .aggregate(
@@ -79,7 +79,7 @@ lazy val `harness-modules`: Project =
     .settings(
       publish / skip := true,
       organization := MyOrg,
-      sonatypeCredentialHost := "s01.oss.sonatype.org",
+      sonatypeCredentialHost := "central.sonatype.com",
       sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
     )
     .aggregate(
@@ -169,7 +169,7 @@ lazy val `harness-modules-jvm`: Project =
     .settings(
       publish / skip := true,
       organization := MyOrg,
-      sonatypeCredentialHost := "s01.oss.sonatype.org",
+      sonatypeCredentialHost := "central.sonatype.com",
       sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
     )
     .aggregate(
@@ -226,7 +226,7 @@ lazy val `harness-core`: CrossProject =
       libraryDependencies ++= Seq(
         "org.typelevel" %%% "cats-core" % Versions.catsCore,
       ),
-      sonatypeCredentialHost := "s01.oss.sonatype.org",
+      sonatypeCredentialHost := "central.sonatype.com",
     )
 lazy val `harness-core-ut`: CrossProject =
   crossProject(JSPlatform, JVMPlatform, NativePlatform)
@@ -237,7 +237,7 @@ lazy val `harness-core-ut`: CrossProject =
       miscSettings,
       testSettings,
       publish / skip := true,
-      sonatypeCredentialHost := "s01.oss.sonatype.org",
+      sonatypeCredentialHost := "central.sonatype.com",
     )
     .dependsOn(
       `harness-core` % testAndCompile,
@@ -252,7 +252,7 @@ lazy val `harness-deriving`: CrossProject =
       publishSettings,
       miscSettings,
       testSettings,
-      sonatypeCredentialHost := "s01.oss.sonatype.org",
+      sonatypeCredentialHost := "central.sonatype.com",
     )
     .dependsOn(
       `harness-core` % testAndCompile,
@@ -466,7 +466,7 @@ lazy val `harness-csv`: CrossProject =
       publishSettings,
       miscSettings,
       testSettings,
-      sonatypeCredentialHost := "s01.oss.sonatype.org",
+      sonatypeCredentialHost := "central.sonatype.com",
     )
     .dependsOn(
       `harness-core` % testAndCompile,
@@ -484,7 +484,7 @@ lazy val `harness-xml`: Project =
       libraryDependencies ++= Seq(
         "org.scala-lang.modules" %% "scala-xml" % Versions.scalaXml,
       ),
-      sonatypeCredentialHost := "s01.oss.sonatype.org",
+      sonatypeCredentialHost := "central.sonatype.com",
     )
     .dependsOn(
       `harness-core`.jvm % testAndCompile,
@@ -627,7 +627,7 @@ lazy val `it-modules`: Project =
     .settings(
       publish / skip := true,
       organization := MyOrg,
-      sonatypeCredentialHost := "s01.oss.sonatype.org",
+      sonatypeCredentialHost := "central.sonatype.com",
       sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
     )
     .aggregate(
