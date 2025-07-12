@@ -29,7 +29,7 @@ ThisBuild / watchBeforeCommand := Watch.clearScreen
 // ossrh-staging api:
 // ThisBuild / sonatypeCredentialHost := "https://ossrh-staging-api.central.sonatype.com"
 
-ThisBuild / sonatypeCredentialHost := "https://ossrh-staging-api.central.sonatype.com"
+ThisBuild / sonatypeCredentialHost := "ossrh-staging-api.central.sonatype.com"
 ThisBuild / sonatypeRepository := "https://ossrh-staging-api.central.sonatype.com/service/local"
 
 lazy val testAndCompile = "test->test;compile->compile"
