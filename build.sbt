@@ -30,7 +30,7 @@ ThisBuild / watchBeforeCommand := Watch.clearScreen
 // ThisBuild / sonatypeCredentialHost := "https://ossrh-staging-api.central.sonatype.com"
 
 ThisBuild / sonatypeCredentialHost := "ossrh-staging-api.central.sonatype.com"
-ThisBuild / sonatypeRepository := "https://ossrh-staging-api.central.sonatype.com/service/local"
+ThisBuild / sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
 
 lazy val testAndCompile = "test->test;compile->compile"
 lazy val testToTest = "test->test"
@@ -60,7 +60,7 @@ lazy val publishSettings =
       ),
     ),
     sonatypeCredentialHost := "https://central.sonatype.com",
-    sonatypeRepository := "https://ossrh-staging-api.central.sonatype.com/service/local",
+    sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
   )
 
 lazy val testSettings =
@@ -77,7 +77,7 @@ lazy val `harness-root`: Project =
       publish / skip := true,
       organization := MyOrg,
       sonatypeCredentialHost := "https://central.sonatype.com",
-      sonatypeRepository := "https://ossrh-staging-api.central.sonatype.com/service/local",
+      sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
     )
     .aggregate(
       `harness-modules`,
@@ -91,7 +91,7 @@ lazy val `harness-modules`: Project =
       publish / skip := true,
       organization := MyOrg,
       sonatypeCredentialHost := "https://central.sonatype.com",
-      sonatypeRepository := "https://ossrh-staging-api.central.sonatype.com/service/local",
+      sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
     )
     .aggregate(
       // General
@@ -181,7 +181,7 @@ lazy val `harness-modules-jvm`: Project =
       publish / skip := true,
       organization := MyOrg,
       sonatypeCredentialHost := "https://central.sonatype.com",
-      sonatypeRepository := "https://ossrh-staging-api.central.sonatype.com/service/local",
+      sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
     )
     .aggregate(
       // General
@@ -639,7 +639,7 @@ lazy val `it-modules`: Project =
       publish / skip := true,
       organization := MyOrg,
       sonatypeCredentialHost := "https://central.sonatype.com",
-      sonatypeRepository := "https://ossrh-staging-api.central.sonatype.com/service/local",
+      sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
     )
     .aggregate(
       `harness-sql-it`,
