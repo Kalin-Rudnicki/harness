@@ -58,12 +58,13 @@ final class JsClient extends HttpClient[JsClient.RequestT, JsClient.ResponseT] {
       case None               => ZIO.hAttempt { xhr.send() }
     }
 
-  override protected def sendImpl(request: HttpRequest[JsClient.RequestT]): HRIO[Logger & Scope, HttpResponse.Result[JsClient.ResponseT]] =
+  override protected def sendImpl(request: HttpRequest[JsClient.RequestT], cors: Boolean): HRIO[Logger & Scope, HttpResponse.Result[JsClient.ResponseT]] =
     ZIO.asyncZIO[Logger, HError, HttpResponse.Result[JsClient.ResponseT]] { register =>
       for {
         xhr <- makeXHR
         _ <- openXHR(xhr, request.method, request.url, request.queryParams)
         _ <- setHeaders(xhr, request.headers)
+        _ <- ZIO.hAttempt { xhr.withCredentials = true }.when(cors)
         _ <- setReturn(xhr, register)
         _ <- send(xhr, request.body)
       } yield ()
@@ -80,5 +81,5 @@ object JsClient {
 
   private val bodyOps: HttpResponse.BodyOps[JsClient.ResponseT] =
     HttpResponse.BodyOps.forStringBody
-  
+
 }

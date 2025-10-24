@@ -62,7 +62,7 @@ final class JavaClient extends HttpClient[JavaClient.RequestT, JavaClient.Respon
       JavaClient.bodyOps,
     )
 
-  override def sendImpl(request: HttpRequest[JavaClient.RequestT]): HRIO[Logger & Scope, HttpResponse.Result[JavaClient.ResponseT]] =
+  override def sendImpl(request: HttpRequest[JavaClient.RequestT], cors: Boolean): HRIO[Logger & Scope, HttpResponse.Result[JavaClient.ResponseT]] =
     for {
       url <- makeUrl(request.url, request.queryParams)
       _ <- Logger.log.debug(s"Sending HTTP request to: $url")
