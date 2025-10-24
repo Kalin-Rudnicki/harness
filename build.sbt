@@ -20,7 +20,7 @@ ThisBuild / watchBeforeCommand := Watch.clearScreen
 
 lazy val testAndCompile = "test->test;compile->compile"
 
-lazy val miscSettings =
+def miscSettings =
   Seq(
     scalaVersion := Scala_3,
     scalacOptions += "-source:future",
@@ -30,7 +30,7 @@ lazy val miscSettings =
     ),
   )
 
-lazy val publishSettings =
+def publishSettings =
   Seq(
     organization := MyOrg,
     description := "Miscellaneous libraries/utilities for Scala.",
@@ -56,7 +56,7 @@ lazy val publishSettings =
     },
   )
 
-lazy val testSettings =
+def testSettings =
   Seq(
     testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
   )
@@ -102,7 +102,6 @@ lazy val `harness-root` =
       `harness-http-server`,
       `harness-http-server-test`,
       `harness-web-ui`,
-      `harness-js-plugin`,
     )
 
 lazy val `harness-test` =
@@ -415,16 +414,4 @@ lazy val `harness-web-ui` =
     )
     .dependsOn(
       `harness-http-client`.js % testAndCompile,
-    )
-
-lazy val `harness-js-plugin` =
-  project
-    .in(file("harness-js-plugin"))
-    .enablePlugins(SbtPlugin)
-    .settings(
-      name := "harness-js-plugin",
-      scalaVersion := "2.12.13",
-      addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.13.2"),
-      publishSettings,
-      testSettings,
     )
