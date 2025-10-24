@@ -1,5 +1,7 @@
 //
 
+import scala.sys.process.*
+
 // =====| Shared Settings |=====
 
 enablePlugins(GitVersioning)
@@ -15,9 +17,6 @@ val githubUsername = "Kalin-Rudnicki"
 val githubProject = "harness"
 
 ThisBuild / watchBeforeCommand := Watch.clearScreen
-
-ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
-ThisBuild / sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
 
 lazy val testAndCompile = "test->test;compile->compile"
 
@@ -45,8 +44,16 @@ lazy val publishSettings =
         url = url(s"https://github.com/$githubUsername"),
       ),
     ),
-    sonatypeCredentialHost := "s01.oss.sonatype.org",
-    sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
+    version := { // TODO (KR) : I hate doing this, but one/both of the git plugins seems to be bricked. Remove if they figure their shit out.
+      (for {
+        gitDesc <-
+          try { Some(List("git", "describe", "--tags", "--exact-match").!!.trim) }
+          catch { case _: Throwable => None }
+        tagV <-
+          if (gitDesc.matches("^[0-9]+\\..*$")) Some(gitDesc)
+          else None
+      } yield tagV).getOrElse(version.value)
+    },
   )
 
 lazy val testSettings =
@@ -62,8 +69,6 @@ lazy val `harness-root` =
     .settings(
       publish / skip := true,
       organization := MyOrg,
-      sonatypeCredentialHost := "s01.oss.sonatype.org",
-      sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
     )
     .aggregate(
       `harness-test`.js,
@@ -98,8 +103,6 @@ lazy val `harness-root` =
       `harness-http-server-test`,
       `harness-web-ui`,
       `harness-js-plugin`,
-      `harness-web-app-template`,
-      `harness-archive`,
     )
 
 lazy val `harness-test` =
@@ -140,7 +143,6 @@ lazy val `harness-core` =
       libraryDependencies ++= Seq(
         "org.typelevel" %%% "cats-core" % "2.8.0",
       ),
-      sonatypeCredentialHost := "s01.oss.sonatype.org",
     )
     .dependsOn(`harness-test` % Test)
 
@@ -152,7 +154,6 @@ lazy val `harness-csv` =
       publishSettings,
       miscSettings,
       testSettings,
-      sonatypeCredentialHost := "s01.oss.sonatype.org",
     )
     .dependsOn(
       `harness-core` % testAndCompile,
@@ -169,7 +170,6 @@ lazy val `harness-xml` =
       libraryDependencies ++= Seq(
         "org.scala-lang.modules" %% "scala-xml" % "2.0.0",
       ),
-      sonatypeCredentialHost := "s01.oss.sonatype.org",
     )
     .dependsOn(
       `harness-core`.jvm % testAndCompile,
@@ -427,189 +427,4 @@ lazy val `harness-js-plugin` =
       addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.13.2"),
       publishSettings,
       testSettings,
-    )
-
-// =====| Harness Archive |=====
-
-lazy val `harness-archive` =
-  project
-    .in(file("harness-archive"))
-    .settings(
-      publish / skip := true,
-    )
-    .aggregate(
-      `harness-archive-model`.jvm,
-      `harness-archive-model`.js,
-      `harness-archive-api`,
-      `harness-archive-ui-web`,
-      `harness-archive-client`.jvm,
-      `harness-archive-client`.js,
-    )
-
-lazy val `harness-archive-client` =
-  crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-archive/client"))
-    .settings(
-      name := "harness-archive-client",
-      publishSettings,
-      miscSettings,
-      testSettings,
-    )
-    .dependsOn(
-      `harness-http-client` % testAndCompile,
-      `harness-archive-model` % testAndCompile,
-    )
-
-lazy val `harness-archive-model` =
-  crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-archive/model"))
-    .settings(
-      name := "harness-archive-model",
-      publishSettings,
-      miscSettings,
-      testSettings,
-    )
-    .dependsOn(
-      `harness-web` % testAndCompile,
-      `harness-email` % testAndCompile,
-    )
-
-lazy val `harness-archive-db-model` =
-  project
-    .in(file("harness-archive/db-model"))
-    .settings(
-      name := "harness-archive-db-model",
-      publish / skip := true,
-      miscSettings,
-      testSettings,
-    )
-    .dependsOn(
-      `harness-sql` % testAndCompile,
-      `harness-archive-model`.jvm % testAndCompile,
-    )
-
-lazy val `harness-archive-api` =
-  project
-    .in(file("harness-archive/api"))
-    .settings(
-      name := "harness-archive-api",
-      publish / skip := true,
-      miscSettings,
-      testSettings,
-      libraryDependencies ++= Seq(
-        "org.mindrot" % "jbcrypt" % "0.4",
-        MyOrg %% "slyce-parse" % "2.0.5",
-      ),
-    )
-    .dependsOn(
-      `harness-archive-model`.jvm % testAndCompile,
-      `harness-archive-db-model` % testAndCompile,
-      `harness-http-server` % testAndCompile,
-      `harness-docker-sql` % testAndCompile,
-      `harness-http-server-test` % Test,
-    )
-
-lazy val `harness-archive-ui-web` =
-  project
-    .in(file("harness-archive/ui-web"))
-    .enablePlugins(ScalaJSPlugin)
-    .settings(
-      name := "harness-archive-ui-web",
-      publish / skip := true,
-      webCompDirs := Seq(
-        file("harness-archive/api/src/main/resources/res/js"),
-        file("harness-archive/res/js"),
-      ),
-      miscSettings,
-      testSettings,
-      scalaJSUseMainModuleInitializer := true,
-    )
-    .dependsOn(
-      `harness-archive-model`.js % testAndCompile,
-      `harness-web-ui` % testAndCompile,
-    )
-
-// =====| Harness Web App Template |=====
-
-lazy val `harness-web-app-template` =
-  project
-    .in(file("harness-web-app-template"))
-    .settings(
-      publish / skip := true,
-    )
-    .aggregate(
-      `harness-web-app-template--model`.jvm,
-      `harness-web-app-template--model`.js,
-      `harness-web-app-template--api`,
-      `harness-web-app-template--ui-web`,
-    )
-
-lazy val `harness-web-app-template--model` =
-  crossProject(JSPlatform, JVMPlatform)
-    .in(file("harness-web-app-template/model"))
-    .settings(
-      name := "harness-web-app-template--model",
-      publish / skip := true,
-      miscSettings,
-      testSettings,
-    )
-    .dependsOn(
-      `harness-web` % testAndCompile,
-      `harness-email` % testAndCompile,
-      `harness-payments` % testAndCompile,
-    )
-
-lazy val `harness-web-app-template--db-model` =
-  project
-    .in(file("harness-web-app-template/db-model"))
-    .settings(
-      name := "harness-web-app-template--db-model",
-      publish / skip := true,
-      miscSettings,
-      testSettings,
-    )
-    .dependsOn(
-      `harness-sql` % testAndCompile,
-      `harness-web-app-template--model`.jvm % testAndCompile,
-    )
-
-lazy val `harness-web-app-template--api` =
-  project
-    .in(file("harness-web-app-template/api"))
-    .settings(
-      name := "harness-web-app-template--api",
-      publish / skip := true,
-      miscSettings,
-      testSettings,
-      libraryDependencies ++= Seq(
-        "org.mindrot" % "jbcrypt" % "0.4",
-      ),
-    )
-    .dependsOn(
-      `harness-web-app-template--model`.jvm % testAndCompile,
-      `harness-web-app-template--db-model` % testAndCompile,
-      `harness-http-server` % testAndCompile,
-      `harness-docker-sql` % testAndCompile,
-      `harness-archive-client`.jvm % testAndCompile,
-      `harness-http-server-test` % Test,
-    )
-
-lazy val `harness-web-app-template--ui-web` =
-  project
-    .in(file("harness-web-app-template/ui-web"))
-    .enablePlugins(ScalaJSPlugin)
-    .settings(
-      name := "harness-web-app-template--ui-web",
-      publish / skip := true,
-      webCompDirs := Seq(
-        file("harness-web-app-template/api/src/main/resources/res/js"),
-        file("harness-web-app-template/res/js"),
-      ),
-      miscSettings,
-      testSettings,
-      scalaJSUseMainModuleInitializer := true,
-    )
-    .dependsOn(
-      `harness-web-app-template--model`.js % testAndCompile,
-      `harness-web-ui` % testAndCompile,
     )
