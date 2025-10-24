@@ -28,6 +28,10 @@ def miscSettings =
       Resolver.mavenLocal,
       Resolver.mavenCentral,
       Resolver.sonatypeCentralRepo("public"),
+      Resolver.typesafeRepo("public"),
+      Resolver.typesafeIvyRepo("public"),
+      Resolver.sbtPluginRepo("public"),
+      Resolver.sbtIvyRepo("public"),
     ),
   )
 
