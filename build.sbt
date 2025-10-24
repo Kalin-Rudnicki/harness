@@ -24,6 +24,11 @@ def miscSettings =
   Seq(
     scalaVersion := Scala_3,
     scalacOptions += "-source:future",
+    resolvers ++= Seq(
+      Resolver.mavenLocal,
+      Resolver.mavenCentral,
+      Resolver.sonatypeCentralRepo("public"),
+    ),
   )
 
 def publishSettings =
